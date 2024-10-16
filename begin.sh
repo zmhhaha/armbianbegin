@@ -13,4 +13,3 @@ sed -i '$a\deb https://mirrors.ustc.edu.cn/debian-security/ bookworm-security ma
 sed -i 's/^deb/#deb/g' sources.list.d/armbian.list
 sed -i '$a\\' sources.list.d/armbian.list
 sed -i '$a\deb [signed-by=/usr/share/keyrings/armbian.gpg] https://mirrors.ustc.edu.cn/armbian bookworm main bookworm-utils bookworm-desktop' sources.list.d/armbian.list
-
