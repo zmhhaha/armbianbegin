@@ -1,7 +1,5 @@
 #!/bin/bash
 apt update
-apt install vim -y
-apt install lrzsz -y
 cd /etc/apt
 debian_version=$(lsb_release -cs)
 
@@ -35,3 +33,5 @@ echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/docker-ce.gpg] https://mirrors
 
 apt update
 apt install -y docker-ce
+apt install -y vim
+apt install -y lrzsz
