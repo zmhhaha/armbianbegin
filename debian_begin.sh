@@ -34,6 +34,23 @@ gpg --output /etc/apt/keyrings/docker-ce.gpg --export $KEYID_OR_FINGERPRINT
 echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/docker-ce.gpg] https://mirrors.ustc.edu.cn/docker-ce/linux/debian ${debian_version} stable" > /etc/apt/sources.list.d/docker-ce.list
 
 apt update
+
 apt install -y docker-ce
+if [ ! -d /etc/docker ];then
+    mkdir /etc/docker
+fi
+cat > /etc/docker/daemon.json << EOF
+{
+    "registry-mirrors": [
+        "https://docker.mirrors.ustc.edu.cn/"
+    ]
+}
+EOF
+# 设置完成后重启
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+usermod -aG docker zmh
+
 apt install -y vim
 apt install -y lrzsz
