@@ -3,6 +3,8 @@ apt update
 cd /etc/apt
 debian_version=$(lsb_release -cs)
 
+sed -i 's/^X11Forwarding/#X11Forwarding/g' /etc/ssh/sshd_config
+
 sed -i 's/^deb/#deb/g' sources.list
 sed -i '$a\\' sources.list
 sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}' main contrib non-free non-free-firmware' sources.list
