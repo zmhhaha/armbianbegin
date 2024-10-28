@@ -3,6 +3,11 @@ apt update
 cd /etc/apt
 debian_version=$(lsb_release -cs)
 
+mkfs.ext4 /dev/nvme0n1
+mkdir -p /mnt/ssd
+mount /dev/nvme0n1 /mnt/ssd
+echo "$(blkid /dev/nvme0n1 | awk '{print $2}' | sed 's/"//g') /mnt/ssd ext4 defaults 0 2" >> /etc/fstab
+
 sed -i 's/^X11Forwarding/#X11Forwarding/g' /etc/ssh/sshd_config
 
 sed -i 's/^deb/#deb/g' sources.list
@@ -36,13 +41,13 @@ echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/docker-ce.gpg] https://mirrors
 apt update
 
 apt install -y docker-ce
-if [ ! -d /etc/docker ];then
-    mkdir /etc/docker
-fi
+mkdir -p /etc/docker
 cat > /etc/docker/daemon.json << EOF
 {
     "registry-mirrors": [
-        "https://docker.mirrors.ustc.edu.cn/"
+        "https://registry.docker-cn.com",
+        "https://dockerproxy.cn",
+        "https://docker.m.daocloud.io"
     ]
 }
 EOF
@@ -52,5 +57,12 @@ sudo systemctl restart docker
 
 usermod -aG docker zmh
 
+docker pull arm64v8/registry:latest
+docker run -d -p 5000:5000 --name registry -v /mnt/ssd/docker_registry:/var/lib/registry arm64v8/registry:latest
+docker pull arm64v8/debian:latest
+docker tag arm64v8/debian:latest localhost:5000/arm64v8/debian:latest
+docker push localhost:5000/arm64v8/debian:latest
+
+apt install -y python3 python3-pip
 apt install -y vim
 apt install -y lrzsz
