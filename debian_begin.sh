@@ -4,9 +4,9 @@ cd /etc/apt
 debian_version=$(lsb_release -cs)
 
 mkfs.ext4 /dev/nvme0n1
-mkdir -p /mnt/ssd
-mount /dev/nvme0n1 /mnt/ssd
-echo "$(blkid /dev/nvme0n1 | awk '{print $2}' | sed 's/"//g') /mnt/ssd ext4 defaults 0 2" >> /etc/fstab
+mkdir -p /mnt/nvme
+mount /dev/nvme0n1 /mnt/nvme
+echo "$(blkid /dev/nvme0n1 | awk '{print $2}' | sed 's/"//g') /mnt/nvme ext4 defaults 0 2" >> /etc/fstab
 
 sed -i 's/^X11Forwarding/#X11Forwarding/g' /etc/ssh/sshd_config
 
@@ -58,7 +58,7 @@ sudo systemctl restart docker
 usermod -aG docker zmh
 
 docker pull arm64v8/registry:latest
-docker run -d -p 5000:5000 --name registry -v /mnt/ssd/docker_registry:/var/lib/registry arm64v8/registry:latest
+docker run -d -p 5000:5000 --name registry -v /mnt/nvme/docker_registry:/var/lib/registry arm64v8/registry:latest
 docker pull arm64v8/debian:latest
 docker tag arm64v8/debian:latest localhost:5000/arm64v8/debian:latest
 docker push localhost:5000/arm64v8/debian:latest
