@@ -71,15 +71,15 @@ sudo systemctl restart docker
 
 usermod -aG docker zmh
 
-#containerd config default > /etc/containerd/config.toml
-sed -i 's/disabled_plugins = ["false"]/disabled_plugins = ["cri"]/g'
-
 rm -rf /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 curl -fsSL https://mirrors.ustc.edu.cn/kubernetes/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://mirrors.ustc.edu.cn/kubernetes/core:/stable:/v1.31/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
 apt update
 apt install -y kubelet kubeadm kubectl
 apt-mark hold kubelet kubeadm kubectl
+
+#containerd config default > /etc/containerd/config.toml
+sed -i 's/disabled_plugins = ["false"]/disabled_plugins = ["cri"]/g'
 
 docker pull arm64v8/registry:latest
 docker run -d -p 5000:5000 --name registry -v /mnt/nvme/docker_registry:/var/lib/registry arm64v8/registry:latest
