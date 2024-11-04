@@ -56,13 +56,7 @@ cat > /etc/docker/daemon.json << EOF
         "https://registry.docker-cn.com",
         "https://dockerproxy.cn",
         "https://docker.m.daocloud.io"
-    ],
-    "default-runtime": "containerd",
-    "runtimes": {
-        "containerd": {
-            "path": "/usr/bin/containerd"
-        }
-    }
+    ]
 }
 EOF
 # 设置完成后重启
