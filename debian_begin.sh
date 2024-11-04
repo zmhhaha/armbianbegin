@@ -26,6 +26,9 @@ apt upgrade -y
 
 apt install -y ca-certificates curl software-properties-common
 
+containerd config default > /etc/containerd/config.toml
+sed -i 's/disabled_plugins = ["false"]/disabled_plugins = ["cri"]/g'
+
 #curl -fsSL https://mirrors.ustc.edu.cn/docker-ce/linux/debian/gpg | apt-key add -
 #mv trusted.gpg /etc/apt/trusted.gpg.d/docker-ce.gpg
 #add-apt-repository -y "deb [arch=arm64] https://mirrors.ustc.edu.cn/docker-ce/linux/debian ${debian_version} stable"
@@ -45,13 +48,23 @@ apt update
 
 apt install -y docker-ce
 mkdir -p /etc/docker
+mkdir -p /mnt/nvme/docker
 cat > /etc/docker/daemon.json << EOF
 {
+    "exec-opts": ["native.cgroupdriver=systemd"],
+    "storage-driver": "overlay2",
+    "data-root": "/mnt/nvme/docker/",
     "registry-mirrors": [
         "https://registry.docker-cn.com",
         "https://dockerproxy.cn",
         "https://docker.m.daocloud.io"
-    ]
+    ],
+    "default-runtime": "containerd",
+    "runtimes": {
+        "containerd": {
+            "path": "/usr/bin/containerd"
+        }
+    }
 }
 EOF
 # 设置完成后重启
@@ -64,6 +77,7 @@ curl -fsSL https://mirrors.ustc.edu.cn/kubernetes/core:/stable:/v1.31/deb/Releas
 echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://mirrors.ustc.edu.cn/kubernetes/core:/stable:/v1.31/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
 apt update
 apt install -y kubelet kubeadm kubectl
+apt-mark hold kubelet kubeadm kubectl
 
 docker pull arm64v8/registry:latest
 docker run -d -p 5000:5000 --name registry -v /mnt/nvme/docker_registry:/var/lib/registry arm64v8/registry:latest
