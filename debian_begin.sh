@@ -71,7 +71,7 @@ sudo systemctl restart docker
 
 usermod -aG docker zmh
 
-containerd config default > /etc/containerd/config.toml
+#containerd config default > /etc/containerd/config.toml
 sed -i 's/disabled_plugins = ["false"]/disabled_plugins = ["cri"]/g'
 
 rm -rf /etc/apt/keyrings/kubernetes-apt-keyring.gpg
