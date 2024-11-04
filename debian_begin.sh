@@ -26,9 +26,6 @@ apt upgrade -y
 
 apt install -y ca-certificates curl software-properties-common
 
-containerd config default > /etc/containerd/config.toml
-sed -i 's/disabled_plugins = ["false"]/disabled_plugins = ["cri"]/g'
-
 #curl -fsSL https://mirrors.ustc.edu.cn/docker-ce/linux/debian/gpg | apt-key add -
 #mv trusted.gpg /etc/apt/trusted.gpg.d/docker-ce.gpg
 #add-apt-repository -y "deb [arch=arm64] https://mirrors.ustc.edu.cn/docker-ce/linux/debian ${debian_version} stable"
@@ -41,6 +38,7 @@ sed -i 's/disabled_plugins = ["false"]/disabled_plugins = ["cri"]/g'
 #gpg --output /etc/apt/keyrings/docker-ce.gpg --export $KEYID_OR_FINGERPRINT
 #echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/docker-ce.gpg] https://mirrors.ustc.edu.cn/docker-ce/linux/debian ${debian_version} stable" > /etc/apt/sources.list.d/docker-ce.list
 
+rm -rf /etc/apt/keyrings/docker-ce.gpg
 curl -fsSL https://mirrors.ustc.edu.cn/docker-ce/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker-ce.gpg
 echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/docker-ce.gpg] https://mirrors.ustc.edu.cn/docker-ce/linux/debian ${debian_version} stable" > /etc/apt/sources.list.d/docker-ce.list
 
@@ -73,6 +71,10 @@ sudo systemctl restart docker
 
 usermod -aG docker zmh
 
+containerd config default > /etc/containerd/config.toml
+sed -i 's/disabled_plugins = ["false"]/disabled_plugins = ["cri"]/g'
+
+rm -rf /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 curl -fsSL https://mirrors.ustc.edu.cn/kubernetes/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://mirrors.ustc.edu.cn/kubernetes/core:/stable:/v1.31/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
 apt update
