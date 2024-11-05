@@ -2,24 +2,27 @@
 apt update
 cd /etc/apt
 debian_version=$(lsb_release -cs)
+start_step="${1:-restart}"
 
-mkfs.ext4 /dev/nvme0n1
-mkdir -p /mnt/nvme
-mount /dev/nvme0n1 /mnt/nvme
-echo "$(blkid /dev/nvme0n1 | awk '{print $2}' | sed 's/"//g') /mnt/nvme ext4 defaults 0 2" >> /etc/fstab
+if [ $start_step -eq "start" ];then
+    mkfs.ext4 /dev/nvme0n1
+    mkdir -p /mnt/nvme
+    mount /dev/nvme0n1 /mnt/nvme
+    echo "$(blkid /dev/nvme0n1 | awk '{print $2}' | sed 's/"//g') /mnt/nvme ext4 defaults 0 2" >> /etc/fstab
 
-sed -i 's/^X11Forwarding/#X11Forwarding/g' /etc/ssh/sshd_config
+    sed -i 's/^X11Forwarding/#X11Forwarding/g' /etc/ssh/sshd_config
 
-sed -i 's/^deb/#deb/g' sources.list
-sed -i '$a\\' sources.list
-sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}' main contrib non-free non-free-firmware' sources.list
-sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}'-updates main contrib non-free non-free-firmware' sources.list
-sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}'-backports main contrib non-free non-free-firmware' sources.list
-sed -i '$a\deb https://mirrors.ustc.edu.cn/debian-security/ '${debian_version}'-security main contrib non-free non-free-firmware' sources.list
+    sed -i 's/^deb/#deb/g' sources.list
+    sed -i '$a\\' sources.list
+    sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}' main contrib non-free non-free-firmware' sources.list
+    sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}'-updates main contrib non-free non-free-firmware' sources.list
+    sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}'-backports main contrib non-free non-free-firmware' sources.list
+    sed -i '$a\deb https://mirrors.ustc.edu.cn/debian-security/ '${debian_version}'-security main contrib non-free non-free-firmware' sources.list
 
-sed -i 's/^deb/#deb/g' sources.list.d/armbian.list
-sed -i '$a\\' sources.list.d/armbian.list
-sed -i '$a\deb [signed-by=/usr/share/keyrings/armbian.gpg] https://mirrors.ustc.edu.cn/armbian '${debian_version}' main '${debian_version}'-utils '${debian_version}'-desktop' sources.list.d/armbian.list
+    sed -i 's/^deb/#deb/g' sources.list.d/armbian.list
+    sed -i '$a\\' sources.list.d/armbian.list
+    sed -i '$a\deb [signed-by=/usr/share/keyrings/armbian.gpg] https://mirrors.ustc.edu.cn/armbian '${debian_version}' main '${debian_version}'-utils '${debian_version}'-desktop' sources.list.d/armbian.list
+fi
 
 apt update
 apt upgrade -y
