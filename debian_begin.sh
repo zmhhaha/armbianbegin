@@ -99,3 +99,16 @@ fi
 apt install -y python3 python3-pip
 apt install -y vim
 apt install -y lrzsz
+
+sed -i 's/^[^#]/#&/g' /etc/netplan/10-dhcp-all-interfaces.yaml
+
+cat >> /etc/netplan/10-dhcp-all-interfaces.yaml << EOF
+network:
+  version: 2
+  ethernets:
+    eth0:
+      addresses: [192.168.137.100/24]
+      gateway4: 192.168.137.1
+EOF
+
+netplan apply
