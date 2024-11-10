@@ -85,7 +85,7 @@ apt update
 apt install -y kubelet kubeadm kubectl
 apt-mark hold kubelet kubeadm kubectl
 
-#containerd config default > /etc/containerd/config.toml
+containerd config default > /etc/containerd/config.toml
 sed -i 's#sandbox_image = "registry.k8s.io/pause:3.8"#sandbox_image = "registry.aliyuncs.com/google_containers/pause:3.9"#g' /etc/containerd/config.toml
 
 if [ $start_step == "start" ];then
