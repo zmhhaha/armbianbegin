@@ -10,6 +10,11 @@ if [ $start_step == "start" ];then
     old_name=$(hostname)
     hostnamectl set-hostname ${old_name}-${name_tail}
     sed -i 's/'${old_name}'/'$(hostname)'/g' /etc/hosts
+    cat >> /etc/hosts << EOF
+192.168.137.101 nanopct4-master
+192.168.137.201 nanopct4-server1
+192.168.137.202 nanopct4-server2
+EOF
 
     mkfs.ext4 /dev/nvme0n1
     mkdir -p /mnt/nvme
