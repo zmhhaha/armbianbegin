@@ -113,6 +113,11 @@ network:
     eth0:
       dhcp4: no
       addresses: [${set_ip}/24]
+      routes:
+        - to: default
+          via: 192.168.137.1
+      nameservers:
+        addresses: [8.8.8.8, 8.8.4.4]
 EOF
 
     netplan apply
