@@ -121,3 +121,5 @@ fi
 apt install -y python3 python3-pip
 apt install -y vim
 apt install -y lrzsz
+
+reboot
