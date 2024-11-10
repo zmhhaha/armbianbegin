@@ -101,10 +101,6 @@ if [ $start_step == "start" ];then
     docker push localhost:5000/arm64v8/debian:latest
 fi
 
-apt install -y python3 python3-pip
-apt install -y vim
-apt install -y lrzsz
-
 if [ $start_step == "start" ];then
     sed -i 's/^[^#]/#&/g' /etc/netplan/10-dhcp-all-interfaces.yaml
     echo ${set_ip}
@@ -121,3 +117,7 @@ EOF
 
     netplan apply
 fi
+
+apt install -y python3 python3-pip
+apt install -y vim
+apt install -y lrzsz
