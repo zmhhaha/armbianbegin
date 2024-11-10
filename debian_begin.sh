@@ -3,9 +3,10 @@ apt update
 cd /etc/apt
 debian_version=$(lsb_release -cs)
 start_step="${1:-restart}"
+name_tail="${2:-master}"
+set_ip="${3:-192.168.10.200}"
 
 if [ $start_step == "start" ];then
-    name_tail="${2:-master}"
     old_name=$(hostname)
     hostnamectl set-hostname ${old_name}-${name_tail}
     sed -i 's/'${old_name}'/'$(hostname)'/g' /etc/hosts
@@ -40,7 +41,7 @@ if [ $start_step == "start" ];then
     #add-apt-repository -y "deb [arch=arm64] https://mirrors.ustc.edu.cn/docker-ce/linux/debian ${debian_version} stable"
 
     #curl -fsSL https://mirrors.ustc.edu.cn/docker-ce/linux/debian/gpg | gpg --import -
-    #gpg --list-keys --with-colons #fpr字段为指纹
+    #gpg --list-keys --with-colons #fpr字段为指�?
     #gpg --list-keys #key字段后面为id
     #KEYID_OR_FINGERPRINT=$(gpg --list-keys | sed -n '/Docker/{g;p;};h')
     #KEYID_OR_FINGERPRINT=$(gpg --list-keys | awk '/Docker/ {print prev} {prev=$0}')
@@ -69,7 +70,6 @@ cat > /etc/docker/daemon.json << EOF
     ]
 }
 EOF
-# 设置完成后重启
 sudo systemctl daemon-reload
 sudo systemctl restart docker
 
@@ -100,15 +100,18 @@ apt install -y python3 python3-pip
 apt install -y vim
 apt install -y lrzsz
 
-sed -i 's/^[^#]/#&/g' /etc/netplan/10-dhcp-all-interfaces.yaml
+if [ $start_step == "start" ];then
+#sed -i 's/^[^#]/#&/g' /etc/netplan/10-dhcp-all-interfaces.yaml
 
-cat >> /etc/netplan/10-dhcp-all-interfaces.yaml << EOF
+cat > /etc/netplan/99-custom-netplan-config.yaml << EOF
 network:
   version: 2
+  renderer: networkd
   ethernets:
     eth0:
-      addresses: [192.168.137.100/24]
-      gateway4: 192.168.137.1
+      dhcp4: no
+      addresses: [${set_ip}/24]
 EOF
 
 netplan apply
+fi
