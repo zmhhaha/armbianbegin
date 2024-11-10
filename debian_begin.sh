@@ -101,10 +101,10 @@ apt install -y vim
 apt install -y lrzsz
 
 if [ $start_step == "start" ];then
-sed -i 's/^[^#]/#&/g' /etc/netplan/10-dhcp-all-interfaces.yaml
-echo ${set_ip}
+    sed -i 's/^[^#]/#&/g' /etc/netplan/10-dhcp-all-interfaces.yaml
+    echo ${set_ip}
 
-cat > /etc/netplan/99-custom-netplan-config.yaml << EOF
+    cat > /etc/netplan/99-custom-netplan-config.yaml << EOF
 network:
   version: 2
   renderer: networkd
@@ -114,5 +114,5 @@ network:
       addresses: [${set_ip}/24]
 EOF
 
-netplan apply
+    netplan apply
 fi
