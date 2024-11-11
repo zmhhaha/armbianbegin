@@ -46,7 +46,7 @@ if [ $start_step == "start" ];then
     #add-apt-repository -y "deb [arch=arm64] https://mirrors.ustc.edu.cn/docker-ce/linux/debian ${debian_version} stable"
 
     #curl -fsSL https://mirrors.ustc.edu.cn/docker-ce/linux/debian/gpg | gpg --import -
-    #gpg --list-keys --with-colons #fpr字段为指�?
+    #gpg --list-keys --with-colons #fpr字段为指纹
     #gpg --list-keys #key字段后面为id
     #KEYID_OR_FINGERPRINT=$(gpg --list-keys | sed -n '/Docker/{g;p;};h')
     #KEYID_OR_FINGERPRINT=$(gpg --list-keys | awk '/Docker/ {print prev} {prev=$0}')
@@ -91,9 +91,17 @@ apt install -y kubelet kubeadm kubectl
 apt-mark hold kubelet kubeadm kubectl
 
 containerd config default > /etc/containerd/config.toml
-sed -i 's#sandbox_image = "registry.k8s.io/pause:3.8"#sandbox_image = "registry.aliyuncs.com/google_containers/pause:3.9"#g' /etc/containerd/config.toml
+sed -i 's#sandbox_image = "registry.k8s.io"#sandbox_image = "registry.aliyuncs.com/google_containers"#g' /etc/containerd/config.toml
+sed -i 's#endpoint = ""#endpoint = "http://nanopct4-master:5000"#' /etc/containerd/config.toml
+sed -i 's#SystemdCgroup = false#SystemdCgroup = true#' /etc/containerd/config.toml
+cat > /etc/crictl.yaml << EOF
+runtime-endpoint: unix:///var/run/containerd/containerd.sock
+image-endpoint: unix:///var/run/containerd/containerd.sock
+timeout: 10
+debug: false
+EOF
 
-if [ $start_step == "start" ];then
+if [ $start_step == "start" ] && [ $name_tail == "master" ];then
     docker pull arm64v8/registry:latest
     docker run -d -p 5000:5000 --name registry -v /mnt/nvme/docker_registry:/var/lib/registry arm64v8/registry:latest
     docker pull arm64v8/debian:latest
