@@ -94,6 +94,10 @@ containerd config default > /etc/containerd/config.toml
 sed -i 's#sandbox_image = "registry.k8s.io"#sandbox_image = "registry.aliyuncs.com/google_containers"#g' /etc/containerd/config.toml
 sed -i 's#endpoint = ""#endpoint = "http://nanopct4-master:5000"#' /etc/containerd/config.toml
 sed -i 's#SystemdCgroup = false#SystemdCgroup = true#' /etc/containerd/config.toml
+sed '/\[plugins."io.containerd.grpc.v1.cri".registry.mirrors\]/a\
+        [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]\
+          endpoint = ["http://nanopct4-master:5000"]' /etc/containerd/config.toml > /etc/containerd/config.toml.tmp
+mv /etc/containerd/config.toml.tmp /etc/containerd/config.toml
 cat > /etc/crictl.yaml << EOF
 runtime-endpoint: unix:///var/run/containerd/containerd.sock
 image-endpoint: unix:///var/run/containerd/containerd.sock
