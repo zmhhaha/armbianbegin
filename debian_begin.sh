@@ -98,6 +98,7 @@ sed '/\[plugins."io.containerd.grpc.v1.cri".registry.mirrors\]/a\
         [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]\
           endpoint = ["http://nanopct4-master:5000"]' /etc/containerd/config.toml > /etc/containerd/config.toml.tmp
 mv /etc/containerd/config.toml.tmp /etc/containerd/config.toml
+systemctl daemon-reload && systemctl restart containerd.service
 cat > /etc/crictl.yaml << EOF
 runtime-endpoint: unix:///var/run/containerd/containerd.sock
 image-endpoint: unix:///var/run/containerd/containerd.sock
