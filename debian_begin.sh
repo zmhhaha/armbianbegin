@@ -91,8 +91,8 @@ apt install -y kubelet kubeadm kubectl
 apt-mark hold kubelet kubeadm kubectl
 
 containerd config default > /etc/containerd/config.toml
-sed -i 's#sandbox_image = "registry.k8s.io"#sandbox_image = "registry.aliyuncs.com/google_containers"#g' /etc/containerd/config.toml
-sed -i 's#endpoint = ""#endpoint = "http://nanopct4-master:5000"#' /etc/containerd/config.toml
+sed -i 's#pause:3.8#pause:3.10#g' /etc/containerd/config.toml
+sed -i 's#sandbox_image = "registry.k8s.io#sandbox_image = "registry.cn-hangzhou.aliyuncs.com/google_containers#g' /etc/containerd/config.toml
 sed -i 's#SystemdCgroup = false#SystemdCgroup = true#' /etc/containerd/config.toml
 sed '/\[plugins."io.containerd.grpc.v1.cri".registry.mirrors\]/a\
         [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]\
@@ -140,3 +140,13 @@ apt install -y vim
 apt install -y lrzsz
 
 reboot
+
+sed -i 's#KUBELET_EXTRA_ARGS=#KUBELET_EXTRA_ARGS="--cgroup-driver=systemd"#g' /etc/default/kubelet
+#打印k8s初始化配置文件
+kubeadm config print init-defaults > kubeadm_config.yaml
+
+#修改镜像拉取地址
+sed -i 's#imageRepository: registry.k8s.io#imageRepository: registry.cn-hangzhou.aliyuncs.com/google_containers#' kubeadm_config.yaml
+
+kubeadm config images pull --kubernetes-version=v1.31.2 --image-repository=registry.cn-hangzhou.aliyuncs.com/google_containers
+kubeadm init --config kubeadm_config.yaml --upload-certs
