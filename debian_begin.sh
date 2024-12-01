@@ -142,12 +142,80 @@ apt install -y lrzsz
 
 reboot
 
+cat > /etc/modules-load.d/k8s.conf << EOF
+br_netfilter
+EOF
+modprobe -- br_netfilter
+
+cat > /etc/sysctl.d/k8s.conf << EOF
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.ipv4.ip_forward = 1
+vm.swappiness = 0
+EOF
+sysctl --system
+
+apt install -y ipset ipvsadm
+mkdir -p /etc/default/modules
+cat > /etc/default/modules/ipvs.module << EOF
+#!/bin/bash
+modprobe -- ip_vs
+modprobe -- ip_vs_rr
+modprobe -- ip_vs_wrr
+modprobe -- ip_vs_sh
+modprobe -- nf_conntrack
+EOF
+chmod +x /etc/default/modules/ipvs.module
+/etc/default/modules/ipvs.module
+
 sed -i 's#KUBELET_EXTRA_ARGS=#KUBELET_EXTRA_ARGS="--cgroup-driver=systemd"#g' /etc/default/kubelet
 #打印k8s初始化配置文件
-kubeadm config print init-defaults > kubeadm_config.yaml
+#kubeadm config print init-defaults > kubeadm_config.yaml
 
 #修改镜像拉取地址
-sed -i 's#imageRepository: registry.k8s.io#imageRepository: registry.cn-hangzhou.aliyuncs.com/google_containers#' kubeadm_config.yaml
+#sed -i 's#imageRepository: registry.k8s.io#imageRepository: registry.cn-hangzhou.aliyuncs.com/google_containers#' kubeadm_config.yaml
 
-kubeadm config images pull --kubernetes-version=v1.31.2 --image-repository=registry.cn-hangzhou.aliyuncs.com/google_containers
-kubeadm init --config kubeadm_config.yaml --upload-certs
+#kubeadm config images pull --kubernetes-version=v1.31.2 --image-repository=registry.cn-hangzhou.aliyuncs.com/google_containers
+#kubeadm init --config kubeadm_config.yaml --upload-certs
+
+kubeadm init --apiserver-advertise-address=192.168.137.101 \
+--control-plane-endpoint=nanopct4-master \
+--kubernetes-version=v1.31.2 \
+--image-repository=registry.cn-hangzhou.aliyuncs.com/google_containers \
+--service-cidr=10.96.0.0/12 \
+--pod-network-cidr=10.244.0.0/16
+
+#journalctl -xefu kubelet
+
+mkdir -p $HOME/.kube
+cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+
+wget https://docs.projectcalico.org/manifests/calico.yaml --no-check-certificate
+#kubectl create -f https://docs.projectcalico.org/archive/v3.20/manifests/calico.yaml
+
+sed -i 's?# - name: CALICO_IPV4POOL_CIDR?- name: CALICO_IPV4POOL_CIDR?g' calico.yaml
+sed -i 's?#   value: "192.168.0.0/16"?  value: "10.244.0.0/16"?g' calico.yaml
+sed -i 's#docker.io/calico#registry.cn-hangzhou.aliyuncs.com/kubesphereio#g' calico.yaml
+sed -i 's/:v[0-9]*\.[0-9]*\.[0-9]*/:v3.20.1/g' calico.yaml
+kubectl apply -f calico.yaml
+#kubectl describe pod ${pod_name} -n kube-system
+kubectl get pod -A
+kubectl get pod -n kube-system
+kubectl get nodes
+
+
+kubeadm token create --print-join-command -v=5
+
+kubeadm reset
+rm -rf $HOME/.kube/config
+rm -rf /etc/cni/net.d
+iptables -F
+iptables -X
+iptables -t nat -F
+iptables -t nat -X
+iptables -t mangle -F
+iptables -t mangle -X
+iptables -P INPUT ACCEPT
+iptables -P FORWARD ACCEPT
+iptables -P OUTPUT ACCEPT
