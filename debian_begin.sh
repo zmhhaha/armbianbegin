@@ -178,6 +178,7 @@ sed -i 's#KUBELET_EXTRA_ARGS=#KUBELET_EXTRA_ARGS="--cgroup-driver=systemd"#g' /e
 #kubeadm config images pull --kubernetes-version=v1.31.2 --image-repository=registry.cn-hangzhou.aliyuncs.com/google_containers
 #kubeadm init --config kubeadm_config.yaml --upload-certs
 
+swapoff -a
 kubeadm init --apiserver-advertise-address=192.168.137.101 \
 --control-plane-endpoint=nanopct4-master \
 --kubernetes-version=v1.31.2 \
@@ -190,6 +191,7 @@ kubeadm init --apiserver-advertise-address=192.168.137.101 \
 mkdir -p $HOME/.kube
 cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 chown $(id -u):$(id -g) $HOME/.kube/config
+export KUBECONFIG=/etc/kubernetes/admin.conf
 
 wget https://docs.projectcalico.org/manifests/calico.yaml --no-check-certificate
 #kubectl create -f https://docs.projectcalico.org/archive/v3.20/manifests/calico.yaml
@@ -198,6 +200,15 @@ sed -i 's?# - name: CALICO_IPV4POOL_CIDR?- name: CALICO_IPV4POOL_CIDR?g' calico.
 sed -i 's?#   value: "192.168.0.0/16"?  value: "10.244.0.0/16"?g' calico.yaml
 sed -i 's#docker.io/calico#registry.cn-hangzhou.aliyuncs.com/kubesphereio#g' calico.yaml
 sed -i 's/:v[0-9]*\.[0-9]*\.[0-9]*/:v3.20.1/g' calico.yaml
+
+ctr -n k8s.io i pull registry.cn-hangzhou.aliyuncs.com/google_containers/calico/cni:v3.20.1
+ctr -n k8s.io i pull registry.cn-hangzhou.aliyuncs.com/google_containers/calico/node:v3.20.1
+ctr -n k8s.io i pull registry.cn-hangzhou.aliyuncs.com/google_containers/calico/kube-controllers:v3.20.1
+
+docker pull calico/cni:v3.20.1
+docker pull calico/node:v3.20.1
+docker pull calico/kube-controllers:v3.20.1
+
 kubectl apply -f calico.yaml
 #kubectl describe pod ${pod_name} -n kube-system
 kubectl get pod -A
@@ -207,7 +218,7 @@ kubectl get nodes
 
 kubeadm token create --print-join-command -v=5
 
-kubeadm reset
+kubeadm reset -f
 rm -rf $HOME/.kube/config
 rm -rf /etc/cni/net.d
 iptables -F
