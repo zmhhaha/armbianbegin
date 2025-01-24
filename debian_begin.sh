@@ -214,17 +214,26 @@ timeout: 10
 debug: false
 EOF
 
+curl -sSL https://github.com/Mirantis/cri-dockerd/releases/download/v0.3.16/cri-dockerd-0.3.16.arm64.tgz -o cri-dockerd.tar.gz
+tar -xvzf cri-dockerd.tar.gz
+mv cri-dockerd/cri-dockerd /usr/bin/
+rm -rf cri-dockerd
+cat > /etc/systemd/system/cri-dockerd.service << EOF
+[Unit]
+Description=CRI Docker Daemon
+ 
+[Service]
+ExecStart=/usr/bin/cri-dockerd --network-plugin=cni --container-runtime-endpoint=unix:///var/run/cri-dockerd.sock --pod-infra-container-image=nanopct4-master:5000/pause:3.10
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable cri-dockerd.service
+systemctl restart cri-dockerd.service
+
 echo 'KUBELET_EXTRA_ARGS="--cgroup-driver=systemd"' > /etc/default/kubelet
-#打印k8s初始化配置文件
-kubeadm config print init-defaults > kubeadm_config.yaml
-
-sed -i 's#advertiseAddress: 1.2.3.4#advertiseAddress: 192.168.137.101#' kubeadm_config.yaml
-sed -i 's#1.31.0#1.31.2#' kubeadm_config.yaml
-sed -i 's#name: node#name: nanopct4-master#' kubeadm_config.yaml
-sed -i 's#imageRepository: registry.k8s.io#imageRepository: nanopct4-master:5000#' kubeadm_config.yaml
-sed -i '/serviceSubnet/a\  podSubnet: "10.244.0.0/16"' kubeadm_config.yaml
-#sed -i 's#criSocket: unix:///var/run/containerd/containerd.sock#criSocket: unix:///var/run/cri-dockerd.sock#' kubeadm_config.yaml
-
 
 kubeadm config images list --kubernetes-version=v1.31.2 --image-repository=registry.aliyuncs.com/google_containers
 docker pull registry.aliyuncs.com/google_containers/kube-apiserver:v1.31.2
@@ -252,9 +261,19 @@ docker push nanopct4-master:5000/pause:3.10
 docker push nanopct4-master:5000/etcd:3.5.15-0
 
 #kubeadm config images pull --kubernetes-version=v1.31.2 --image-repository=registry.aliyuncs.com/google_containers
-#kubeadm init --config kubeadm_config.yaml --upload-certs --v=5
 
 swapoff -a
+
+#打印k8s初始化配置文件
+kubeadm config print init-defaults > kubeadm_config.yaml
+
+sed -i 's#advertiseAddress: 1.2.3.4#advertiseAddress: 192.168.137.101#' kubeadm_config.yaml
+sed -i 's#1.31.0#1.31.2#' kubeadm_config.yaml
+sed -i 's#name: node#name: nanopct4-master#' kubeadm_config.yaml
+sed -i 's#imageRepository: registry.k8s.io#imageRepository: nanopct4-master:5000#' kubeadm_config.yaml
+sed -i '/serviceSubnet/a\  podSubnet: "10.244.0.0/16"' kubeadm_config.yaml
+sed -i 's#criSocket: unix:///var/run/containerd/containerd.sock#criSocket: unix:///var/run/cri-dockerd.sock#' kubeadm_config.yaml
+#kubeadm init --config kubeadm_config.yaml --upload-certs --v=5
 
 kubeadm init --apiserver-advertise-address=192.168.137.101 \
 --apiserver-bind-port=6443 \
@@ -264,6 +283,7 @@ kubeadm init --apiserver-advertise-address=192.168.137.101 \
 --service-cidr=10.96.0.0/12 \
 --pod-network-cidr=10.244.0.0/16 \
 --upload-certs \
+--cri-socket=unix:///var/run/cri-dockerd.sock \
 --v=5
 
 #systemctl status kubelet
@@ -302,9 +322,6 @@ wget https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 -O ge
 chmod +x get_helm.sh
 ./get_helm.sh
 
-wget https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
-sed -i 's#docker.io#nanopct4-master:5000#' kube-flannel.yml
-
 kubectl create ns kube-flannel
 kubectl label --overwrite ns kube-flannel pod-security.kubernetes.io/enforce=privileged
 ARCH=$(uname -m)
@@ -337,6 +354,9 @@ docker tag flannel/flannel:v0.26.2 nanopct4-master:5000/flannel/flannel:v0.26.2
 docker push nanopct4-master:5000/flannel/flannel-cni-plugin:v1.6.0-flannel1
 docker push nanopct4-master:5000/flannel/flannel:v0.26.2
 
+wget https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+sed -i 's#docker.io#nanopct4-master:5000#' kube-flannel.yml
+
 kubectl apply -f kube-flannel.yml
 
 systemctl restart kubelet
@@ -352,6 +372,8 @@ kubectl logs pod-name -n kube-system --previous
 kubeadm token create --print-join-command -v=5
 
 kubeadm reset -f
+kubeadm reset -f --cri-socket unix:///var/run/cri-dockerd.sock
+kubeadm reset -f --cri-socket unix:///var/run/containerd/containerd.sock
 rm -rf $HOME/.kube/config
 rm -rf /etc/cni/net.d
 iptables -F
@@ -376,7 +398,8 @@ hostnames="nanopct4-server1 nanopct4-server2"
 IFS=' ' read -r -a hostnamearray <<< "$hostnames"
 for i in "${hostnamearray[@]}"; do
     ssh root@${i} "swapoff -a;\
-        kubeadm reset -f;\
+        kubeadm reset -f --cri-socket unix:///var/run/cri-dockerd.sock;\
+        kubeadm reset -f --cri-socket unix:///var/run/containerd/containerd.sock;\
         rm -rf $HOME/.kube/config;\
         rm -rf /etc/cni/net.d;\
         iptables -F;\
@@ -389,5 +412,5 @@ for i in "${hostnamearray[@]}"; do
         iptables -P FORWARD ACCEPT;\
         iptables -P OUTPUT ACCEPT"
     
-    ssh root@${i} "${servercmd}"
+    ssh root@${i} "${servercmd} --cri-socket unix:///var/run/cri-dockerd.sock"
 done
