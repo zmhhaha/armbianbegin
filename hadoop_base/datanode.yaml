@@ -1,0 +1,84 @@
+# datanode.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-datanode
+spec:
+  selector:
+    app: hadoop-datanode  # 与DataNode Pod的标签匹配
+  ports:
+    - name: rpc
+      port: 50010
+      targetPort: 50010
+    - name: http
+      port: 50075
+      targetPort: 50075
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hadoop-datanode
+spec:
+  serviceName: hadoop-datanode
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hadoop-datanode
+  template:
+    metadata:
+      labels:
+        app: hadoop-datanode
+    spec:
+      initContainers:
+      - name: fix-permissions
+        image: nanopct4-master:5000/fix_hadoop_permissions:latest
+        securityContext:
+          runAsUser: 0  # 以 root 用户运行，确保有足够权限
+        command: ["sh", "-c", "chown -R 1000:1000 /hadoop/dfs/data"]
+        volumeMounts:
+        - name: hadoop-data
+          mountPath: /hadoop/dfs/data
+      containers:
+      - name: datanode
+        # image: apache/hadoop:3.3.6
+        image: nanopct4-master:5000/hadoop_base:latest
+        securityContext:
+          runAsUser: 1000  # 直接指定用户 ID（如 hadoop 用户的 UID）
+          runAsGroup: 1000 # 直接指定组 ID（如 hadoop 组的 GID）
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          export HADOOP_ROLE=datanode
+          /opt/hadoop/etc/hadoop/init-hadoop.sh
+        volumeMounts:
+        - name: hadoop-data
+          mountPath: /hadoop/dfs/data
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/init-hadoop.sh
+          subPath: init-hadoop.sh
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/log4j.properties
+          subPath: log4j.properties
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/core-site.xml
+          subPath: core-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/hdfs-site.xml
+          subPath: hdfs-datanode-site.xml
+        envFrom:
+        - configMapRef:
+            name: hadoop-env
+      volumes:
+      - name: config-volume
+        configMap:
+          name: hadoop-config
+          defaultMode: 0755  # 关键权限设置
+  volumeClaimTemplates:  # 每个 Pod 自动创建独立 PVC
+  - metadata:
+      name: hadoop-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: ceph-rbd  # RBD 存储类
+      resources:
+        requests:
+          storage: 50Gi

@@ -1,0 +1,21 @@
+# ceph-csi-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ceph-csi-config
+  namespace: default
+data:
+  config.json: |
+    [
+      {
+        "clusterID": "3f12b9e4-fce0-11ef-97b1-ca1173533d33",
+        "monitors": [
+          "192.168.137.101:6789",
+          "192.168.137.201:6789",
+          "192.168.137.202:6789"
+        ],
+        "cephFS": {
+          "subvolumeGroup": "k8s-storageclass-volumes"
+        }
+      }
+    ]

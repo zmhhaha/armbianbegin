@@ -1,0 +1,78 @@
+# nodemanager.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-nodemanager
+spec:
+  selector:
+    app: hadoop-nodemanager
+  ports:
+    - name: localizer
+      port: 8040
+      targetPort: 8040
+    - name: rpc
+      port: 8041
+      targetPort: 8041
+    - name: webui
+      port: 8042
+      targetPort: 8042
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hadoop-nodemanager
+spec:
+  serviceName: hadoop-nodemanager
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hadoop-nodemanager
+  template:
+    metadata:
+      labels:
+        app: hadoop-nodemanager
+    spec:
+      containers:
+      - name: nodemanager
+#        image: apache/hadoop:3.3.6
+        image: nanopct4-master:5000/hadoop_base:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          export HADOOP_ROLE=nodemanager
+          /opt/hadoop/etc/hadoop/init-hadoop.sh
+        volumeMounts:
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/init-hadoop.sh
+          subPath: init-hadoop.sh
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/log4j.properties
+          subPath: log4j.properties
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/workers
+          subPath: workers
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/core-site.xml
+          subPath: core-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/yarn-site.xml
+          subPath: yarn-nodemanager-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/container-executor.cfg
+          subPath: container-executor.cfg
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/mapred-site.xml
+          subPath: mapred-site.xml
+        envFrom:
+        - configMapRef:
+            name: hadoop-env
+        env:
+            - name: YARN_NODEMANAGER_PODNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name  # 自动注入 Pod 名称
+      volumes:
+      - name: config-volume
+        configMap:
+          name: hadoop-config
+          defaultMode: 0755  # 关键权限设置

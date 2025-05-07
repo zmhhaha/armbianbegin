@@ -1,0 +1,380 @@
+# hadoop-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hadoop-config
+  labels:
+    app: hadoop
+    component: config
+data:
+  # ========================
+  # 核心配置文件
+  # ========================
+  core-site.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+      <!-- 集群入口地址 -->
+      <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://hadoop-namenode.default.svc.cluster.local:8020</value>
+      </property>
+      <!-- 用户身份配置 -->
+      <property>
+        <name>hadoop.http.staticuser.user</name>
+        <value>hadoop</value>
+      </property>
+      <property>
+        <name>hadoop.proxyuser.hadoop.groups</name>
+        <value>*</value>
+      </property>
+      <property>
+        <name>hadoop.proxyuser.hadoop.hosts</name>
+        <value>*</value>
+      </property>
+      <!-- 临时目录 -->
+      <property>
+        <name>hadoop.tmp.dir</name>
+        <value>/hadoop/tmp</value>
+      </property>
+      <!-- 安全增强 -->
+      <property>
+        <name>hadoop.security.authentication</name>
+        <value>simple</value>
+      </property>
+      <property>
+        <name>hadoop.security.authorization</name>
+        <value>true</value>
+      </property>
+      <property>
+        <name>ipc.client.connect.timeout</name>
+        <value>30000</value> <!-- 增加Kubernetes网络波动容忍度 -->
+      </property>
+    </configuration>
+
+  hdfs-namenode-site.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+      <!-- 存储路径 -->
+      <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>/hadoop/dfs/name</value>
+      </property>
+      <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>/hadoop/dfs/data</value>
+      </property>
+      <!-- 权限配置 -->
+      <property>
+        <name>dfs.permissions.superusergroup</name>
+        <value>hadoop</value>
+      </property>
+      <property>
+        <name>dfs.datanode.data.dir.perm</name>
+        <value>750</value>
+      </property>
+      <!-- 副本策略 -->
+      <property>
+        <name>dfs.replication</name>
+        <value>3</value>
+      </property>
+      <!-- Web UI -->
+      <property>
+        <name>dfs.namenode.http-address</name>
+        <value>0.0.0.0:9870</value>
+      </property>
+      <!-- rpc -->
+      <property>
+        <name>dfs.namenode.rpc-address</name>
+        <value>0.0.0.0:8020</value>
+      </property>
+    </configuration>
+
+  hdfs-datanode-site.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+      <!-- 存储路径 -->
+      <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>/hadoop/dfs/name</value>
+      </property>
+      <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>/hadoop/dfs/data</value>
+      </property>
+      <!-- 权限配置 -->
+      <property>
+        <name>dfs.permissions.superusergroup</name>
+        <value>hadoop</value>
+      </property>
+      <property>
+        <name>dfs.datanode.data.dir.perm</name>
+        <value>750</value>
+      </property>
+      <!-- 副本策略 -->
+      <property>
+        <name>dfs.replication</name>
+        <value>3</value>
+      </property>
+      <!-- Web UI -->
+      <property>
+        <name>dfs.namenode.http-address</name>
+        <value>hadoop-namenode.default.svc.cluster.local:9870</value>
+      </property>
+      <!-- rpc -->
+      <property>
+        <name>dfs.namenode.rpc-address</name>
+        <value>hadoop-namenode.default.svc.cluster.local:8020</value>
+      </property>
+    </configuration>
+
+  yarn-resourcemanager-site.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+      <!-- ResourceManager通信端口 -->
+      <property>
+        <name>yarn.resourcemanager.address</name>
+        <value>0.0.0.0:8032</value>
+      </property>
+      <property>
+        <name>yarn.resourcemanager.resource-tracker.address</name>
+        <value>0.0.0.0:8031</value>
+      </property>
+      <property>
+        <name>yarn.resourcemanager.scheduler.address</name>
+        <value>0.0.0.0:8030</value>
+      </property>
+      <property>
+        <name>yarn.resourcemanager.webapp.address</name>
+        <value>0.0.0.0:8088</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.aux-services</name>
+        <value>mapreduce_shuffle</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+        <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+      </property>
+      <!-- 用户限制 -->
+      <property>
+        <name>yarn.nodemanager.linux-container-executor.group</name>
+        <value>hadoop</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.linux-container-executor.nonsecure-mode.local-user</name>
+        <value>hadoop</value>
+      </property>
+      <!-- 资源分配 -->
+      <property>
+        <name>yarn.nodemanager.heartbeat-interval-ms</name>
+        <value>3000</value> <!-- 默认1000ms，适当增大（如3秒） -->
+      </property>
+      <property>
+        <name>yarn.nodemanager.resource.memory-mb</name>
+        <value>2048</value>
+      </property>
+      <property>
+        <name>yarn.scheduler.maximum-allocation-mb</name>
+        <value>2048</value>
+      </property>
+      <property>
+        <name>yarn.scheduler.capacity.root.default.maximum-am-resource-percent</name>
+        <value>0.2</value>  <!-- 增加AM资源上限（原为0.1） -->
+      </property>
+      <!-- 日志聚合 -->
+      <property>
+        <name>yarn.log-aggregation-enable</name>
+        <value>true</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.remote-app-log-dir</name>
+        <value>/hadoop/logs/yarn/apps</value>
+      </property>
+    </configuration>
+
+  yarn-nodemanager-site.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+      <!-- ResourceManager通信端口 -->
+      <property>
+        <name>yarn.resourcemanager.hostname</name>
+        <value>hadoop-resourcemanager.default.svc.cluster.local</value>
+      </property>
+      <property>
+        <name>yarn.resourcemanager.address</name>
+        <value>hadoop-resourcemanager.default.svc.cluster.local:8032</value>
+      </property>
+      <property>
+        <name>yarn.resourcemanager.resource-tracker.address</name>
+        <value>hadoop-resourcemanager.default.svc.cluster.local:8031</value>
+      </property>
+      <property>
+        <name>yarn.resourcemanager.scheduler.address</name>
+        <value>hadoop-resourcemanager.default.svc.cluster.local:8030</value>
+      </property>
+      <property>
+        <name>yarn.resourcemanager.webapp.address</name>
+        <value>hadoop-resourcemanager.default.svc.cluster.local:8088</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.hostname</name>
+        <value>${env.YARN_NODEMANAGER_PODNAME}.hadoop-nodemanager.default.svc.cluster.local</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.address</name>
+        <value>${env.YARN_NODEMANAGER_PODNAME}.hadoop-nodemanager.default.svc.cluster.local:8041</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.localizer.address</name>
+        <value>${env.YARN_NODEMANAGER_PODNAME}.hadoop-nodemanager.default.svc.cluster.local:8040</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.webapp.address</name>
+        <value>${env.YARN_NODEMANAGER_PODNAME}.hadoop-nodemanager.default.svc.cluster.local:8042</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.aux-services</name>
+        <value>mapreduce_shuffle</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+        <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+      </property>
+      <!-- 用户限制 -->
+      <property>
+        <name>yarn.nodemanager.linux-container-executor.group</name>
+        <value>hadoop</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.linux-container-executor.nonsecure-mode.local-user</name>
+        <value>hadoop</value>
+      </property>
+      <!-- 资源分配 -->
+      <property>
+        <name>yarn.nodemanager.heartbeat-interval-ms</name>
+        <value>3000</value> <!-- 默认1000ms，适当增大（如3秒） -->
+      </property>
+      <property>
+        <name>yarn.nodemanager.resource.memory-mb</name>
+        <value>2048</value>
+      </property>
+      <property>
+        <name>yarn.scheduler.maximum-allocation-mb</name>
+        <value>2048</value>
+      </property>
+      <property>
+        <name>yarn.scheduler.capacity.root.default.maximum-am-resource-percent</name>
+        <value>0.2</value>  <!-- 增加AM资源上限（原为0.1） -->
+      </property>
+      <!-- 日志聚合 -->
+      <property>
+        <name>yarn.log-aggregation-enable</name>
+        <value>true</value>
+      </property>
+      <property>
+        <name>yarn.nodemanager.remote-app-log-dir</name>
+        <value>/hadoop/logs/yarn/apps</value>
+      </property>
+    </configuration>
+
+  mapred-site.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>mapreduce.framework.name</name>
+        <value>yarn</value>
+      </property>
+      <!-- 用户运行配置 -->
+      <property>
+        <name>mapreduce.job.user.name</name>
+        <value>hadoop</value>
+      </property>
+      <property>
+        <name>mapreduce.cluster.local.dir</name>
+        <value>/hadoop/mapred/local</value>
+      </property>
+      <!-- 内存限制 -->
+      <property>
+        <name>mapreduce.map.memory.mb</name>
+        <value>1024</value>
+      </property>
+      <property>
+        <name>mapreduce.reduce.memory.mb</name>
+        <value>2048</value>
+      </property>
+      <!-- 历史服务器 -->
+      <property>
+        <name>mapreduce.jobhistory.address</name>
+        <value>hadoop-historyserver:10020</value>
+      </property>
+      <property>
+        <name>mapreduce.jobhistory.webapp.address</name>
+        <value>hadoop-historyserver:19888</value>  <!-- WebUI端口 -->
+      </property>
+      <property>
+        <name>mapreduce.tasktracker.map.tasks.maximum</name>
+        <value>4</value>  <!-- 根据CPU核心数调整 -->
+      </property>
+      <property>
+        <name>mapreduce.tasktracker.reduce.tasks.maximum</name>
+        <value>2</value>
+      </property>
+    </configuration>
+
+  # ========================
+  # 节点列表文件
+  # ========================
+  workers: |
+    hadoop-datanode-0.hadoop-datanode.default.svc.cluster.local
+    hadoop-datanode-1.hadoop-datanode.default.svc.cluster.local
+    hadoop-datanode-2.hadoop-datanode.default.svc.cluster.local
+
+  # ========================
+  # 安全配置文件
+  # ========================
+  container-executor.cfg: |
+    # 容器执行器配置
+    yarn.nodemanager.linux-container-executor.group=hadoop
+    min.user.id=1000
+    allowed.system.users=hadoop
+    banned.users=root,bin
+
+  # ========================
+  # log4j.properties
+  # ========================
+  log4j.properties: |
+    # log4j.properties
+    log4j.rootLogger=INFO, stdout
+    log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+    log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+    log4j.appender.stdout.layout.ConversionPattern=%d{ISO8601} %p %c: %m%n
+
+  # ========================
+  # 初始化脚本
+  # ========================
+  init-hadoop.sh: |
+    #!/bin/bash
+    # 格式化NameNode（首次启动）
+    if [ ! -f /hadoop/dfs/name/current/VERSION ]; then
+      echo "Initializing HDFS NameNode..."
+      hdfs namenode -format -force -nonInteractive
+    fi
+    # 启动对应服务
+    case $HADOOP_ROLE in
+      namenode)
+        hdfs --daemon start namenode
+        tail -f /dev/null
+        ;;
+      datanode)
+        hdfs --daemon start datanode
+        tail -f /dev/null
+        ;;
+      resourcemanager)
+        yarn --daemon start resourcemanager
+        tail -f /dev/null
+        ;;
+      nodemanager)
+        yarn --daemon start nodemanager
+        tail -f /dev/null
+        ;;
+    esac

@@ -1,0 +1,24 @@
+# hadoop-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spark-config
+  labels:
+    app: spark
+    component: config
+data:
+  log4j2.properties: |
+    rootLogger.level = INFO
+  spark-env.sh: |
+    export SPARK_MASTER_PORT=7077           # Master端口（默认7077）
+    export SPARK_MASTER_WEBUI_PORT=8080     # Master Web UI端口（默认8080）
+    export SPARK_WORKER_MEMORY=512m         # 每个Worker可用的内存（如4g）
+    export SPARK_WORKER_CORES=2             # 每个Worker使用的CPU核心数
+
+  spark-defaults.conf: |
+    spark.master                              spark://spark-master.default.svc.cluster.local:7077
+    spark.eventLog.enabled                    true
+    spark.eventLog.dir                        hdfs://hadoop-namenode.default.svc.cluster.local:8020/spark-eventlog
+    spark.hadoop.fs.defaultFS                 hdfs://hadoop-namenode.default.svc.cluster.local:8020
+    spark.sql.shuffle.partitions              4
+    spark.dynamicAllocation.enabled           true

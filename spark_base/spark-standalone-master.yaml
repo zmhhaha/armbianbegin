@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-master
+spec:
+  type: NodePort  # 添加此行
+  selector:
+    app: spark
+    component: master
+  ports:
+  - name: spark
+    port: 7077
+    targetPort: 7077
+  - name: webui
+    port: 8080
+    targetPort: 8080
+    nodePort: 30080  # 外部访问端口（范围 30000-32767）
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: spark-master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark
+      component: master
+  template:
+    metadata:
+      labels:
+        app: spark
+        component: master
+    spec:
+      # 指定 ARM64 节点调度
+      # nodeSelector:
+      #   kubernetes.io/arch: arm64
+      securityContext:
+        runAsUser: 1000  # 直接指定用户 ID（如 hadoop 用户的 UID）
+        runAsGroup: 1000 # 直接指定组 ID（如 hadoop 组的 GID）
+      containers:
+      - name: spark-master
+        image: nanopct4-master:5000/spark_base:latest  # 使用 ARM64 镜像
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          /opt/spark/sbin/start-master.sh
+          tail -f /dev/null
+        volumeMounts:
+        - name: hadoop-config-volume
+          mountPath: /opt/spark/conf/hadoop/core-site.xml
+          subPath: core-site.xml
+        - name: hadoop-config-volume
+          mountPath: /opt/spark/conf/hadoop/hdfs-site.xml
+          subPath: hdfs-datanode-site.xml
+        - name: hadoop-config-volume
+          mountPath: /opt/spark/conf/hadoop/yarn-site.xml
+          subPath: yarn-nodemanager-site.xml
+        - name: spark-config-volume
+          mountPath: /opt/spark/conf/spark-defaults.conf
+          subPath: spark-defaults.conf
+        - name: spark-config-volume
+          mountPath: /opt/spark/conf/log4j2.properties
+          subPath: log4j2.properties
+        - name: spark-config-volume
+          mountPath: /opt/spark/conf/spark-env.sh
+          subPath: spark-env.sh
+        env:
+        - name: SPARK_HOME
+          value: /opt/spark
+        - name: HADOOP_CONF_DIR  # 关键：指向挂载的 Hadoop 配置
+          value: /opt/spark/conf/hadoop
+        - name: SPARK_LOCAL_HOSTNAME
+          value: spark-master.default.svc.cluster.local
+        - name: SPARK_MASTER_HOST
+          value: 0.0.0.0
+      volumes:
+      - name: hadoop-config-volume
+        configMap:
+          name: hadoop-config
+          defaultMode: 0755  # 关键权限设置
+      - name: spark-config-volume
+        configMap:
+          name: spark-config
+          defaultMode: 0755  # 关键权限设置
+      # tolerations:
+      #   - key: node-role.kubernetes.io/control-plane
+      #     operator: Exists
+      #     effect: NoSchedule

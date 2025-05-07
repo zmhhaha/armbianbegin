@@ -1,0 +1,19 @@
+# cephfs-storageclass.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ceph-fs
+provisioner: cephfs.csi.ceph.com
+parameters:
+  clusterID: 3f12b9e4-fce0-11ef-97b1-ca1173533d33  # 通过 `ceph fsid` 获取的集群 ID
+  fsName: k8s-cephfs
+  pool: k8s-cephfs-data
+  # 引用 Secret
+  csi.storage.k8s.io/provisioner-secret-name: ceph-admin-secret
+  csi.storage.k8s.io/provisioner-secret-namespace: default
+  csi.storage.k8s.io/controller-expand-secret-name: ceph-admin-secret
+  csi.storage.k8s.io/controller-expand-secret-namespace: default
+  csi.storage.k8s.io/node-stage-secret-name: ceph-admin-secret
+  csi.storage.k8s.io/node-stage-secret-namespace: default
+reclaimPolicy: Delete
+allowVolumeExpansion: true

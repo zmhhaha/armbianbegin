@@ -1,0 +1,33 @@
+# pod-with-rbd.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rbd-test-pod
+spec:
+  containers:
+  - name: nginx
+    image: arm64v8/nginx
+    volumeMounts:
+    - name: rbd-vol
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: rbd-vol
+    persistentVolumeClaim:
+      claimName: rbd-pvc
+---
+# pod-with-cephfs.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cephfs-test-pod
+spec:
+  containers:
+  - name: nginx
+    image: arm64v8/nginx
+    volumeMounts:
+    - name: cephfs-vol
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: cephfs-vol
+    persistentVolumeClaim:
+      claimName: cephfs-pvc

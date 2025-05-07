@@ -1,0 +1,18 @@
+# ceph-config.yaml
+# fsid 通过 `ceph fsid` 获取
+# mon_host 为Monitor节点IP
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ceph-config
+  namespace: default
+data:
+  ceph.conf: |
+    [global]
+    fsid = 3f12b9e4-fce0-11ef-97b1-ca1173533d33
+    mon_host = 192.168.137.101,192.168.137.201,192.168.137.202
+    auth_cluster_required = cephx
+    auth_service_required = cephx
+    auth_client_required = cephx
+  # keyring is a required key and its value should be empty
+  keyring: |

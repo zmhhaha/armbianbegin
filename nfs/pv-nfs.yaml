@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-nfs-master
+spec:
+  capacity:
+    storage: 100Gi  # 根据实际磁盘大小调整
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain  # 保留数据
+  storageClassName: nfs
+  nfs:
+    path: /mnt/nvme/nfs_share
+    server: nanopct4-master  # 替换为实际 IP
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-nfs-server1
+spec:
+  capacity:
+    storage: 100Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs
+  nfs:
+    path: /mnt/nvme/nfs_share
+    server: nanopct4-server1
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-nfs-server2
+spec:
+  capacity:
+    storage: 100Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: nfs
+  nfs:
+    path: /mnt/nvme/nfs_share
+    server: nanopct4-server2

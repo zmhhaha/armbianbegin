@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hadoop-env
+data:
+  HADOOP_USER: "hadoop"
+  JAVA_HOME: "/opt/java"
+  HADOOP_USER: "hadoop"
+  HDFS_NAMENODE_USER: "hadoop"
+  HDFS_DATANODE_USER: "hadoop"
+  HDFS_SECONDARYNAMENODE_USER: "hadoop"
+  YARN_RESOURCEMANAGER_USER: "root"
+  YARN_NODEMANAGER_USER: "root"
+  MAPRED_HISTORYSERVER_USER: "hadoop"
+  JAVA_HOME: "/opt/java"
+  HADOOP_OPTS: "-Djava.net.preferIPv4Stack=true -Dhadoop.security.logger=INFO,RFAS -Djava.security.manager=allow"
+  HADOOP_NAMENODE_OPTS: "XX:+UseParallelGC -XX:MaxGCPauseMillis=200"
+  HADOOP_LOG_DIR: "/hadoop/logs/hadoop"
+  YARN_LOG_DIR: "/hadoop/logs/yarn"
+  HADOOP_HEAPSIZE_MAX: "2048m"

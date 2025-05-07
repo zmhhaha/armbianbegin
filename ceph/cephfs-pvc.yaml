@@ -1,0 +1,12 @@
+# cephfs-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cephfs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany  # CephFS 支持多节点读写
+  storageClassName: ceph-fs
+  resources:
+    requests:
+      storage: 100Gi

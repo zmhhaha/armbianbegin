@@ -1,0 +1,11 @@
+#docker build -t fix_hadoop_permissions:latest -f Fix_Dockerfile
+FROM arm64v8/debian:latest
+RUN groupadd -g 1000 hadoop && useradd -u 1000 -g hadoop -m -s /bin/bash hadoop && \
+    mkdir -p \
+    /hadoop/tmp \
+    /hadoop/dfs/name \
+    /hadoop/dfs/data \
+    /hadoop/logs/hadoop \
+    /hadoop/logs/yarn \
+    /hadoop/mapred/local \
+    /hadoop/yarn/apps

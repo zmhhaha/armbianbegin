@@ -1,0 +1,7 @@
+# ceph-csi-encryption-kms-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ceph-csi-encryption-kms-config
+  namespace: default
+data: {}

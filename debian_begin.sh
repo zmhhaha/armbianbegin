@@ -1,6 +1,4 @@
 #!/bin/bash
-apt update
-cd /etc/apt
 debian_version=$(lsb_release -cs)
 start_step="${1:-restart}"
 name_tail="${2:-master}"
@@ -17,25 +15,42 @@ if [ $start_step == "start" ];then
 192.168.137.101 nanopct4-master
 192.168.137.201 nanopct4-server1
 192.168.137.202 nanopct4-server2
+192.168.137.211 orangepi5-max-server1
 EOF
-
-    mkfs.ext4 /dev/nvme0n1
-    mkdir -p /mnt/nvme
-    mount /dev/nvme0n1 /mnt/nvme
-    echo "$(blkid /dev/nvme0n1 | awk '{print $2}' | sed 's/"//g') /mnt/nvme ext4 defaults 0 2" >> /etc/fstab
+    sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts
+    if [ -d "/dev/nvme0n1" ]; then
+        parted /dev/nvme0n1 --script mklabel gpt mkpart primary 0% 100G mkpart primary 100G 100%
+        mkfs.ext4 /dev/nvme0n1p1
+        #mkfs.ext4 /dev/nvme0n1p2
+        mkdir -p /mnt/nvme
+        mount /dev/nvme0n1p1 /mnt/nvme
+        echo "$(blkid /dev/nvme0n1p1 | awk '{print $2}' | sed 's/"//g') /mnt/nvme ext4 defaults 0 2" >> /etc/fstab
+    else
+        mkdir /docker-data-root
+        ln -s /docker-data-root/ /mnt/nvme
+    fi
 
     sed -i 's/^X11Forwarding/#X11Forwarding/g' /etc/ssh/sshd_config
-
-    sed -i 's/^deb/#deb/g' sources.list
-    sed -i '$a\\' sources.list
-    sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}' main contrib non-free non-free-firmware' sources.list
-    sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}'-updates main contrib non-free non-free-firmware' sources.list
-    sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}'-backports main contrib non-free non-free-firmware' sources.list
-    sed -i '$a\deb https://mirrors.ustc.edu.cn/debian-security/ '${debian_version}'-security main contrib non-free non-free-firmware' sources.list
-
-    sed -i 's/^deb/#deb/g' sources.list.d/armbian.list
-    sed -i '$a\\' sources.list.d/armbian.list
-    sed -i '$a\deb [signed-by=/usr/share/keyrings/armbian.gpg] https://mirrors.ustc.edu.cn/armbian '${debian_version}' main '${debian_version}'-utils '${debian_version}'-desktop' sources.list.d/armbian.list
+    if [ -e "/etc/apt/sources.list" ]; then
+        sed -i 's/^deb/#deb/g' /etc/apt/sources.list
+        sed -i '$a\\' /etc/apt/sources.list
+        sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}' main contrib non-free non-free-firmware' /etc/apt/sources.list
+        sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}'-updates main contrib non-free non-free-firmware' /etc/apt/sources.list
+        sed -i '$a\deb https://mirrors.ustc.edu.cn/debian/ '${debian_version}'-backports main contrib non-free non-free-firmware' /etc/apt/sources.list
+        sed -i '$a\deb https://mirrors.ustc.edu.cn/debian-security/ '${debian_version}'-security main contrib non-free non-free-firmware' /etc/apt/sources.list
+    fi
+    if [ -e "/etc/apt/sources.list.d/armbian.list" ]; then
+        sed -i 's/^deb/#deb/g' /etc/apt/sources.list.d/armbian.list
+        sed -i '$a\\' /etc/apt/sources.list.d/armbian.list
+        sed -i '$a\deb [signed-by=/usr/share/keyrings/armbian.gpg] https://mirrors.ustc.edu.cn/armbian '${debian_version}' main '${debian_version}'-utils '${debian_version}'-desktop' /etc/apt/sources.list.d/armbian.list
+    fi
+    if [ -e "/etc/apt/sources.list.d/armbian.sources" ];then
+        sed -i 's#https://beta.armbian.com#https://mirrors.ustc.edu.cn/armbian#g' /etc/apt/sources.list.d/armbian.sources
+    fi
+    if [ -e "/etc/apt/sources.list.d/debian.sources" ];then
+        sed -i 's#http://deb.debian.org/debian#https://mirrors.ustc.edu.cn/debian#g' /etc/apt/sources.list.d/debian.sources
+        sed -i 's#http://security.debian.org#https://mirrors.ustc.edu.cn/debian-security#g' /etc/apt/sources.list.d/debian.sources
+    fi
 fi
 
 apt update
@@ -93,6 +108,7 @@ fi
 
 apt update
 apt install -y kubelet kubeadm kubectl
+systemctl enable kubelet
 apt-mark hold kubelet kubeadm kubectl
 
 if [ $start_step == "start" ] && [ $name_tail == "master" ];then
@@ -142,18 +158,31 @@ EOF
     docker pull arm64v8/debian:latest
     docker tag arm64v8/debian:latest nanopct4-master:5000/arm64v8/debian:latest
     docker push nanopct4-master:5000/arm64v8/debian:latest
+
+    # registry中删除镜像 可以直接到存储目录删不用下面这些
+    # curl -s -H "Accept: application/vnd.docker.distribution.manifest.v2+json" --cacert /etc/ssl/certs/self_registry_ca.crt \
+    #     https://nanopct4-master:5000/v2/<镜像名>/manifests/<标签> \
+    #     | jq -r '.config.digest'
+    # curl -X DELETE --insecure /etc/ssl/certs/self_registry_ca.crt https://nanopct4-master:5000/v2/<镜像名>/manifests/<digest>
+
+    curl -s https://install.zerotier.com | bash
+    # zerotier-cli join networkID
+
+    registry_crontab="@reboot docker restart \$(docker ps -a | grep arm64v8/registry:latest | awk '{print \$1}')"
+    (crontab -l 2>/dev/null | grep -F -v "$registry_crontab"; echo "$registry_crontab" ) | crontab -
 fi
 
 if [ $start_step == "start" ];then
     sed -i 's/^[^#]/#&/g' /etc/netplan/10-dhcp-all-interfaces.yaml
     echo ${set_ip}
+    eth_name=$(ip -br link show | grep "^e" | awk '{print $1}')
 
     cat > /etc/netplan/99-custom-netplan-config.yaml << EOF
 network:
   version: 2
   renderer: networkd
   ethernets:
-    eth0:
+    $eth_name:
       dhcp4: no
       addresses: [${set_ip}/24]
       routes:
@@ -162,13 +191,21 @@ network:
       nameservers:
         addresses: [8.8.8.8, 8.8.4.4]
 EOF
-
+    chmod 600 /etc/netplan/99-custom-netplan-config.yaml
     netplan apply
 fi
 
 apt install -y python3 python3-pip
 apt install -y vim
+echo "set mouse-=a" >> /usr/share/vim/vim90/defaults.vim
 apt install -y lrzsz
+apt install -y chrony
+apt install -y libc-bin file
+apt install -y iputils-ping dnsutils
+apt autoremove -y
+
+sed -i '/^exit 0$/i\swapoff -a' /etc/rc.local
+systemctl enable rc-local
 
 reboot
 
@@ -198,21 +235,23 @@ EOF
 chmod +x /etc/default/modules/ipvs.module
 /etc/default/modules/ipvs.module
 
-containerd config default > /etc/containerd/config.toml
-sed -i 's#pause:3.8#pause:3.10#g' /etc/containerd/config.toml
-sed -i 's#sandbox_image = "registry.k8s.io#sandbox_image = "nanopct4-master:5000#g' /etc/containerd/config.toml
-sed -i 's#SystemdCgroup = false#SystemdCgroup = true#' /etc/containerd/config.toml
-#sed -i '/\[plugins."io.containerd.grpc.v1.cri".registry.mirrors\]/{N;s#\n.*$#\n        \[plugins."io.containerd.grpc.v1.cri".registry.mirrors."nanopct4-master"\]\n          endpoint = \["https://nanopct4-master:5000"\]\n#}' /etc/containerd/config.toml
-
-systemctl daemon-reload && systemctl restart containerd.service
-#ctr image pull nanopct4-master:5000/arm64v8/debian:latest
-
-cat > /etc/crictl.yaml << EOF
-runtime-endpoint: unix:///var/run/containerd/containerd.sock
-image-endpoint: unix:///var/run/containerd/containerd.sock
-timeout: 10
-debug: false
-EOF
+###############################################
+# containerd config default > /etc/containerd/config.toml
+# sed -i 's#pause:3.8#pause:3.10#g' /etc/containerd/config.toml
+# sed -i 's#sandbox_image = "registry.k8s.io#sandbox_image = "nanopct4-master:5000#g' /etc/containerd/config.toml
+# sed -i 's#SystemdCgroup = false#SystemdCgroup = true#' /etc/containerd/config.toml
+# #sed -i '/\[plugins."io.containerd.grpc.v1.cri".registry.mirrors\]/{N;s#\n.*$#\n        \[plugins."io.containerd.grpc.v1.cri".registry.mirrors."nanopct4-master"\]\n          endpoint = \["https://nanopct4-master:5000"\]\n#}' /etc/containerd/config.toml
+# 
+# systemctl daemon-reload && systemctl restart containerd.service
+# #ctr image pull nanopct4-master:5000/arm64v8/debian:latest
+# 
+# cat > /etc/crictl.yaml << EOF
+# runtime-endpoint: unix:///var/run/containerd/containerd.sock
+# image-endpoint: unix:///var/run/containerd/containerd.sock
+# timeout: 10
+# debug: false
+# EOF
+###############################################
 
 curl -sSL https://github.com/Mirantis/cri-dockerd/releases/download/v0.3.16/cri-dockerd-0.3.16.arm64.tgz -o cri-dockerd.tar.gz
 tar -xvzf cri-dockerd.tar.gz
@@ -235,45 +274,50 @@ systemctl restart cri-dockerd.service
 
 echo 'KUBELET_EXTRA_ARGS="--cgroup-driver=systemd"' > /etc/default/kubelet
 
-kubeadm config images list --kubernetes-version=v1.31.2 --image-repository=registry.aliyuncs.com/google_containers
-docker pull registry.aliyuncs.com/google_containers/kube-apiserver:v1.31.2
-docker pull registry.aliyuncs.com/google_containers/kube-controller-manager:v1.31.2
-docker pull registry.aliyuncs.com/google_containers/kube-scheduler:v1.31.2
-docker pull registry.aliyuncs.com/google_containers/kube-proxy:v1.31.2
-docker pull registry.aliyuncs.com/google_containers/coredns:v1.11.3
-docker pull registry.aliyuncs.com/google_containers/pause:3.10
-docker pull registry.aliyuncs.com/google_containers/etcd:3.5.15-0
-
-docker tag registry.aliyuncs.com/google_containers/kube-apiserver:v1.31.2 nanopct4-master:5000/kube-apiserver:v1.31.2
-docker tag registry.aliyuncs.com/google_containers/kube-controller-manager:v1.31.2 nanopct4-master:5000/kube-controller-manager:v1.31.2
-docker tag registry.aliyuncs.com/google_containers/kube-scheduler:v1.31.2 nanopct4-master:5000/kube-scheduler:v1.31.2
-docker tag registry.aliyuncs.com/google_containers/kube-proxy:v1.31.2 nanopct4-master:5000/kube-proxy:v1.31.2
-docker tag registry.aliyuncs.com/google_containers/coredns:v1.11.3 nanopct4-master:5000/coredns:v1.11.3
-docker tag registry.aliyuncs.com/google_containers/pause:3.10 nanopct4-master:5000/pause:3.10
-docker tag registry.aliyuncs.com/google_containers/etcd:3.5.15-0 nanopct4-master:5000/etcd:3.5.15-0
-
-docker push nanopct4-master:5000/kube-apiserver:v1.31.2
-docker push nanopct4-master:5000/kube-controller-manager:v1.31.2
-docker push nanopct4-master:5000/kube-scheduler:v1.31.2
-docker push nanopct4-master:5000/kube-proxy:v1.31.2
-docker push nanopct4-master:5000/coredns:v1.11.3
-docker push nanopct4-master:5000/pause:3.10
-docker push nanopct4-master:5000/etcd:3.5.15-0
+###############################################
+# 主节点下载相关镜像并推送到本地registry
+# kubeadm config images list --kubernetes-version=v1.31.2 --image-repository=registry.aliyuncs.com/google_containers
+# docker pull registry.aliyuncs.com/google_containers/kube-apiserver:v1.31.2
+# docker pull registry.aliyuncs.com/google_containers/kube-controller-manager:v1.31.2
+# docker pull registry.aliyuncs.com/google_containers/kube-scheduler:v1.31.2
+# docker pull registry.aliyuncs.com/google_containers/kube-proxy:v1.31.2
+# docker pull registry.aliyuncs.com/google_containers/coredns:v1.11.3
+# docker pull registry.aliyuncs.com/google_containers/pause:3.10
+# docker pull registry.aliyuncs.com/google_containers/etcd:3.5.15-0
+# 
+# docker tag registry.aliyuncs.com/google_containers/kube-apiserver:v1.31.2 nanopct4-master:5000/kube-apiserver:v1.31.2
+# docker tag registry.aliyuncs.com/google_containers/kube-controller-manager:v1.31.2 nanopct4-master:5000/kube-controller-manager:v1.31.2
+# docker tag registry.aliyuncs.com/google_containers/kube-scheduler:v1.31.2 nanopct4-master:5000/kube-scheduler:v1.31.2
+# docker tag registry.aliyuncs.com/google_containers/kube-proxy:v1.31.2 nanopct4-master:5000/kube-proxy:v1.31.2
+# docker tag registry.aliyuncs.com/google_containers/coredns:v1.11.3 nanopct4-master:5000/coredns:v1.11.3
+# docker tag registry.aliyuncs.com/google_containers/pause:3.10 nanopct4-master:5000/pause:3.10
+# docker tag registry.aliyuncs.com/google_containers/etcd:3.5.15-0 nanopct4-master:5000/etcd:3.5.15-0
+# 
+# docker push nanopct4-master:5000/kube-apiserver:v1.31.2
+# docker push nanopct4-master:5000/kube-controller-manager:v1.31.2
+# docker push nanopct4-master:5000/kube-scheduler:v1.31.2
+# docker push nanopct4-master:5000/kube-proxy:v1.31.2
+# docker push nanopct4-master:5000/coredns:v1.11.3
+# docker push nanopct4-master:5000/pause:3.10
+# docker push nanopct4-master:5000/etcd:3.5.15-0
+###############################################
 
 #kubeadm config images pull --kubernetes-version=v1.31.2 --image-repository=registry.aliyuncs.com/google_containers
 
 swapoff -a
 
-#打印k8s初始化配置文件
-kubeadm config print init-defaults > kubeadm_config.yaml
-
-sed -i 's#advertiseAddress: 1.2.3.4#advertiseAddress: 192.168.137.101#' kubeadm_config.yaml
-sed -i 's#1.31.0#1.31.2#' kubeadm_config.yaml
-sed -i 's#name: node#name: nanopct4-master#' kubeadm_config.yaml
-sed -i 's#imageRepository: registry.k8s.io#imageRepository: nanopct4-master:5000#' kubeadm_config.yaml
-sed -i '/serviceSubnet/a\  podSubnet: "10.244.0.0/16"' kubeadm_config.yaml
-sed -i 's#criSocket: unix:///var/run/containerd/containerd.sock#criSocket: unix:///var/run/cri-dockerd.sock#' kubeadm_config.yaml
-#kubeadm init --config kubeadm_config.yaml --upload-certs --v=5
+###############################################
+# #打印k8s初始化配置文件
+# kubeadm config print init-defaults > kubeadm_config.yaml
+# 
+# sed -i 's#advertiseAddress: 1.2.3.4#advertiseAddress: 192.168.137.101#' kubeadm_config.yaml
+# sed -i 's#1.31.0#1.31.2#' kubeadm_config.yaml
+# sed -i 's#name: node#name: nanopct4-master#' kubeadm_config.yaml
+# sed -i 's#imageRepository: registry.k8s.io#imageRepository: nanopct4-master:5000#' kubeadm_config.yaml
+# sed -i '/serviceSubnet/a\  podSubnet: "10.244.0.0/16"' kubeadm_config.yaml
+# sed -i 's#criSocket: unix:///var/run/containerd/containerd.sock#criSocket: unix:///var/run/cri-dockerd.sock#' kubeadm_config.yaml
+# #kubeadm init --config kubeadm_config.yaml --upload-certs --v=5
+###############################################
 
 kubeadm init --apiserver-advertise-address=192.168.137.101 \
 --apiserver-bind-port=6443 \
@@ -300,6 +344,17 @@ kubectl create secret generic registry-secret \
 --from-file=tls.crt=/etc/ssl/certs/self_registry_ca.crt \
 --from-file=tls.key=/etc/ssl/certs/self_registry_ca.key \
 --namespace=kube-system
+
+kubectl edit configmap coredns -n kube-system
+# 这部分是要修改的
+# hosts {
+#   192.168.137.101 nanopct4-master
+#   192.168.137.201 nanopct4-server1
+#   192.168.137.202 nanopct4-server2
+#   192.168.137.211 orangepi5-max-server1
+#   fallthrough
+# }
+kubectl rollout restart deployment/coredns -n kube-system
 
 #wget https://docs.projectcalico.org/manifests/calico.yaml --no-check-certificate
 ##kubectl create -f https://docs.projectcalico.org/archive/v3.20/manifests/calico.yaml
@@ -354,13 +409,14 @@ docker tag flannel/flannel:v0.26.2 nanopct4-master:5000/flannel/flannel:v0.26.2
 docker push nanopct4-master:5000/flannel/flannel-cni-plugin:v1.6.0-flannel1
 docker push nanopct4-master:5000/flannel/flannel:v0.26.2
 
-wget https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+wget https://raw.githubusercontent.com/flannel-io/flannel/v0.26.2/Documentation/kube-flannel.yml
+#wget https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
 sed -i 's#docker.io#nanopct4-master:5000#' kube-flannel.yml
 
 kubectl apply -f kube-flannel.yml
 
-systemctl restart kubelet
-systemctl restart containerd
+#systemctl restart kubelet
+#systemctl restart containerd
 
 #kubectl describe pod ${pod_name} -n kube-system
 kubectl get pod -A
@@ -368,9 +424,14 @@ kubectl get pod -n kube-system
 kubectl get nodes
 kubectl get events -n kube-system
 kubectl logs pod-name -n kube-system --previous
+kubectl api-resources
+kubectl api-versions
+kubectl create --dry-run=client -o yaml
+kubectl expose --dry-run=client -o yaml
 
 kubeadm token create --print-join-command -v=5
 
+swapoff -a
 kubeadm reset -f
 kubeadm reset -f --cri-socket unix:///var/run/cri-dockerd.sock
 kubeadm reset -f --cri-socket unix:///var/run/containerd/containerd.sock
@@ -394,12 +455,13 @@ done
 docker restart $(docker ps -a | grep arm64v8/registry:latest | awk '{print $1}')
 
 servercmd=$(kubeadm token create --print-join-command)
-hostnames="nanopct4-server1 nanopct4-server2"
+hostnames="nanopct4-server1 nanopct4-server2 orangepi5-max-server1"
 IFS=' ' read -r -a hostnamearray <<< "$hostnames"
 for i in "${hostnamearray[@]}"; do
     ssh root@${i} "swapoff -a;\
+        kubeadm reset -f;\
         kubeadm reset -f --cri-socket unix:///var/run/cri-dockerd.sock;\
-        kubeadm reset -f --cri-socket unix:///var/run/containerd/containerd.sock;\
+        #kubeadm reset -f --cri-socket unix:///var/run/containerd/containerd.sock;\
         rm -rf $HOME/.kube/config;\
         rm -rf /etc/cni/net.d;\
         iptables -F;\
@@ -414,3 +476,38 @@ for i in "${hostnamearray[@]}"; do
     
     ssh root@${i} "${servercmd} --cri-socket unix:///var/run/cri-dockerd.sock"
 done
+
+docker run -d --name hadoop --network host\
+    -v /etc/ssl/certs/:/etc/ssl/certs/ \
+    -v /etc/apt/:/etc/apt/ \
+    -v /usr/share/keyrings/:/usr/share/keyrings/ \
+    -v /etc/hosts:/etc/hosts \
+    nanopct4-master:5000/hadoop_base:latest \
+    bash -c "tail -f ~/.bashrc"
+
+docker rm $(docker ps -a -f "status=exited" -q)
+docker rmi $(docker images -f "dangling=true" -q)
+
+ssh root@nanopct4-server1 "shutdown -h now"
+ssh root@nanopct4-server2 "shutdown -h now"
+ssh root@orangepi5-max-server1 "shutdown -h now"
+ssh root@nanopct4-master "shutdown -h now"
+
+ssh root@nanopct4-server1 "reboot"
+ssh root@nanopct4-server2 "reboot"
+ssh root@orangepi5-max-server1 "reboot"
+ssh root@nanopct4-master "reboot"
+
+ssh root@nanopct4-server1 "systemctl restart ceph.target"
+ssh root@nanopct4-server2 "systemctl restart ceph.target"
+ssh root@orangepi5-max-server1 "systemctl restart ceph.target"
+ssh root@nanopct4-master "systemctl restart ceph.target"
+sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts
+
+ssh root@nanopct4-server1 "sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts"
+ssh root@nanopct4-server2 "sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts"
+ssh root@orangepi5-max-server1 "sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts"
+ssh root@nanopct4-master "sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts"
+
+echo $[$(cat /sys/class/thermal/thermal_zone0/temp)/1000]°C
+echo $[$(cat /sys/class/thermal/thermal_zone1/temp)/1000]°C

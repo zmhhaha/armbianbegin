@@ -1,0 +1,12 @@
+# rbd-pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rbd-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce  # RBD 仅支持单节点读写
+  storageClassName: ceph-rbd  # 匹配 StorageClass 名称
+  resources:
+    requests:
+      storage: 100Gi  # 请求的存储容量

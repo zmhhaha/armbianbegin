@@ -1,0 +1,85 @@
+# resourcemanager.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-resourcemanager
+spec:
+  type: NodePort  # 添加此行
+  selector:
+    app: hadoop-resourcemanager
+  ports:
+    - port: 8032
+      targetPort: 8032  # 必须与容器监听端口一致
+      name: client
+      nodePort: 30032  # 外部访问端口（范围 30000-32767）
+    - port: 8031
+      targetPort: 8031  # 必须与容器监听端口一致
+      name: resource-tracker
+      nodePort: 30031  # 外部访问端口（范围 30000-32767）
+    - port: 8030
+      targetPort: 8030  # 必须与容器监听端口一致
+      name: scheduler
+      nodePort: 30030  # 外部访问端口（范围 30000-32767）
+    - port: 8088
+      targetPort: 8088  # 必须与容器监听端口一致
+      name: webui
+      nodePort: 30088  # 外部访问端口（范围 30000-32767）
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hadoop-resourcemanager
+spec:
+  serviceName: hadoop-resourcemanager
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hadoop-resourcemanager
+  template:
+    metadata:
+      labels:
+        app: hadoop-resourcemanager
+    spec:
+      containers:
+      - name: resourcemanager
+#        image: apache/hadoop:3.3.6
+        image: nanopct4-master:5000/hadoop_base:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          export HADOOP_ROLE=resourcemanager
+          /opt/hadoop/etc/hadoop/init-hadoop.sh
+        volumeMounts:
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/init-hadoop.sh
+          subPath: init-hadoop.sh
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/log4j.properties
+          subPath: log4j.properties
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/workers
+          subPath: workers
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/core-site.xml
+          subPath: core-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/yarn-site.xml
+          subPath: yarn-resourcemanager-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/container-executor.cfg
+          subPath: container-executor.cfg
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/mapred-site.xml
+          subPath: mapred-site.xml
+        envFrom:
+        - configMapRef:
+            name: hadoop-env
+      volumes:
+      - name: config-volume
+        configMap:
+          name: hadoop-config
+          defaultMode: 0755  # 关键权限设置
+      # tolerations:
+      #   - key: node-role.kubernetes.io/control-plane
+      #     operator: Exists
+      #     effect: NoSchedule
