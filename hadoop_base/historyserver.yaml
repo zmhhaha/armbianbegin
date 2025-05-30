@@ -1,0 +1,77 @@
+# namenode.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-historyserver
+spec:
+  type: NodePort  # 添加此行
+  selector:
+    app: hadoop-historyserver
+  ports:
+  - port: 10020
+    targetPort: 10020  # 必须与容器监听端口一致
+    name: rpc
+    nodePort: 30120  # 外部访问端口（范围 30000-32767）
+  - port: 19888
+    targetPort: 19888  # 必须与容器监听端口一致
+    name: webui
+    nodePort: 30888
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hadoop-historyserver
+spec:
+  serviceName: hadoop-historyserver
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hadoop-historyserver
+  template:
+    metadata:
+      labels:
+        app: hadoop-historyserver
+    spec:
+      containers:
+      - name: historyserver
+#        image: apache/hadoop:3.3.6
+        image: nanopct4-master:5000/hadoop_base:latest
+        securityContext:
+          runAsUser: 1000  # 直接指定用户 ID（如 hadoop 用户的 UID）
+          runAsGroup: 1000 # 直接指定组 ID（如 hadoop 组的 GID）
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          export HADOOP_ROLE=historyserver
+          /opt/hadoop/etc/hadoop/init-hadoop.sh
+        volumeMounts:
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/init-hadoop.sh
+          subPath: init-hadoop.sh
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/log4j.properties
+          subPath: log4j.properties
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/core-site.xml
+          subPath: core-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/hdfs-site.xml
+          subPath: hdfs-namenode-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/yarn-site.xml
+          subPath: yarn-nodemanager-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/mapred-site.xml
+          subPath: mapred-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/k8s-fence.sh
+          subPath: k8s-fence.sh
+        envFrom:
+        - configMapRef:
+            name: hadoop-env
+      volumes:
+      - name: config-volume
+        configMap:
+          name: hadoop-config
+          defaultMode: 0755  # 关键权限设置
+      serviceAccountName: zkfc-fencer

@@ -1,0 +1,58 @@
+# mysql-deployment.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: default
+spec:
+  serviceName: mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: nanopct4-master:5000/hive_mysql:latest
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "123456"
+        - name: MYSQL_DATABASE
+          value: "hive_metastore"
+        - name: MYSQL_USER
+          value: "hadoop"
+        - name: MYSQL_PASSWORD
+          value: "1234"
+        ports:
+        - containerPort: 3306
+        volumeMounts:
+        - name: mysql-data
+          mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: ceph-rbd  # RBD 存储类
+      resources:
+        requests:
+          storage: 10Gi
+---
+# mysql-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: default
+spec:
+  type: NodePort  # 添加此行
+  selector:
+    app: mysql
+  ports:
+  - port: 3306
+    targetPort: 3306  # 必须与容器监听端口一致
+    nodePort: 30306

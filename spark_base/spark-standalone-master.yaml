@@ -60,8 +60,8 @@ spec:
           mountPath: /opt/spark/conf/spark-defaults.conf
           subPath: spark-defaults.conf
         - name: spark-config-volume
-          mountPath: /opt/spark/conf/log4j2.properties
-          subPath: log4j2.properties
+          mountPath: /opt/spark/conf/log4j.properties
+          subPath: log4j.properties
         - name: spark-config-volume
           mountPath: /opt/spark/conf/spark-env.sh
           subPath: spark-env.sh

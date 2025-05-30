@@ -8,14 +8,14 @@ spec:
   selector:
     app: hadoop-namenode
   ports:
-    - port: 8020
-      targetPort: 8020  # 必须与容器监听端口一致
-      name: rpc
-      nodePort: 30020  # 外部访问端口（范围 30000-32767）
-    - port: 9870
-      targetPort: 9870  # 必须与容器监听端口一致
-      name: webui
-      nodePort: 30870
+  - port: 8020
+    targetPort: 8020  # 必须与容器监听端口一致
+    name: rpc
+    nodePort: 30020  # 外部访问端口（范围 30000-32767）
+  - port: 9870
+    targetPort: 9870  # 必须与容器监听端口一致
+    name: webui
+    nodePort: 30870
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -23,7 +23,7 @@ metadata:
   name: hadoop-namenode
 spec:
   serviceName: hadoop-namenode
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: hadoop-namenode
@@ -37,7 +37,10 @@ spec:
         image: nanopct4-master:5000/fix_hadoop_permissions:latest
         securityContext:
           runAsUser: 0  # 以 root 用户运行，确保有足够权限
-        command: ["sh", "-c", "chown -R 1000:1000 /hadoop/dfs/name"]
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          chown -R 1000:1000 /hadoop/dfs/name
         volumeMounts:
         - name: hadoop-data
           mountPath: /hadoop/dfs/name
@@ -71,14 +74,26 @@ spec:
         - name: config-volume
           mountPath: /opt/hadoop/etc/hadoop/hdfs-site.xml
           subPath: hdfs-namenode-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/k8s-fence.sh
+          subPath: k8s-fence.sh
         envFrom:
         - configMapRef:
             name: hadoop-env
+        env:
+        - name: HADOOP_NAMENODE_PODNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+              apiVersion: v1
+              # 通过 Pod 名称末尾数字生成 MY_ID（如 zk-0 → 1）
+              # 需要自定义脚本或 initContainer 处理
       volumes:
       - name: config-volume
         configMap:
           name: hadoop-config
           defaultMode: 0755  # 关键权限设置
+      serviceAccountName: zkfc-fencer
       # tolerations:
       #   - key: node-role.kubernetes.io/control-plane
       #     operator: Exists
@@ -92,3 +107,31 @@ spec:
       resources:
         requests:
           storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-namenode-pod-0
+spec:
+  type: NodePort  # 添加此行
+  selector:
+    statefulset.kubernetes.io/pod-name: hadoop-namenode-0  # 匹配目标Pod的唯一标签
+  ports:
+  - port: 8020
+    targetPort: 8020  # 必须与容器监听端口一致
+    name: rpc
+    nodePort: 30021  # 外部访问端口（范围 30000-32767）
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-namenode-pod-1
+spec:
+  type: NodePort  # 添加此行
+  selector:
+    statefulset.kubernetes.io/pod-name: hadoop-namenode-1  # 匹配目标Pod的唯一标签
+  ports:
+  - port: 8020
+    targetPort: 8020  # 必须与容器监听端口一致
+    name: rpc
+    nodePort: 30022  # 外部访问端口（范围 30000-32767）

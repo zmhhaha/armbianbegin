@@ -1,0 +1,135 @@
+# hdfs-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hdfs-nn-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # 预检请求缓存时间（秒）
+    nginx.ingress.kubernetes.io/cors-max-age: "1728000"
+    # 允许所有源（生产环境需限制为可信域名）
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    # 允许的 HTTP 方法
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    # 允许的请求头
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-Proto $scheme;
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /hdfs-webui(/|$)(.*)  # 外部访问路径
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: hadoop-namenode
+            port:
+              number: 9870
+
+##################################################
+###此部分不可用，由于webui的跳转逻辑过于复杂，资源的脚本的http请求变化多端，
+###使用路径改写并不能保证各种js、jQuery脚本中的资源绝对路径一并被修改，导致无法正常的获得静态资源或者js指定静态目录无法跳转，
+###通过路径来单域名接入服务，再通过path来区分服务是不可能做到的
+# # yarn-ingress.yaml
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: yarn-rm-ingress
+#   annotations:
+#     nginx.ingress.kubernetes.io/use-regex: "true"
+#     nginx.ingress.kubernetes.io/rewrite-target: /$2
+#     # 预检请求缓存时间（秒）
+#     nginx.ingress.kubernetes.io/cors-max-age: "1728000"
+#     # 允许所有源（生产环境需限制为可信域名）
+#     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+#     # 允许的 HTTP 方法
+#     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+#     # 允许的请求头
+#     nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+#     nginx.ingress.kubernetes.io/configuration-snippet: |
+#       location ~* \.(js|css)$ {
+#         add_header Content-Type application/javascript;  # 或 text/css;
+#       }
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#   - http:
+#       paths:
+#       - path: /yarn-webui(/|$)(.*)  # 外部访问路径
+#         pathType: ImplementationSpecific
+#         backend:
+#           service:
+#             name: hadoop-resourcemanager  # 替换为你的 Service 名称
+#             port:
+#               number: 8088  # Service 端口
+# ---
+# # hdfs-ingress.yaml
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: hdfs-nn-ingress
+#   annotations:
+#     nginx.ingress.kubernetes.io/use-regex: "true"
+#     nginx.ingress.kubernetes.io/rewrite-target: /$2
+#     # 预检请求缓存时间（秒）
+#     nginx.ingress.kubernetes.io/cors-max-age: "1728000"
+#     # 允许所有源（生产环境需限制为可信域名）
+#     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+#     # 允许的 HTTP 方法
+#     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+#     # 允许的请求头
+#     nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+#     nginx.ingress.kubernetes.io/configuration-snippet: |
+#       proxy_set_header Host $host;
+#       proxy_set_header X-Real-IP $remote_addr;
+#       proxy_set_header X-Forwarded-Proto $scheme;
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#   - http:
+#       paths:
+#       - path: /hdfs-webui(/|$)(.*)  # 外部访问路径
+#         pathType: ImplementationSpecific
+#         backend:
+#           service:
+#             name: hadoop-namenode
+#             port:
+#               number: 9870
+# ---
+# # hdfs-ingress.yaml
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: hdfs-nn-ingress-resource
+#   annotations:
+#     nginx.ingress.kubernetes.io/use-regex: "true"
+#     nginx.ingress.kubernetes.io/rewrite-target: /static/$2
+#     # 预检请求缓存时间（秒）
+#     nginx.ingress.kubernetes.io/cors-max-age: "1728000"
+#     # 允许所有源（生产环境需限制为可信域名）
+#     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+#     # 允许的 HTTP 方法
+#     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+#     # 允许的请求头
+#     nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+#     nginx.ingress.kubernetes.io/configuration-snippet: |
+#       proxy_set_header Host $host;
+#       proxy_set_header X-Real-IP $remote_addr;
+#       proxy_set_header X-Forwarded-Proto $scheme;
+# spec:
+#   ingressClassName: nginx
+#   rules:
+#   - http:
+#       paths:
+#       - path: /static(/|$)(.*)  # 外部访问路径
+#         pathType: ImplementationSpecific
+#         backend:
+#           service:
+#             name: hadoop-namenode
+#             port:
+#               number: 9870

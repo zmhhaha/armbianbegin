@@ -1,0 +1,64 @@
+# hbase-services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: hbase-master
+spec:
+  type: NodePort
+  selector:
+    app: hbase-master
+  ports:
+  - port: 16000
+    targetPort: 16000  # 必须与容器监听端口一致
+    nodePort: 30600  # 外部访问端口（范围 30000-32767）
+    name: master-rpc
+  - port: 16010
+    targetPort: 16010  # 必须与容器监听端口一致
+    nodePort: 30610  # 外部访问端口（范围 30000-32767）
+    name: master-web
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hbase-master-pod-0
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: hbase-master-0  # 匹配目标Pod的唯一标签
+  ports:
+  - port: 16000
+    targetPort: 16000  # 必须与容器监听端口一致
+    nodePort: 30601  # 外部访问端口（范围 30000-32767）
+    name: master-rpc
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: hbase-master-pod-1
+# spec:
+#   type: NodePort
+#   selector:
+#     statefulset.kubernetes.io/pod-name: hbase-master-1  # 匹配目标Pod的唯一标签
+#   ports:
+#   - port: 16000
+#     targetPort: 16000  # 必须与容器监听端口一致
+#     nodePort: 30602  # 外部访问端口（范围 30000-32767）
+#     name: master-rpc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hbase-regionserver
+spec:
+  type: NodePort
+  selector:
+    app: hbase-regionserver
+  ports:
+  - port: 16020
+    targetPort: 16020  # 必须与容器监听端口一致
+    nodePort: 30620  # 外部访问端口（范围 30000-32767）
+    name: rs-rpc
+  - port: 16030
+    targetPort: 16030  # 必须与容器监听端口一致
+    nodePort: 30630  # 外部访问端口（范围 30000-32767）
+    name: rs-web

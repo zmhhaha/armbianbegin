@@ -33,14 +33,20 @@ RUN apt-get install -y sudo && \
     /hadoop/logs/hadoop \
     /hadoop/logs/yarn \
     /hadoop/mapred/local \
-    /hadoop/yarn/apps && \
+    /hadoop/yarn/apps \
+    /hadoop-ha && \
     chown -R hadoop:hadoop /hadoop && \
     chown -R hadoop:hadoop $HADOOP_HOME && \
+    chown -R hadoop:hadoop /hadoop-ha && \
     chmod 700 /hadoop/dfs/name && \
     chmod 750 /hadoop/dfs/data && \
     chmod 777 /hadoop/tmp && \
     chmod 755 /hadoop/logs 
+
 WORKDIR /hadoop
+
+RUN apt install -y strace
+RUN apt install -y python3
 # USER hadoop
 
 # 临时文件目录（core-site.xml中hadoop.tmp.dir指定）

@@ -1,0 +1,11 @@
+#docker build -f Dockerfile_mysql -t hive_mysql:latest .
+FROM arm64v8/mysql:latest
+
+RUN curl -LO https://mirrors.ustc.edu.cn/apache/hive/hive-standalone-metastore-3.0.0/hive-standalone-metastore-3.0.0-bin.tar.gz \
+    && tar -xzf hive-standalone-metastore-3.0.0-bin.tar.gz \
+    && mv apache-hive-metastore-3.0.0-bin /opt/hive \
+    && rm hive-standalone-metastore-3.0.0-bin.tar.gz
+ 
+# 设置环境变量
+ENV HIVE_HOME /opt/hive
+ENV PATH $HIVE_HOME/bin:$PATH

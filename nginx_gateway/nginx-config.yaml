@@ -1,0 +1,64 @@
+# nginx-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx.conf: |
+    user  nginx;  # 确保镜像中存在该用户
+    worker_processes  auto;  # 正确放置在顶层
+ 
+    events {
+      worker_connections  1024;
+    }
+ 
+    http {
+      include       /etc/nginx/routes/*.conf;
+      default_type  application/octet-stream;
+      
+      access_log  /var/log/nginx/access.log;
+      error_log   /var/log/nginx/error.log warn;
+ 
+      sendfile        on;
+      keepalive_timeout  65;
+ 
+      server {
+        listen 80;
+        server_name _;
+        # 默认拒绝所有请求（由routes/*.conf覆盖）
+        location / {
+            return 404;
+        }
+      }
+
+      server {
+        listen 443 ssl;  # 如需SSL
+        ssl_certificate     /etc/nginx/tls/tls.crt;
+        ssl_certificate_key /etc/nginx/tls/tls.key;
+        server_name _;
+        # 默认拒绝所有请求（由routes/*.conf覆盖）
+        location / {
+            return 404;
+        }
+      }
+    }
+---
+# routes-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: routes-config
+data:
+  default.conf.template: |
+    # 示例：根据Host路由到Service
+    server {
+      listen 80;
+      server_name ${HOST};
+      location / {
+          # 动态解析Service地址
+          set $backend "${SERVICE_NAME}.${NAMESPACE}.svc.cluster.local:${PORT}";
+          proxy_pass http://$backend;
+          proxy_set_header Host $host;
+          # 其他代理头...
+      }
+    }

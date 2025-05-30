@@ -8,4 +8,5 @@ RUN groupadd -g 1000 hadoop && useradd -u 1000 -g hadoop -m -s /bin/bash hadoop 
     /hadoop/logs/hadoop \
     /hadoop/logs/yarn \
     /hadoop/mapred/local \
-    /hadoop/yarn/apps
+    /hadoop/yarn/apps \
+    /hadoop/hbase/data

@@ -1,0 +1,89 @@
+# journalnode-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-journalnode
+spec:
+  selector:
+    app: hadoop-journalnode
+  ports:
+  - name: rpc
+    port: 8485
+    targetPort: 8485
+  - name: http
+    port: 8480
+    targetPort: 8480
+---
+# journalnode-statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hadoop-journalnode
+spec:
+  serviceName: hadoop-journalnode
+  replicas: 3
+  podManagementPolicy: OrderedReady
+  selector:
+    matchLabels:
+      app: hadoop-journalnode
+  template:
+    metadata:
+      labels:
+        app: hadoop-journalnode
+    spec:
+      initContainers:
+      - name: fix-permissions
+        image: nanopct4-master:5000/fix_hadoop_permissions:latest
+        securityContext:
+          runAsUser: 0  # 以 root 用户运行，确保有足够权限
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          chown -R 1000:1000 /hadoop/dfs/journal
+        volumeMounts:
+        - name: hadoop-data
+          mountPath: /hadoop/dfs/journal
+      containers:
+      - name: journalnode
+#        image: apache/hadoop:3.3.6
+        image: nanopct4-master:5000/hadoop_base:latest
+        securityContext:
+          runAsUser: 1000  # 直接指定用户 ID（如 hadoop 用户的 UID）
+          runAsGroup: 1000 # 直接指定组 ID（如 hadoop 组的 GID）
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          export HADOOP_ROLE=journalnode
+          /opt/hadoop/etc/hadoop/init-hadoop.sh
+        volumeMounts:
+        - name: hadoop-data
+          mountPath: /hadoop/dfs/journal
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/init-hadoop.sh
+          subPath: init-hadoop.sh
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/log4j.properties
+          subPath: log4j.properties
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/core-site.xml
+          subPath: core-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/hdfs-site.xml
+          subPath: hdfs-namenode-site.xml
+        envFrom:
+        - configMapRef:
+            name: hadoop-env
+      volumes:
+      - name: config-volume
+        configMap:
+          name: hadoop-config
+          defaultMode: 0755  # 关键权限设置
+  volumeClaimTemplates:  # 动态生成 PVC（仅示例，CephFS 建议静态绑定）
+  - metadata:
+      name: hadoop-data
+    spec:
+      accessModes: [ "ReadWriteMany" ]
+      storageClassName: ceph-fs  # CephFS 存储类
+      resources:
+        requests:
+          storage: 10Gi

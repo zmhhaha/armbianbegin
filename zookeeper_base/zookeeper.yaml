@@ -1,0 +1,117 @@
+# zookeeper-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: zk-hs
+spec:
+  selector:
+    app: zk
+  type: NodePort  # 添加此行
+  ports:
+  - port: 2181
+    targetPort: 2181  # 必须与容器监听端口一致
+    nodePort: 32181  # 外部访问端口（范围 30000-32767）
+    name: client
+  - port: 2888
+    targetPort: 2888  # 必须与容器监听端口一致
+    name: server
+  - port: 3888
+    targetPort: 3888  # 必须与容器监听端口一致
+    name: election
+---
+# zookeeper-statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zk
+spec:
+  serviceName: zk-hs
+  replicas: 3
+  selector:
+    matchLabels:
+      app: zk
+  template:
+    metadata:
+      labels:
+        app: zk
+    spec:
+      containers:
+      - name: zk
+        image: nanopct4-master:5000/zookeeper_base:latest
+        env:
+        - name: ZOO_MY_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+              apiVersion: v1
+              # 通过 Pod 名称末尾数字生成 MY_ID（如 zk-0 → 1）
+              # 需要自定义脚本或 initContainer 处理
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          /opt/zookeeper/bin/init-zookeeper.sh
+        volumeMounts:
+        - name: zk-data
+          mountPath: /data
+        - name: config-volume
+          mountPath: /opt/zookeeper/bin/init-zookeeper.sh
+          subPath: init-zookeeper.sh
+        - name: config-volume
+          mountPath: /opt/zookeeper/conf/zoo.cfg
+          subPath: zoo.cfg
+      volumes:
+      - name: config-volume
+        configMap:
+          name: zookeeper-config
+          defaultMode: 0755  # 关键权限设置
+  volumeClaimTemplates:
+  - metadata:
+      name: zk-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: ceph-rbd  # 根据集群配置调整
+      resources:
+        requests:
+          storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zk-hs-pod-0
+spec:
+  selector:
+    statefulset.kubernetes.io/pod-name: zk-0  # 匹配目标Pod的唯一标签
+  type: NodePort  # 添加此行
+  ports:
+  - port: 2181
+    targetPort: 2181  # 必须与容器监听端口一致
+    nodePort: 32182  # 外部访问端口（范围 30000-32767）
+    name: client
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zk-hs-pod-1
+spec:
+  selector:
+    statefulset.kubernetes.io/pod-name: zk-1  # 匹配目标Pod的唯一标签
+  type: NodePort  # 添加此行
+  ports:
+  - port: 2181
+    targetPort: 2181  # 必须与容器监听端口一致
+    nodePort: 32183  # 外部访问端口（范围 30000-32767）
+    name: client
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zk-hs-pod-2
+spec:
+  selector:
+    statefulset.kubernetes.io/pod-name: zk-2  # 匹配目标Pod的唯一标签
+  type: NodePort  # 添加此行
+  ports:
+  - port: 2181
+    targetPort: 2181  # 必须与容器监听端口一致
+    nodePort: 32184  # 外部访问端口（范围 30000-32767）
+    name: client

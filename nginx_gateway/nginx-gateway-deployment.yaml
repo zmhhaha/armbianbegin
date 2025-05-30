@@ -1,0 +1,82 @@
+# nginx-gateway-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-gateway
+spec:
+  # type: LoadBalancer  # 云环境推荐
+  type: NodePort    # 本地测试使用
+  selector:
+    app: nginx-gateway
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http
+    targetPort: 30080
+  - port: 443
+    targetPort: 443
+    name: https
+    targetPort: 30443
+---
+# nginx-gateway-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-gateway
+  template:
+    metadata:
+      labels:
+        app: nginx-gateway
+    spec:
+      containers:
+      - name: nginx
+        image: nanopct4-master:5000/arm64v8/nginx:latest
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        livenessProbe:  # 存活探针
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        readinessProbe:  # 就绪探针
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 3
+        env:
+        - name: HOST          # 通过环境变量注入
+          value: example.com
+        - name: SERVICE_NAME
+          value: my-service
+        - name: NAMESPACE
+          value: default
+        - name: PORT
+          value: "80"
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: routes-config
+          mountPath: /etc/nginx/routes
+        - name: nginx-secret-volume
+          mountPath: /etc/nginx/tls  # 挂载到容器内的路径
+          readOnly: true
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: nginx-config
+      - name: routes-config
+        configMap:
+          name: routes-config
+      - name: nginx-secret-volume
+        secret:
+          secretName: nginx-secret  # 引用 default 命名空间的 Secret
+          defaultMode: 0400  # 可选：设置文件权限（默认 0644）

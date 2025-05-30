@@ -1,0 +1,28 @@
+# hive-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hive-config
+  namespace: default
+data:
+  log4j2.properties: |
+    rootLogger.level = INFO
+  hive-spark-site.xml: |
+    <configuration>
+      <property>
+        <name>javax.jdo.option.ConnectionURL</name>
+        <value>jdbc:mysql://mysql.default.svc.cluster.local:3306/hive_metastore?createDatabaseIfNotExist=true</value>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionDriverName</name>
+        <value>com.mysql.cj.jdbc.Driver</value>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionUserName</name>
+        <value>hadoop</value>
+      </property>
+      <property>
+        <name>javax.jdo.option.ConnectionPassword</name>
+        <value>1234</value>
+      </property>
+    </configuration>

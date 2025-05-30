@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hbase-env
+data:
+  HBASE_MANAGES_ZK: "false"  # 确保不管理 ZooKeeper
+  HBASE_SSH_OPTS: "-o ConnectTimeout=1 -o ConnectionAttempts=1 -o StrictHostKeyChecking=no"
+  HBASE_SLAVE_SLEEP: "0.1"
+  HBASE_SLAVE_LATENCY: "0"
+  HBASE_NOEXEC_SSH: "true"  # 关键：禁止通过 SSH 执行命令

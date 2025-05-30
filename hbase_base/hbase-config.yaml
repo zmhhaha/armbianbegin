@@ -1,0 +1,106 @@
+# hadoop-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hbase-config
+  labels:
+    app: hbase
+    component: config
+data:
+  # ========================
+  # 核心配置文件
+  # ========================
+  hbase-site.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <configuration>
+      <property>
+        <name>hbase.master</name>
+        <value>hbase-master.default.svc.cluster.local:16000</value>
+      </property>
+      <property>
+        <name>hbase.security.authentication</name>
+        <value>simple</value> <!-- 禁用 SASL -->
+      </property>
+      <property>
+        <name>hbase.rpc.protection</name>
+        <value>authentication</value>
+      </property>
+      <!-- 指向外部 ZooKeeper -->
+      <property>
+        <name>hbase.zookeeper.quorum</name>
+        <value>zk-0.zk-hs.default.svc.cluster.local,zk-1.zk-hs.default.svc.cluster.local,zk-2.zk-hs.default.svc.cluster.local</value>
+      </property>
+      <property>
+        <name>hbase.zookeeper.property.clientPort</name>
+        <value>2181</value>
+      </property>
+      <property>
+        <name>zookeeper.znode.parent</name>
+        <value>/hbase</value>
+      </property>
+      <property>
+        <name>zookeeper.session.timeout</name>
+        <value>120000</value>
+      </property>
+      <property>
+        <name>hbase.zookeeper.property.tickTime</name>
+        <value>2000</value>
+      </property>
+      <property>
+        <name>hbase.regionserver.hostname</name>
+        <value>hbase-regionserver.default.svc.cluster.local</value> <!-- 替换为你的 RegionServer Service 名称 -->
+      </property>
+    
+      <!-- 禁用内置 ZooKeeper -->
+      <property>
+        <name>hbase.cluster.distributed</name>
+        <value>true</value>
+      </property>
+
+      <!-- 禁用快照 -->
+      <property>
+        <name>hbase.snapshot.enabled</name>
+        <value>false</value>
+      </property>
+
+      <property>
+        <name>hbase.master.cleaner.ttl</name>
+        <value>3600000</value> <!-- 默认1小时，调整为2小时 -->
+      </property>
+      <property>
+        <name>hbase.master.logcleaner.ttl</name>
+        <value>7200000</value> <!-- 默认2小时，调整为4小时 -->
+      </property>
+    
+      <!-- HBase 数据存储路径 -->
+      <property>
+        <name>hbase.rootdir</name>
+        <value>hdfs://hdfs-cluster/hbase</value>
+      </property>
+      <property>
+        <name>hbase.tmp.dir</name>
+        <value>/hadoop/hbase/data</value>
+      </property>
+      <property>
+        <name>hbase.unsafe.stream.capability.enforce</name>
+        <value>false</value>
+      </property>
+      <!-- Thrift Server -->
+      <property>
+        <name>hbase.thrift.minWorkerThreads</name>
+        <value>1</value>  <!-- 最小工作线程数 -->
+      </property>
+      <property>
+        <name>hbase.thrift.maxWorkerThreads</name>
+        <value>20</value> <!-- 最大工作线程数 -->
+      </property>
+      <property>
+        <name>hbase.thrift.maxQueuedRequests</name>
+        <value>1000</value> <!-- 请求队列长度 -->
+      </property>
+    </configuration>
+
+  regionservers: |
+    hbase-regionserver-0.hbase-regionserver.default.svc.cluster.local
+    hbase-regionserver-1.hbase-regionserver.default.svc.cluster.local
+    hbase-regionserver-2.hbase-regionserver.default.svc.cluster.local

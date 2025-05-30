@@ -7,12 +7,12 @@ spec:
   selector:
     app: hadoop-datanode  # 与DataNode Pod的标签匹配
   ports:
-    - name: rpc
-      port: 50010
-      targetPort: 50010
-    - name: http
-      port: 50075
-      targetPort: 50075
+  - name: rpc
+    port: 50010
+    targetPort: 50010
+  - name: http
+    port: 50075
+    targetPort: 50075
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -34,7 +34,10 @@ spec:
         image: nanopct4-master:5000/fix_hadoop_permissions:latest
         securityContext:
           runAsUser: 0  # 以 root 用户运行，确保有足够权限
-        command: ["sh", "-c", "chown -R 1000:1000 /hadoop/dfs/data"]
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          chown -R 1000:1000 /hadoop/dfs/data
         volumeMounts:
         - name: hadoop-data
           mountPath: /hadoop/dfs/data

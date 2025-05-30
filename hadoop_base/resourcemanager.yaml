@@ -8,22 +8,25 @@ spec:
   selector:
     app: hadoop-resourcemanager
   ports:
-    - port: 8032
-      targetPort: 8032  # 必须与容器监听端口一致
-      name: client
-      nodePort: 30032  # 外部访问端口（范围 30000-32767）
-    - port: 8031
-      targetPort: 8031  # 必须与容器监听端口一致
-      name: resource-tracker
-      nodePort: 30031  # 外部访问端口（范围 30000-32767）
-    - port: 8030
-      targetPort: 8030  # 必须与容器监听端口一致
-      name: scheduler
-      nodePort: 30030  # 外部访问端口（范围 30000-32767）
-    - port: 8088
-      targetPort: 8088  # 必须与容器监听端口一致
-      name: webui
-      nodePort: 30088  # 外部访问端口（范围 30000-32767）
+  - port: 8032
+    targetPort: 8032  # 必须与容器监听端口一致
+    name: client
+    nodePort: 30032  # 外部访问端口（范围 30000-32767）
+  - port: 8031
+    targetPort: 8031  # 必须与容器监听端口一致
+    name: resource-tracker
+    nodePort: 30031  # 外部访问端口（范围 30000-32767）
+  - port: 8030
+    targetPort: 8030  # 必须与容器监听端口一致
+    name: scheduler
+    nodePort: 30030  # 外部访问端口（范围 30000-32767）
+  - port: 8088
+    targetPort: 8088  # 必须与容器监听端口一致
+    name: webui
+    nodePort: 30088  # 外部访问端口（范围 30000-32767）
+  - port: 8089
+    targetPort: 8089  # 必须与容器监听端口一致
+    name: webui-proxy
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -31,7 +34,7 @@ metadata:
   name: hadoop-resourcemanager
 spec:
   serviceName: hadoop-resourcemanager
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: hadoop-resourcemanager
@@ -57,11 +60,11 @@ spec:
           mountPath: /opt/hadoop/etc/hadoop/log4j.properties
           subPath: log4j.properties
         - name: config-volume
-          mountPath: /opt/hadoop/etc/hadoop/workers
-          subPath: workers
-        - name: config-volume
           mountPath: /opt/hadoop/etc/hadoop/core-site.xml
           subPath: core-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/hdfs-site.xml
+          subPath: hdfs-datanode-site.xml
         - name: config-volume
           mountPath: /opt/hadoop/etc/hadoop/yarn-site.xml
           subPath: yarn-resourcemanager-site.xml
@@ -71,15 +74,78 @@ spec:
         - name: config-volume
           mountPath: /opt/hadoop/etc/hadoop/mapred-site.xml
           subPath: mapred-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/k8s-fence.sh
+          subPath: k8s-fence.sh
+        - name: hive-config-volume
+          mountPath: /opt/hadoop/etc/hadoop/hive-site.xml
+          subPath: hive-spark-site.xml
         envFrom:
         - configMapRef:
             name: hadoop-env
+        env:
+        - name: HADOOP_RESOURCEMANAGER_PODNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+              apiVersion: v1
+              # 通过 Pod 名称末尾数字生成 MY_ID（如 zk-0 → 1）
+              # 需要自定义脚本或 initContainer 处理
       volumes:
       - name: config-volume
         configMap:
           name: hadoop-config
+          defaultMode: 0777  # 关键权限设置
+      - name: hive-config-volume
+        configMap:
+          name: hive-config
           defaultMode: 0755  # 关键权限设置
+      serviceAccountName: zkfc-fencer
       # tolerations:
       #   - key: node-role.kubernetes.io/control-plane
       #     operator: Exists
       #     effect: NoSchedule
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-resourcemanager-pod-0
+spec:
+  type: NodePort  # 添加此行
+  selector:
+    statefulset.kubernetes.io/pod-name: hadoop-resourcemanager-0
+  ports:
+  - port: 8032
+    targetPort: 8032  # 必须与容器监听端口一致
+    name: client
+    nodePort: 30133  # 外部访问端口（范围 30000-32767）
+  - port: 8030
+    targetPort: 8030  # 必须与容器监听端口一致
+    name: scheduler
+    nodePort: 30135  # 外部访问端口（范围 30000-32767）
+  - port: 8088
+    targetPort: 8088  # 必须与容器监听端口一致
+    name: webui
+    nodePort: 30089  # 外部访问端口（范围 30000-32767）
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hadoop-resourcemanager-pod-1
+spec:
+  type: NodePort  # 添加此行
+  selector:
+    statefulset.kubernetes.io/pod-name: hadoop-resourcemanager-1
+  ports:
+  - port: 8032
+    targetPort: 8032  # 必须与容器监听端口一致
+    name: client
+    nodePort: 30134  # 外部访问端口（范围 30000-32767）
+  - port: 8030
+    targetPort: 8030  # 必须与容器监听端口一致
+    name: scheduler
+    nodePort: 30136  # 外部访问端口（范围 30000-32767）
+  - port: 8088
+    targetPort: 8088  # 必须与容器监听端口一致
+    name: webui
+    nodePort: 30090  # 外部访问端口（范围 30000-32767）

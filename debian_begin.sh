@@ -477,6 +477,17 @@ for i in "${hostnamearray[@]}"; do
     ssh root@${i} "${servercmd} --cri-socket unix:///var/run/cri-dockerd.sock"
 done
 
+########################################################
+# 对资源少的node打标
+hostnames="nanopct4-master nanopct4-server1 nanopct4-server2"
+IFS=' ' read -r -a hostnamearray <<< "$hostnames"
+for i in "${hostnamearray[@]}"; do
+    kubectl label nodes ${i} node-type=low-resource
+    kubectl taint nodes ${i} node-type=low-resource:NoSchedule
+done
+kubectl get nodes --show-labels | grep node-type=low-resource
+########################################################
+
 docker run -d --name hadoop --network host\
     -v /etc/ssl/certs/:/etc/ssl/certs/ \
     -v /etc/apt/:/etc/apt/ \
@@ -502,12 +513,14 @@ ssh root@nanopct4-server1 "systemctl restart ceph.target"
 ssh root@nanopct4-server2 "systemctl restart ceph.target"
 ssh root@orangepi5-max-server1 "systemctl restart ceph.target"
 ssh root@nanopct4-master "systemctl restart ceph.target"
-sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts
 
-ssh root@nanopct4-server1 "sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts"
-ssh root@nanopct4-server2 "sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts"
-ssh root@orangepi5-max-server1 "sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts"
-ssh root@nanopct4-master "sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts"
+ssh root@nanopct4-server1 "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
+ssh root@nanopct4-server2 "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
+ssh root@orangepi5-max-server1 "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
+ssh root@nanopct4-master "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
 
 echo $[$(cat /sys/class/thermal/thermal_zone0/temp)/1000]°C
 echo $[$(cat /sys/class/thermal/thermal_zone1/temp)/1000]°C
+
+docker image inspect <镜像名称>
+docker image history <镜像名称>

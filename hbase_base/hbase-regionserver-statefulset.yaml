@@ -1,0 +1,84 @@
+# hbase-regionserver-statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hbase-regionserver
+spec:
+  serviceName: hbase-regionserver
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hbase-regionserver
+  template:
+    metadata:
+      labels:
+        app: hbase-regionserver
+    spec:
+      initContainers:
+      - name: fix-permissions
+        image: nanopct4-master:5000/fix_hadoop_permissions:latest
+        securityContext:
+          runAsUser: 0  # 以 root 用户运行，确保有足够权限
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          chown -R 1000:1000 /hadoop/hbase/data
+        volumeMounts:
+        - name: hbase-data
+          mountPath: /hadoop/hbase/data
+      containers:
+      - name: hbase-regionserver
+        image: nanopct4-master:5000/hbase_base:latest
+        securityContext:
+          runAsUser: 1000  # 直接指定用户 ID（如 hadoop 用户的 UID）
+          runAsGroup: 1000 # 直接指定组 ID（如 hadoop 组的 GID）
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          hbase regionserver start
+        env:
+        - name: ZOOKEEPER_QUORUM
+          value: "zk-0.zk-hs.default.svc.cluster.local:2181,zk-1.zk-hs.default.svc.cluster.local:2181,zk-2.zk-hs.default.svc.cluster.local:2181"
+        - name: HBASE_MANAGES_ZK
+          value: "false"
+        - name: HBASE_REGIONSERVER_OPTS
+          value: "-Xmx1g"
+        envFrom:
+        - configMapRef:
+            name: hbase-env
+        ports:
+        - containerPort: 16020  # RegionServer RPC
+        - containerPort: 16030  # RegionServer Web UI
+        volumeMounts:
+        - name: hbase-data
+          mountPath: /hadoop/hbase/data
+        - name: hadoop-config-volume
+          mountPath: /opt/hbase/conf/core-site.xml
+          subPath: core-site.xml
+        - name: hadoop-config-volume
+          mountPath: /opt/hbase/conf/hdfs-site.xml
+          subPath: hdfs-datanode-site.xml
+        - name: hbase-config-volume
+          mountPath: /opt/hbase/conf/hbase-site.xml
+          subPath: hbase-site.xml
+        - name: hbase-config-volume
+          mountPath: /opt/hbase/conf/regionservers
+          subPath: regionservers
+      volumes:
+      - name: hadoop-config-volume
+        configMap:
+          name: hadoop-config
+          defaultMode: 0755  # 关键权限设置
+      - name: hbase-config-volume
+        configMap:
+          name: hbase-config
+          defaultMode: 0755  # 关键权限设置
+  volumeClaimTemplates:  # 每个 Pod 自动创建独立 PVC
+  - metadata:
+      name: hbase-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: ceph-rbd  # RBD 存储类
+      resources:
+        requests:
+          storage: 10Gi

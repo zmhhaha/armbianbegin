@@ -1,0 +1,52 @@
+# Kubernetes 示例（hbase-thrift.yaml）
+apiVersion: v1
+kind: Service
+metadata:
+  name: hbase-thrift
+  namespace: default
+spec:
+  type: NodePort
+  selector:
+    app: hbase-thrift
+  ports:
+  - port: 9090
+    targetPort: 9090
+    nodePort: 30990  # 外部访问端口（范围 30000-32767）
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hbase-thrift
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hbase-thrift
+  template:
+    metadata:
+      labels:
+        app: hbase-thrift
+    spec:
+      containers:
+      - name: hbase-thrift
+        image: nanopct4-master:5000/hbase_base:latest
+        securityContext:
+          runAsUser: 1000  # 直接指定用户 ID（如 hadoop 用户的 UID）
+          runAsGroup: 1000 # 直接指定组 ID（如 hadoop 组的 GID）
+        command: ["hbase", "thrift", "start"]
+        ports:
+        - containerPort: 9090  # Thrift 默认端口
+        env:
+        - name: HBASE_ZOOKEEPER_QUORUM
+          value: "zk-0.zk-hs.default.svc.cluster.local:2181,zk-1.zk-hs.default.svc.cluster.local:2181,zk-2.zk-hs.default.svc.cluster.local:2181"  # ZK 地址
+        volumeMounts:
+        - name: hbase-config-volume
+          mountPath: /opt/hbase/conf/hbase-site.xml
+          subPath: hbase-site.xml
+      volumes:
+      - name: hbase-config-volume
+        configMap:
+          name: hbase-config
+          defaultMode: 0755  # 关键权限设置
+        

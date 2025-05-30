@@ -1,0 +1,21 @@
+#docker build -f Dockerfile_hive -t hive_hadoop:latest .
+
+FROM hadoop_base:latest
+
+RUN curl -LO https://mirrors.ustc.edu.cn/apache/hive/hive-standalone-metastore-3.0.0/hive-standalone-metastore-3.0.0-bin.tar.gz \
+    && tar -xzf hive-standalone-metastore-3.0.0-bin.tar.gz \
+    && mv apache-hive-metastore-3.0.0-bin /opt/hive \
+    && rm hive-standalone-metastore-3.0.0-bin.tar.gz
+
+RUN wget https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.28.tar.gz && \
+    tar -xzf mysql-connector-java-8.0.28.tar.gz && \
+    cp mysql-connector-java-8.0.28/mysql-connector-java-8.0.28.jar /opt/hive/lib/ && \
+    rm -rf mysql-connector-java-8.0.28.tar.gz mysql-connector-java-8.0.28
+
+RUN rm -rf /opt/hadoop/share/hadoop/common/lib/slf4j-reload4j-1.7.36.jar
+
+RUN chown -R hadoop:hadoop /opt/hive/
+
+# 设置环境变量
+ENV HIVE_HOME /opt/hive
+ENV PATH $HIVE_HOME/bin:$PATH
