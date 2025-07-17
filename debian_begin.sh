@@ -514,6 +514,11 @@ ssh root@nanopct4-server2 "systemctl restart ceph.target"
 ssh root@orangepi5-max-server1 "systemctl restart ceph.target"
 ssh root@nanopct4-master "systemctl restart ceph.target"
 
+ssh root@nanopct4-server1 "docker rmi \$(docker images -q);"
+ssh root@nanopct4-server2 "docker rmi \$(docker images -q);"
+ssh root@orangepi5-max-server1 "docker rmi \$(docker images -q);"
+ssh root@nanopct4-master "docker rmi \$(docker images -q);"
+
 ssh root@nanopct4-server1 "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
 ssh root@nanopct4-server2 "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
 ssh root@orangepi5-max-server1 "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
