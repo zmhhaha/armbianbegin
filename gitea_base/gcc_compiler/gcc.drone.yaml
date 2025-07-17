@@ -1,0 +1,65 @@
+kind: pipeline
+type: kubernetes
+name: cpp-build
+
+clone:
+  disable: true  # 禁用默认的 clone 步骤
+ 
+steps:
+- name: clone  # 此时不会与默认步骤冲突
+  image: nanopct4-master:5000/gcc_compiler:latest
+  commands:
+    - git clone http://gitea.zmh.com:30080/zmh_haha/drone_test.git .
+    - git config --global --add safe.directory /drone/src
+    - git checkout $DRONE_COMMIT
+    - git submodule update --init --recursive
+  pull: always
+  
+- name: build-arm64
+  image: nanopct4-master:5000/gcc_compiler:latest
+  commands:
+    - mkdir build-arm64 && cd build-arm64
+    - cmake -DCMAKE_TOOLCHAIN_FILE=/opt/toolchains/arm64.cmake ..
+    - make -j$(nproc)
+
+- name: build-x86_64
+  image: nanopct4-master:5000/gcc_compiler:latest
+  commands:
+    - mkdir build-x86 && cd build-x86
+    - cmake -DCMAKE_TOOLCHAIN_FILE=/opt/toolchains/x86_64.cmake ..
+    - make -j$(nproc)
+
+# - name: test-x86_64
+#   image: nanopct4-master:5000/gcc_compiler:latest
+#   commands:
+#     - cd build-x86
+#     - ctest --output-on-failure  # 或直接运行测试二进制文件
+# 
+# - name: test-arm64
+#   image: nanopct4-master:5000/gcc_compiler:latest
+#   commands:
+#     - cd build-arm64
+#     - ctest --output-on-failure  # 或直接运行测试二进制文件
+
+# 代码静态分析
+- name: static-analysis
+  image: nanopct4-master:5000/gcc_compiler:latest
+  commands:
+    - cppcheck --enable=all --inconclusive --std=c++17 src/ 2> cppcheck-report.txt
+  when:
+    event: [push, pull_request]  # 仅在代码提交时分析
+
+# 打包
+- name: package-x86
+  image: nanopct4-master:5000/gcc_compiler:latest
+  commands:
+    - cd build-x86
+    - cpack -G DEB  # 生成 Debian 包（需提前配置 CPack）
+    - mv *.deb ../  # 移动到工作目录供后续步骤使用
+
+- name: package-arm64
+  image: nanopct4-master:5000/gcc_compiler:latest
+  commands:
+    - cd build-arm64
+    - cpack -G DEB  # 生成 Debian 包（需提前配置 CPack）
+    - mv *.deb ../  # 移动到工作目录供后续步骤使用

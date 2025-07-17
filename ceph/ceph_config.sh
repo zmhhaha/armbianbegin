@@ -207,12 +207,20 @@ cat >> csi-cephfsplugin-provisioner.yaml << EOF
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
           effect: NoSchedule
+        - key: "node-type"
+          operator: "Equal"
+          value: "low-resource"
+          effect: "NoSchedule"
 EOF
 cat >> ../../rbd/kubernetes/csi-rbdplugin-provisioner.yaml << EOF
       tolerations:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
           effect: NoSchedule
+        - key: "node-type"
+          operator: "Equal"
+          value: "low-resource"
+          effect: "NoSchedule"
 EOF
 # csi-*plugin.yaml必须修改 否则在控制平面上启动的服务无法使用ceph提供的存储服务
 sed -i '/volumes:/i\

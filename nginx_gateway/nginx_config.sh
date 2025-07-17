@@ -22,3 +22,6 @@ docker pull registry.aliyuncs.com/google_containers/kube-webhook-certgen:v202304
 
 
 curl -H "Host: zmh.com" http://192.168.137.101:30080/yarn-webui
+
+# 修改windows的hosts
+# C:\Windows\System32\drivers\etc

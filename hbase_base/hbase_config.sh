@@ -45,3 +45,5 @@ hbase shell
 > status 'detailed'
 > create 'my_table', 'cf'
 > list_namespace_tables 'default'
+
+hbase hbck -repair

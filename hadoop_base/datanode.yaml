@@ -68,6 +68,9 @@ spec:
         - name: config-volume
           mountPath: /opt/hadoop/etc/hadoop/hdfs-site.xml
           subPath: hdfs-datanode-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/k8s-fence.sh
+          subPath: k8s-fence.sh
         envFrom:
         - configMapRef:
             name: hadoop-env
@@ -76,6 +79,7 @@ spec:
         configMap:
           name: hadoop-config
           defaultMode: 0755  # 关键权限设置
+      serviceAccountName: zkfc-fencer
   volumeClaimTemplates:  # 每个 Pod 自动创建独立 PVC
   - metadata:
       name: hadoop-data

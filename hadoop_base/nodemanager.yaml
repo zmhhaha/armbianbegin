@@ -63,6 +63,9 @@ spec:
         - name: config-volume
           mountPath: /opt/hadoop/etc/hadoop/mapred-site.xml
           subPath: mapred-site.xml
+        - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/k8s-fence.sh
+          subPath: k8s-fence.sh
         - name: hive-config-volume
           mountPath: /opt/hadoop/etc/hadoop/hive-site.xml
           subPath: hive-spark-site.xml
@@ -83,3 +86,4 @@ spec:
         configMap:
           name: hive-config
           defaultMode: 0755  # 关键权限设置
+      serviceAccountName: zkfc-fencer

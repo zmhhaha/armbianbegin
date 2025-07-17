@@ -524,3 +524,13 @@ echo $[$(cat /sys/class/thermal/thermal_zone1/temp)/1000]°C
 
 docker image inspect <镜像名称>
 docker image history <镜像名称>
+
+#orangepi5
+cd /sys/class/leds/green_led
+cd /sys/class/leds/blue_led
+# 设置绿灯停止闪烁的命令如下
+echo none > trigger
+# 设置绿灯常亮的命令如下
+echo default-on > trigger
+# 设置绿灯闪烁的命令如下
+echo heartbeat > trigger

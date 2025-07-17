@@ -313,6 +313,5 @@ kubectl rollout restart statefulset/hadoop-resourcemanager
 kubectl rollout restart statefulset/hadoop-nodemanager
 
 
-docker build -t hadoop_base:latest .
-docker tag java_base:latest nanopct4-master:5000/java_base:latest
-docker push nanopct4-master:5000/java_base:latest
+docker tag mypod:latest nanopct4-master:5000/mypod:latest
+docker push nanopct4-master:5000/mypod:latest

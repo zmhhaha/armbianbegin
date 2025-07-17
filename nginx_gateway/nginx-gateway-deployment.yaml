@@ -12,11 +12,11 @@ spec:
   - port: 80
     targetPort: 80
     name: http
-    targetPort: 30080
+    nodePort: 30080
   - port: 443
     targetPort: 443
     name: https
-    targetPort: 30443
+    nodePort: 30443
 ---
 # nginx-gateway-deployment.yaml
 apiVersion: apps/v1

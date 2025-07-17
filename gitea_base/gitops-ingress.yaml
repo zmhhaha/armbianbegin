@@ -1,0 +1,31 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gitea-ingress
+  namespace: gitops  # 替换为您的命名空间
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"  # 启用正则路径匹配
+    nginx.ingress.kubernetes.io/rewrite-target: /$1  # 路径重写（可选）
+spec:
+  ingressClassName: nginx  # 替换为您的 Ingress 类名
+  rules:
+  - host: gitea.zmh.com  # 替换为您的域名（如 gitea.zmh.com）
+    http:
+      paths:
+      - path: /(.*)  # 捕获所有路径（如 /user/login）
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: gitea  # 替换为您的 Gitea Service 名称
+            port:
+              number: 3000  # 替换为您的 Gitea Service 端口
+  - host: drone.zmh.com
+    http:
+      paths:
+      - path: /(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: drone-server
+            port:
+              number: 8080

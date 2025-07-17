@@ -1,0 +1,20 @@
+#docker build -f Dockerfile_gitea -t gitea_base:latest .
+
+FROM base:latest
+
+COPY app.ini /etc/gitea/
+
+RUN groupadd -g 1001 git && useradd -u 1001 -g git -m -s /bin/bash git && \
+    mkdir -p /var/lib/gitea/{custom,data,log} && \
+    chown -R git:git /var/lib/gitea && \
+    chown -R git:git /etc/gitea/app.ini && \
+    chmod 0777 /etc/gitea/app.ini
+
+RUN wget https://dl.gitea.com/gitea/1.23.8/gitea-1.23.8-linux-arm64 -O /usr/local/bin/gitea && \
+    chmod +x /usr/local/bin/gitea
+
+RUN apt install -y git
+
+WORKDIR /var/lib/gitea/
+
+CMD ["bash", "-c", "tail -f /dev/null" ]

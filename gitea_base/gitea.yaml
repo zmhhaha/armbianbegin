@@ -1,0 +1,81 @@
+# gitea-statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: gitea
+  namespace: gitops
+spec:
+  serviceName: gitea
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitea
+  template:
+    metadata:
+      labels:
+        app: gitea
+    spec:
+      initContainers:
+      - name: init-gitea
+        image: nanopct4-master:5000/gitea_base:latest
+        securityContext:
+          runAsUser: 0  # 以 root 用户运行，确保有足够权限
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          chown -R 1001:1001 /var/lib/gitea
+        volumeMounts:
+        - name: gitea-data
+          mountPath: /var/lib/gitea
+      containers:
+      - name: gitea
+        image: nanopct4-master:5000/gitea_base:latest
+        securityContext:
+          runAsUser: 1001  # 直接指定用户 ID（如 gitea 用户的 UID）
+          runAsGroup: 1001 # 直接指定组 ID（如 gitea 组的 GID）
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          /usr/local/bin/gitea web --config /etc/gitea/app.ini
+        envFrom:
+        - configMapRef:
+            name: gitea-env
+        volumeMounts:
+        - name: gitea-data
+          mountPath: /var/lib/gitea
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: gitea-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: ceph-rbd  # RBD 存储类
+      resources:
+        requests:
+          storage: 10Gi
+---
+# gitea-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitea
+  namespace: gitops
+spec:
+  type: NodePort  # 添加此行
+  selector:
+    app: gitea
+  ports:
+  - port: 3000
+    targetPort: 3000  # 必须与容器监听端口一致
+    nodePort: 30300

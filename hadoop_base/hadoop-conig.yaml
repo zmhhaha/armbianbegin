@@ -703,18 +703,32 @@ data:
   # ========================
   init-hadoop.sh: |
     #!/bin/bash
-    CHECK_INTERVAL=30
+    CHECK_INTERVAL=60
     WAIT_EXIT=20
     daemon_jps() {
       # 循环检测进程
       while true; do
+        sleep $CHECK_INTERVAL
         # 获取所有 Java 进程列表（含完整包名）
         jps_output=$(jps -l 2>/dev/null)
+        restart_flag=0
 
         # 检查是否包含目标进程
         if echo "$jps_output" | grep -iq "$HADOOP_ROLE"; then
-          sleep $CHECK_INTERVAL
+          echo "$HADOOP_ROLE is normal"
         else
+          restart_flag=1
+        fi
+        if [ $HADOOP_ROLE == "namenode" ]; then
+          if echo "$jps_output" | grep -iq "DFSZKFailoverController"; then
+            echo "zkfc is normal"
+          else
+            restart_flag=1
+          fi
+        fi
+
+        if [ $restart_flag -eq 1 ]; then
+          echo "server is not normal, need restart"
           sleep $WAIT_EXIT
           /bin/bash /opt/hadoop/etc/hadoop/k8s-fence.sh >> /hadoop/logs/k8s-fence.log
         fi
@@ -729,14 +743,15 @@ data:
           hdfs journalnode -format
         fi
         hdfs --daemon start journalnode
-        tail -f /dev/null
+        daemon_jps
+        # tail -f /dev/null
         ;;
       namenode)
+        hdfs zkfc -formatZK -force -nonInteractive
         # 格式化NameNode（首次启动）
         pod_num=$(echo ${HADOOP_NAMENODE_PODNAME} | awk -F- '{print $3}')
         if [ ! -f /hadoop/dfs/name/current/VERSION ]; then
           echo "Initializing HDFS NameNode..."
-          hdfs zkfc -formatZK -force -nonInteractive
           if [ "${pod_num}" == "0" ]; then
             hdfs namenode -format -clusterID hdfs-cluster -force -nonInteractive
           else
@@ -751,7 +766,8 @@ data:
         ;;
       datanode)
         hdfs --daemon start datanode
-        tail -f /dev/null
+        daemon_jps
+        # tail -f /dev/null
         ;;
       resourcemanager)
         pod_num=$(echo ${HADOOP_RESOURCEMANAGER_PODNAME} | awk -F- '{print $3}')
@@ -764,7 +780,8 @@ data:
         ;;
       nodemanager)
         yarn --daemon start nodemanager
-        tail -f /dev/null
+        daemon_jps
+        # tail -f /dev/null
         ;;
       historyserver)
         mapred --daemon start historyserver

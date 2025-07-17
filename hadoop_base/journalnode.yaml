@@ -68,6 +68,9 @@ spec:
           mountPath: /opt/hadoop/etc/hadoop/core-site.xml
           subPath: core-site.xml
         - name: config-volume
+          mountPath: /opt/hadoop/etc/hadoop/k8s-fence.sh
+          subPath: k8s-fence.sh
+        - name: config-volume
           mountPath: /opt/hadoop/etc/hadoop/hdfs-site.xml
           subPath: hdfs-namenode-site.xml
         envFrom:
@@ -78,6 +81,7 @@ spec:
         configMap:
           name: hadoop-config
           defaultMode: 0755  # 关键权限设置
+      serviceAccountName: zkfc-fencer
   volumeClaimTemplates:  # 动态生成 PVC（仅示例，CephFS 建议静态绑定）
   - metadata:
       name: hadoop-data

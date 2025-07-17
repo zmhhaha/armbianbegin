@@ -29,7 +29,7 @@ RUN apt install -y \
     pkg-config \
     maven
 
-    apt-get install libc6 zlib1g openssl
+RUN apt install -y libc6 zlib1g openssl
 
 RUN mkdir -p /opt/protobuf-src && \
     curl -L -s -S https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.21.12.tar.gz -o /opt/protobuf.tar.gz && \
