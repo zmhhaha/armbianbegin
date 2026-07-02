@@ -1,10 +1,12 @@
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+[ -f "${script_dir}/../cluster_config.sh" ] && source "${script_dir}/../cluster_config.sh"
 docker build -t hadoop_base:latest .
-docker tag hadoop_base:latest nanopct4-master:5000/hadoop_base:latest
-docker push nanopct4-master:5000/hadoop_base:latest
+docker tag hadoop_base:latest ${REGISTRY}/hadoop_base:latest
+docker push ${REGISTRY}/hadoop_base:latest
 
 docker build -t fix_hadoop_permissions:latest -f Fix_Dockerfile .
-docker tag fix_hadoop_permissions:latest nanopct4-master:5000/fix_hadoop_permissions:latest
-docker push nanopct4-master:5000/fix_hadoop_permissions:latest
+docker tag fix_hadoop_permissions:latest ${REGISTRY}/fix_hadoop_permissions:latest
+docker push ${REGISTRY}/fix_hadoop_permissions:latest
 
 kubectl apply -f hadoop_config.yaml -f namenode.yaml -f datanode.yaml -f resourcemanager.yaml -f nodemanager.yaml
 kubectl delete -f hadoop_config.yaml -f namenode.yaml -f datanode.yaml -f resourcemanager.yaml -f nodemanager.yaml
@@ -86,7 +88,7 @@ cat > /opt/hadoop/etc/hadoop/core-site.xml << EOF
   <!-- ZooKeeper 地址（需替换为实际外部 IP 或域名） -->
   <property>
     <name>ha.zookeeper.quorum</name>
-    <value>nanopct4-master:32182,nanopct4-master:32183,nanopct4-master:32184</value>
+    <value>${MASTER_HOSTNAME}:32182,${MASTER_HOSTNAME}:32183,${MASTER_HOSTNAME}:32184</value>
   </property>
 </configuration>
 EOF
@@ -114,11 +116,11 @@ cat > /opt/hadoop/etc/hadoop/hdfs-site.xml << EOF
   <!-- NameNode RPC 地址（替换为外部 IP 或域名） -->
   <property>
     <name>dfs.namenode.rpc-address.hdfs-cluster.nn0</name>
-    <value>nanopct4-master:30021</value>
+    <value>${MASTER_HOSTNAME}:30021</value>
   </property>
   <property>
     <name>dfs.namenode.rpc-address.hdfs-cluster.nn1</name>
-    <value>nanopct4-master:30022</value>
+    <value>${MASTER_HOSTNAME}:30022</value>
   </property>
 
   <!-- 自动故障转移 -->
@@ -153,23 +155,23 @@ cat > /opt/hadoop/etc/hadoop/yarn-site.xml << EOF
   </property>
   <property>
     <name>yarn.resourcemanager.address.rm0</name>
-    <value>nanopct4-master:30133</value>
+    <value>${MASTER_HOSTNAME}:30133</value>
   </property>
   <property>
     <name>yarn.resourcemanager.address.rm1</name>
-    <value>nanopct4-master:30134</value>
+    <value>${MASTER_HOSTNAME}:30134</value>
   </property>
   <property>
     <name>yarn.resourcemanager.scheduler.address.rm0</name>
-    <value>nanopct4-master:30135</value>
+    <value>${MASTER_HOSTNAME}:30135</value>
   </property>
   <property>
     <name>yarn.resourcemanager.scheduler.address.rm1</name>
-    <value>nanopct4-master:30136</value>
+    <value>${MASTER_HOSTNAME}:30136</value>
   </property>
   <property>
     <name>yarn.resourcemanager.zk-address</name>
-    <value>nanopct4-master:32182,nanopct4-master:32183,nanopct4-master:32184</value>
+    <value>${MASTER_HOSTNAME}:32182,${MASTER_HOSTNAME}:32183,${MASTER_HOSTNAME}:32184</value>
   </property>
   <property>
     <name>yarn.resourcemanager.ha.automatic-failover.enabled</name>
@@ -313,5 +315,5 @@ kubectl rollout restart statefulset/hadoop-resourcemanager
 kubectl rollout restart statefulset/hadoop-nodemanager
 
 
-docker tag mypod:latest nanopct4-master:5000/mypod:latest
-docker push nanopct4-master:5000/mypod:latest
+docker tag mypod:latest ${REGISTRY}/mypod:latest
+docker push ${REGISTRY}/mypod:latest

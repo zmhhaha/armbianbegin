@@ -1,6 +1,8 @@
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+[ -f "${script_dir}/../cluster_config.sh" ] && source "${script_dir}/../cluster_config.sh"
 docker build -t spark_base:latest .
-docker tag spark_base:latest nanopct4-master:5000/spark_base:latest
-docker push nanopct4-master:5000/spark_base:latest
+docker tag spark_base:latest ${REGISTRY}/spark_base:latest
+docker push ${REGISTRY}/spark_base:latest
 
 kubectl get pods | grep spark | awk '{print $1}' | xargs -I {} kubectl exec -it {} -- jps
 
@@ -22,7 +24,7 @@ hdfs dfs -put /opt/spark/jars/*.jar /spark/jars/
 # spark.yarn.access.nameservices            default
 # spark.eventLog.enabled                    true
 # spark.eventLog.dir                        hdfs:///spark-eventlog
-# spark.hadoop.fs.defaultFS                 hdfs://nanopct4-master:30020
+# spark.hadoop.fs.defaultFS                 hdfs://${MASTER_HOSTNAME}:30020
 # spark.sql.shuffle.partitions              4
 # spark.dynamicAllocation.enabled           true
 # spark.yarn.jars                           hdfs:///spark/jars/*.jar
@@ -33,11 +35,11 @@ cat > /opt/spark/conf/spark-defaults.conf << EOF
 # 启用 YARN ResourceManager HA
 spark.hadoop.yarn.resourcemanager.ha.enabled          true
 spark.hadoop.yarn.resourcemanager.ha.rm-ids           rm0,rm1
-spark.hadoop.yarn.resourcemanager.address.rm0         nanopct4-master:30133
-spark.hadoop.yarn.resourcemanager.address.rm1         nanopct4-master:30134
+spark.hadoop.yarn.resourcemanager.address.rm0         ${MASTER_HOSTNAME}:30133
+spark.hadoop.yarn.resourcemanager.address.rm1         ${MASTER_HOSTNAME}:30134
 
 # 配置 ZooKeeper 地址（用于 YARN HA 状态存储）
-spark.hadoop.yarn.resourcemanager.zk-address           nanopct4-master:32182,nanopct4-master:32183,nanopct4-master:32184
+spark.hadoop.yarn.resourcemanager.zk-address           ${MASTER_HOSTNAME}:32182,${MASTER_HOSTNAME}:32183,${MASTER_HOSTNAME}:32184
 
 # ========== HDFS 高可用配置 ==========
 # 指定 HDFS 逻辑名称服务（与 Hadoop 的 hdfs-site.xml 一致）
@@ -46,8 +48,8 @@ spark.hadoop.fs.defaultFS                              hdfs://hdfs-cluster
 # 配置 HDFS 客户端 HA 参数
 spark.hadoop.dfs.nameservices                          hdfs-cluster
 spark.hadoop.dfs.ha.namenodes.hdfs-cluster             nn0,nn1
-spark.hadoop.dfs.namenode.rpc-address.hdfs-cluster.nn0 nanopct4-master:30021
-spark.hadoop.dfs.namenode.rpc-address.hdfs-cluster.nn1 nanopct4-master:30022
+spark.hadoop.dfs.namenode.rpc-address.hdfs-cluster.nn0 ${MASTER_HOSTNAME}:30021
+spark.hadoop.dfs.namenode.rpc-address.hdfs-cluster.nn1 ${MASTER_HOSTNAME}:30022
 
 # ========== Spark 提交配置 ==========
 # 指定 YARN 模式
@@ -63,7 +65,7 @@ spark.yarn.jars                                        hdfs:///spark/jars/*.jar
 spark.sql.hive.metastore.sharedPrefixes                com.mysql.jdbc
 spark.sql.hive.metastore.version                       2.3.9
 # spark.sql.hive.metastore.jars                          /opt/hive/lib/hive-metastore-3.0.0.jar,/opt/hive/lib/hive-exec-3.0.0.jar
-spark.hadoop.hive.metastore.uris                       thrift://nanopct4-master:30983
+spark.hadoop.hive.metastore.uris                       thrift://${MASTER_HOSTNAME}:30983
 spark.sql.warehouse.dir                                hdfs://hdfs-cluster/warehouse
 EOF
 

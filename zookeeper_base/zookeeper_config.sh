@@ -1,6 +1,8 @@
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+[ -f "${script_dir}/../cluster_config.sh" ] && source "${script_dir}/../cluster_config.sh"
 docker build -t zookeeper_base:latest .
-docker tag zookeeper_base:latest nanopct4-master:5000/zookeeper_base:latest
-docker push nanopct4-master:5000/zookeeper_base:latest
+docker tag zookeeper_base:latest ${REGISTRY}/zookeeper_base:latest
+docker push ${REGISTRY}/zookeeper_base:latest
 
 kubectl apply -f zookeeper-config.yaml
 kubectl apply -f zookeeper.yaml

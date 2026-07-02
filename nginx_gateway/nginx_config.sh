@@ -1,8 +1,10 @@
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+[ -f "${script_dir}/../cluster_config.sh" ] && source "${script_dir}/../cluster_config.sh"
 ########################################################
 # 自制nginx镜像及配置
 docker pull arm64v8/nginx:latest
-docker tag arm64v8/nginx:latest nanopct4-master:5000/arm64v8/nginx:latest
-docker push nanopct4-master:5000/arm64v8/nginx:latest
+docker tag arm64v8/nginx:latest ${REGISTRY}/arm64v8/nginx:latest
+docker push ${REGISTRY}/arm64v8/nginx:latest
 
 # 导出 kube-system 中的 Secret 数据
 kubectl get secret registry-secret -n kube-system -o jsonpath='{.data.tls\.crt}' | base64 --decode > tls.crt

@@ -1,3 +1,7 @@
+#!/bin/bash
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+[ -f "${script_dir}/../cluster_config.sh" ] && source "${script_dir}/../cluster_config.sh"
+
 #rm -rf /etc/apt/keyrings/ceph.gpg
 #curl -fsSL https://download.ceph.com/keys/release.asc |  gpg --dearmor -o /etc/apt/keyrings/ceph.gpg
 #echo "deb [arch=arm64 signed-by=/etc/apt/keyrings/ceph.gpg] https://download.ceph.com/debian-squid/ $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/ceph.list
@@ -16,7 +20,7 @@ apt install -y ceph-mon ceph-osd ceph-mgr ceph-common
 # [global]
 # fsid = $(uuidgen)
 # mon_initial_members = ceph-master, ceph-server1, ceph-server2
-# mon_host = 192.168.137.101,192.168.137.201,192.168.137.202  # 替换为实际 IP
+# mon_host = 192.168.137.201,192.168.137.202,192.168.137.203  # 替换为实际 IP
 # public_network = 192.168.137.0/24
 # cluster_network = 192.168.137.0/24
 # auth_cluster_required = cephx
@@ -32,24 +36,25 @@ sed -i '/ceph-/d' ~/.ssh/authorized_keys
 
 reboot
 
-cephadm bootstrap --mon-ip 192.168.137.101 --cluster-network 192.168.137.0/24
+# master
+cephadm bootstrap --mon-ip ${MASTER_IP} --cluster-network 192.168.137.0/24
 ceph cephadm get-pub-key > ~/ceph.pub
-ssh-copy-id -f -i ~/ceph.pub root@nanopct4-master
+ssh-copy-id -f -i ~/ceph.pub root@${MASTER_HOSTNAME}
 ceph auth get client.bootstrap-osd -o /var/lib/ceph/bootstrap-osd/ceph.keyring
-ceph orch host label add nanopct4-master ceph-master
-#ceph orch host label rm nanopct4-master ceph-master
+ceph orch host label add ${MASTER_HOSTNAME} ceph-master
+#ceph orch host label rm ${MASTER_HOSTNAME} ceph-master
 
-docker tag quay.io/ceph/ceph:v16 nanopct4-master:5000/quay.io/ceph/ceph:v16
-docker tag quay.io/ceph/ceph-grafana:8.3.5 nanopct4-master:5000/quay.io/ceph/ceph-grafana:8.3.5
-docker tag quay.io/prometheus/prometheus:v2.33.4 nanopct4-master:5000/quay.io/prometheus/prometheus:v2.33.4
-docker tag quay.io/prometheus/node-exporter:v1.3.1 nanopct4-master:5000/quay.io/prometheus/node-exporter:v1.3.1
-docker tag quay.io/prometheus/alertmanager:v0.23.0 nanopct4-master:5000/quay.io/prometheus/alertmanager:v0.23.0
+docker tag quay.io/ceph/ceph:v16 ${REGISTRY}/quay.io/ceph/ceph:v16
+docker tag quay.io/ceph/ceph-grafana:8.3.5 ${REGISTRY}/quay.io/ceph/ceph-grafana:8.3.5
+docker tag quay.io/prometheus/prometheus:v2.33.4 ${REGISTRY}/quay.io/prometheus/prometheus:v2.33.4
+docker tag quay.io/prometheus/node-exporter:v1.3.1 ${REGISTRY}/quay.io/prometheus/node-exporter:v1.3.1
+docker tag quay.io/prometheus/alertmanager:v0.23.0 ${REGISTRY}/quay.io/prometheus/alertmanager:v0.23.0
 
-docker push nanopct4-master:5000/quay.io/ceph/ceph:v16
-docker push nanopct4-master:5000/quay.io/ceph/ceph-grafana:8.3.5
-docker push nanopct4-master:5000/quay.io/prometheus/prometheus:v2.33.4
-docker push nanopct4-master:5000/quay.io/prometheus/node-exporter:v1.3.1
-docker push nanopct4-master:5000/quay.io/prometheus/alertmanager:v0.23.0
+docker push ${REGISTRY}/quay.io/ceph/ceph:v16
+docker push ${REGISTRY}/quay.io/ceph/ceph-grafana:8.3.5
+docker push ${REGISTRY}/quay.io/prometheus/prometheus:v2.33.4
+docker push ${REGISTRY}/quay.io/prometheus/node-exporter:v1.3.1
+docker push ${REGISTRY}/quay.io/prometheus/alertmanager:v0.23.0
 
 cat >> /etc/ceph/ceph.conf << EOF
         auth_cluster_required = cephx
@@ -58,7 +63,8 @@ cat >> /etc/ceph/ceph.conf << EOF
 EOF
 
 # 添加 server1 和 server2 为集群节点
-hostnames="nanopct4-server1 nanopct4-server2 orangepi5-max-server1"
+# server
+hostnames="nanopct4-server1 nanopct4-server2 nanopct4-server3 orangepi5-max-server1 orangepi5-plus-server1"
 IFS=' ' read -r -a hostnamearray <<< "$hostnames"
 for i in "${hostnamearray[@]}"; do
     #scp cephadm ${i}:~
@@ -81,16 +87,36 @@ ceph health detail
 
 ceph config set mon public_network 192.168.137.0/24
 ceph orch apply mon --unmanaged
-ceph orch daemon add mon nanopct4-master:192.168.137.101
+ceph orch daemon add mon ${MASTER_HOSTNAME}:${MASTER_IP}
 ceph orch daemon add mon nanopct4-server1:192.168.137.201
 ceph orch daemon add mon nanopct4-server2:192.168.137.202
+ceph orch daemon add mon nanopct4-server3:192.168.137.203
 ceph orch daemon add mon orangepi5-max-server1:192.168.137.211
+ceph orch daemon add mon orangepi5-plus-server1:192.168.137.212
+
+# 限制ceph占用内存
+ceph config set osd osd_memory_target 1073741824
+ceph config set osd osd_memory_cache_min 536870912
+ceph config get osd osd_memory_target
+ceph config get osd osd_memory_cache_min
+
+# 设置标签，排除 master 节点
+systemctl stop ceph-mgr@${MASTER_HOSTNAME}
+ceph mgr fail ${MASTER_HOSTNAME}
+ceph mgr module disable mgr
+ceph mgr stat
+systemctl disable ceph-mgr@${MASTER_HOSTNAME}
+ceph orch host label add ${MASTER_HOSTNAME} no-mgr
+ceph orch apply mgr --placement="orangepi5-max-server1,orangepi5-plus-server1"
+ceph orch apply mds k8s-cephfs --placement="orangepi5-max-server1,orangepi5-plus-server1"
 
 #scp /etc/ceph/ceph.conf nanopct4-server1:/etc/ceph/
 #scp /etc/ceph/ceph.conf nanopct4-server2:/etc/ceph/
+#scp /etc/ceph/ceph.conf nanopct4-server3:/etc/ceph/
 #ceph auth get client.bootstrap-osd -o /var/lib/ceph/bootstrap-osd/ceph.keyring
 #scp /var/lib/ceph/bootstrap-osd/ceph.keyring nanopct4-server1:/var/lib/ceph/bootstrap-osd/
-#scp /var/lib/ceph/bootstrap-osd/ceph.keyring nanopct4-server1:/var/lib/ceph/bootstrap-osd/
+#scp /var/lib/ceph/bootstrap-osd/ceph.keyring nanopct4-server2:/var/lib/ceph/bootstrap-osd/
+#scp /var/lib/ceph/bootstrap-osd/ceph.keyring nanopct4-server3:/var/lib/ceph/bootstrap-osd/
 parted /dev/nvme0n1p2 mklabel msdos
 
 ceph-volume lvm create --data /dev/nvme0n1p2 --bluestore
@@ -99,9 +125,9 @@ ceph-volume lvm activate --all
 ceph orch device ls --wide
 ceph osd tree
 
-ceph orch daemon add osd nanopct4-master:/mnt/nvme
 ceph orch daemon add osd nanopct4-server1:/mnt/nvme
 ceph orch daemon add osd nanopct4-server2:/mnt/nvme
+ceph orch daemon add osd nanopct4-server3:/mnt/nvme
 
 # 创建存储池（例如为 K8s 创建专用池）
 ceph osd pool create k8s-pool 64 64
@@ -137,7 +163,7 @@ ceph fs subvolumegroup create k8s-cephfs k8s-storageclass-volumes
 ceph fs subvolumegroup ls k8s-cephfs
 # ceph fs subvolumegroup depete k8s-cephfs k8s-storageclass-volumes
 # 部署mds
-ceph orch apply mds cephfs --placement="nanopct4-master"
+ceph orch apply mds cephfs --placement="${MASTER_HOSTNAME}"
 # 创建秘钥
 ceph auth del client.k8s
 ceph auth get-or-create client.k8s \
@@ -157,7 +183,7 @@ mount -t ceph :/ /mnt/k8s_cephfs \
 mkdir -p /mnt/k8s_cephfs/k8s-volumes
 
 ##################################################
-hostnames="nanopct4-server1 nanopct4-server2"
+hostnames="nanopct4-server1 nanopct4-server2 nanopct4-server3"
 IFS=' ' read -r -a hostnamearray <<< "$hostnames"
 for i in "${hostnamearray[@]}"; do
     #ssh root@${i} "systemctl stop ceph-mon@${i}"

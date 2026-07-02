@@ -1,21 +1,51 @@
 #!/bin/bash
+# =============================================================
+#  集群初始化脚本 — 可迁移版本
+#  用法: bash debian_begin.sh [start|restart] [master] [IP]
+#
+#  迁移集群时修改 cluster_config.sh 即可，无需改此脚本
+#  也可通过命令行参数覆盖：
+#    bash debian_begin.sh start server1 192.168.10.200
+# =============================================================
+
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+
+# 加载集群统一配置
+if [ -f "${script_dir}/cluster_config.sh" ]; then
+    source "${script_dir}/cluster_config.sh"
+fi
+
 debian_version=$(lsb_release -cs)
 start_step="${1:-restart}"
 name_tail="${2:-master}"
-set_ip="${3:-192.168.10.200}"
+set_ip="${3:-${MASTER_IP}}"
+
+# 命令行参数覆盖配置文件
+if [ -n "$2" ]; then
+    MASTER_HOSTNAME="$(hostname)"
+fi
+if [ -n "$3" ]; then
+    MASTER_IP="$3"
+fi
 
 timedatectl set-timezone Asia/Shanghai
 timedatectl set-ntp true
 
 if [ $start_step == "start" ];then
     old_name=$(hostname)
-    hostnamectl set-hostname ${old_name}-${name_tail}
+    if [ $name_tail == "master" ];then
+        hostnamectl set-hostname ${MASTER_HOSTNAME}
+    else
+        hostnamectl set-hostname ${old_name}-${name_tail}
+    fi
     sed -i 's/'${old_name}'/'$(hostname)'/g' /etc/hosts
     cat >> /etc/hosts << EOF
-192.168.137.101 nanopct4-master
+${MASTER_IP} ${MASTER_HOSTNAME}
 192.168.137.201 nanopct4-server1
 192.168.137.202 nanopct4-server2
+192.168.137.203 nanopct4-server3
 192.168.137.211 orangepi5-max-server1
+192.168.137.212 orangepi5-plus-server1
 EOF
     sed -i 's/^127.0.1.1/#127.0.1.1/g' /etc/hosts
     if [ -d "/dev/nvme0n1" ]; then
@@ -92,7 +122,7 @@ cat > /etc/docker/daemon.json << EOF
         "https://docker.m.daocloud.io",
         "https://registry.aliyuncs.com"
     ],
-    "insecure-registries": ["http://nanopct4-master:5000"]
+    "insecure-registries": ["http://${REGISTRY}"]
 }
 EOF
 systemctl daemon-reload
@@ -127,7 +157,7 @@ ST = Tianjin
 L = Tianjin
 O = ZMH
 OU = zmh
-CN = nanopct4-master # 注意：这里的 CN 通常不会被用作 SAN，但它是证书主题的一部分
+CN = ${MASTER_HOSTNAME} # 注意：这里的 CN 通常不会被用作 SAN，但它是证书主题的一部分
  
 [v3_req]
 keyUsage = keyEncipherment, digitalSignature
@@ -135,7 +165,7 @@ extendedKeyUsage = serverAuth
 subjectAltName = @alt_names
  
 [alt_names]
-DNS.1 = nanopct4-master
+DNS.1 = ${MASTER_HOSTNAME}
 # 如果你的服务是基于 IP 地址的，你可以添加以下行（替换为你的 IP 地址）
 # IP.1 = 192.168.1.100
 EOF
@@ -150,20 +180,20 @@ EOF
         -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/self_registry_ca.crt \
         -e REGISTRY_HTTP_TLS_KEY=/certs/self_registry_ca.key \
         arm64v8/registry:latest
-    curl --cacert /etc/ssl/certs/self_registry_ca.crt https://nanopct4-master:5000/v2/_catalog
-    #curl --cacert /etc/ssl/certs/self_registry_ca.crt https://nanopct4-master:5000/v2/<repository-name>/tags/list
-    #curl --cacert /etc/ssl/certs/self_registry_ca.crt --header "Accept: application/vnd.docker.distribution.manifest.v2+json" -I https://nanopct4-master:5000/v2/<repository-name>/manifests/<tag>
-    #curl -X DELETE https://nanopct4-master:5000/v2/<repository-name>/manifests/<digest>
+    curl --cacert /etc/ssl/certs/self_registry_ca.crt https://${REGISTRY}/v2/_catalog
+    #curl --cacert /etc/ssl/certs/self_registry_ca.crt https://${REGISTRY}/v2/<repository-name>/tags/list
+    #curl --cacert /etc/ssl/certs/self_registry_ca.crt --header "Accept: application/vnd.docker.distribution.manifest.v2+json" -I https://${REGISTRY}/v2/<repository-name>/manifests/<tag>
+    #curl -X DELETE https://${REGISTRY}/v2/<repository-name>/manifests/<digest>
     #docker exec registry bin/registry garbage-collect /etc/docker/registry/config.yml
     docker pull arm64v8/debian:latest
-    docker tag arm64v8/debian:latest nanopct4-master:5000/arm64v8/debian:latest
-    docker push nanopct4-master:5000/arm64v8/debian:latest
+    docker tag arm64v8/debian:latest ${REGISTRY}/arm64v8/debian:latest
+    docker push ${REGISTRY}/arm64v8/debian:latest
 
     # registry中删除镜像 可以直接到存储目录删不用下面这些
     # curl -s -H "Accept: application/vnd.docker.distribution.manifest.v2+json" --cacert /etc/ssl/certs/self_registry_ca.crt \
-    #     https://nanopct4-master:5000/v2/<镜像名>/manifests/<标签> \
+    #     https://${REGISTRY}/v2/<镜像名>/manifests/<标签> \
     #     | jq -r '.config.digest'
-    # curl -X DELETE --insecure /etc/ssl/certs/self_registry_ca.crt https://nanopct4-master:5000/v2/<镜像名>/manifests/<digest>
+    # curl -X DELETE --insecure /etc/ssl/certs/self_registry_ca.crt https://${REGISTRY}/v2/<镜像名>/manifests/<digest>
 
     curl -s https://install.zerotier.com | bash
     # zerotier-cli join networkID
@@ -175,7 +205,7 @@ fi
 if [ $start_step == "start" ];then
     sed -i 's/^[^#]/#&/g' /etc/netplan/10-dhcp-all-interfaces.yaml
     echo ${set_ip}
-    eth_name=$(ip -br link show | grep "^e" | awk '{print $1}')
+    eth_name=$(ip -br link show | grep "^e" | awk '{print $1}' | head -n 1)
 
     cat > /etc/netplan/99-custom-netplan-config.yaml << EOF
 network:
@@ -187,7 +217,7 @@ network:
       addresses: [${set_ip}/24]
       routes:
         - to: default
-          via: 192.168.137.1
+          via: ${NETWORK_GATEWAY}
       nameservers:
         addresses: [8.8.8.8, 8.8.4.4]
 EOF
@@ -207,8 +237,7 @@ apt autoremove -y
 sed -i '/^exit 0$/i\swapoff -a' /etc/rc.local
 systemctl enable rc-local
 
-reboot
-
+# 内核模块和 sysctl 必须在 reboot 之前写入配置文件
 cat > /etc/modules-load.d/k8s.conf << EOF
 br_netfilter
 EOF
@@ -222,7 +251,7 @@ vm.swappiness = 0
 EOF
 sysctl --system
 
-apt install -y ipset ipvsadm
+apt install -y ipset ipvsadm conntrack
 mkdir -p /etc/default/modules
 cat > /etc/default/modules/ipvs.module << EOF
 #!/bin/bash
@@ -238,12 +267,12 @@ chmod +x /etc/default/modules/ipvs.module
 ###############################################
 # containerd config default > /etc/containerd/config.toml
 # sed -i 's#pause:3.8#pause:3.10#g' /etc/containerd/config.toml
-# sed -i 's#sandbox_image = "registry.k8s.io#sandbox_image = "nanopct4-master:5000#g' /etc/containerd/config.toml
+# sed -i 's#sandbox_image = "registry.k8s.io#sandbox_image = "${REGISTRY}#g' /etc/containerd/config.toml
 # sed -i 's#SystemdCgroup = false#SystemdCgroup = true#' /etc/containerd/config.toml
-# #sed -i '/\[plugins."io.containerd.grpc.v1.cri".registry.mirrors\]/{N;s#\n.*$#\n        \[plugins."io.containerd.grpc.v1.cri".registry.mirrors."nanopct4-master"\]\n          endpoint = \["https://nanopct4-master:5000"\]\n#}' /etc/containerd/config.toml
+# #sed -i '/\[plugins."io.containerd.grpc.v1.cri".registry.mirrors\]/{N;s#\n.*$#\n        \[plugins."io.containerd.grpc.v1.cri".registry.mirrors."${MASTER_HOSTNAME}"\]\n          endpoint = \["https://${REGISTRY}"\]\n#}' /etc/containerd/config.toml
 # 
 # systemctl daemon-reload && systemctl restart containerd.service
-# #ctr image pull nanopct4-master:5000/arm64v8/debian:latest
+# #ctr image pull ${REGISTRY}/arm64v8/debian:latest
 # 
 # cat > /etc/crictl.yaml << EOF
 # runtime-endpoint: unix:///var/run/containerd/containerd.sock
@@ -253,16 +282,19 @@ chmod +x /etc/default/modules/ipvs.module
 # EOF
 ###############################################
 
-curl -sSL https://github.com/Mirantis/cri-dockerd/releases/download/v0.3.16/cri-dockerd-0.3.16.arm64.tgz -o cri-dockerd.tar.gz
-tar -xvzf cri-dockerd.tar.gz
+# 外网慢 仓库里放了一份
+# curl -sSL https://github.com/Mirantis/cri-dockerd/releases/download/v0.3.16/cri-dockerd-0.3.16.arm64.tgz -o cri-dockerd.tar.gz
+tar -xvzf cri-dockerd-0.3.16.arm64.tgz
 mv cri-dockerd/cri-dockerd /usr/bin/
 rm -rf cri-dockerd
+# 确保 PAUSE_IMAGE 不为空（REGISTRY 可能因 cluster_config.sh 未加载而为空）
+PAUSE_IMAGE="${REGISTRY:-arm-cluster-master:5000}/pause:3.10"
 cat > /etc/systemd/system/cri-dockerd.service << EOF
 [Unit]
 Description=CRI Docker Daemon
- 
+
 [Service]
-ExecStart=/usr/bin/cri-dockerd --network-plugin=cni --container-runtime-endpoint=unix:///var/run/cri-dockerd.sock --pod-infra-container-image=nanopct4-master:5000/pause:3.10
+ExecStart=/usr/bin/cri-dockerd --network-plugin=cni --container-runtime-endpoint=unix:///var/run/cri-dockerd.sock --pod-infra-container-image=${PAUSE_IMAGE}
 Restart=always
 
 [Install]
@@ -274,32 +306,34 @@ systemctl restart cri-dockerd.service
 
 echo 'KUBELET_EXTRA_ARGS="--cgroup-driver=systemd"' > /etc/default/kubelet
 
+reboot
+
 ###############################################
 # 主节点下载相关镜像并推送到本地registry
-# kubeadm config images list --kubernetes-version=v1.31.2 --image-repository=registry.aliyuncs.com/google_containers
-# docker pull registry.aliyuncs.com/google_containers/kube-apiserver:v1.31.2
-# docker pull registry.aliyuncs.com/google_containers/kube-controller-manager:v1.31.2
-# docker pull registry.aliyuncs.com/google_containers/kube-scheduler:v1.31.2
-# docker pull registry.aliyuncs.com/google_containers/kube-proxy:v1.31.2
-# docker pull registry.aliyuncs.com/google_containers/coredns:v1.11.3
-# docker pull registry.aliyuncs.com/google_containers/pause:3.10
-# docker pull registry.aliyuncs.com/google_containers/etcd:3.5.15-0
-# 
-# docker tag registry.aliyuncs.com/google_containers/kube-apiserver:v1.31.2 nanopct4-master:5000/kube-apiserver:v1.31.2
-# docker tag registry.aliyuncs.com/google_containers/kube-controller-manager:v1.31.2 nanopct4-master:5000/kube-controller-manager:v1.31.2
-# docker tag registry.aliyuncs.com/google_containers/kube-scheduler:v1.31.2 nanopct4-master:5000/kube-scheduler:v1.31.2
-# docker tag registry.aliyuncs.com/google_containers/kube-proxy:v1.31.2 nanopct4-master:5000/kube-proxy:v1.31.2
-# docker tag registry.aliyuncs.com/google_containers/coredns:v1.11.3 nanopct4-master:5000/coredns:v1.11.3
-# docker tag registry.aliyuncs.com/google_containers/pause:3.10 nanopct4-master:5000/pause:3.10
-# docker tag registry.aliyuncs.com/google_containers/etcd:3.5.15-0 nanopct4-master:5000/etcd:3.5.15-0
-# 
-# docker push nanopct4-master:5000/kube-apiserver:v1.31.2
-# docker push nanopct4-master:5000/kube-controller-manager:v1.31.2
-# docker push nanopct4-master:5000/kube-scheduler:v1.31.2
-# docker push nanopct4-master:5000/kube-proxy:v1.31.2
-# docker push nanopct4-master:5000/coredns:v1.11.3
-# docker push nanopct4-master:5000/pause:3.10
-# docker push nanopct4-master:5000/etcd:3.5.15-0
+kubeadm config images list --kubernetes-version=v1.31.2 --image-repository=registry.aliyuncs.com/google_containers
+docker pull registry.aliyuncs.com/google_containers/kube-apiserver:v1.31.2
+docker pull registry.aliyuncs.com/google_containers/kube-controller-manager:v1.31.2
+docker pull registry.aliyuncs.com/google_containers/kube-scheduler:v1.31.2
+docker pull registry.aliyuncs.com/google_containers/kube-proxy:v1.31.2
+docker pull registry.aliyuncs.com/google_containers/coredns:v1.11.3
+docker pull registry.aliyuncs.com/google_containers/pause:3.10
+docker pull registry.aliyuncs.com/google_containers/etcd:3.5.24-0
+
+docker tag registry.aliyuncs.com/google_containers/kube-apiserver:v1.31.2 ${REGISTRY}/kube-apiserver:v1.31.2
+docker tag registry.aliyuncs.com/google_containers/kube-controller-manager:v1.31.2 ${REGISTRY}/kube-controller-manager:v1.31.2
+docker tag registry.aliyuncs.com/google_containers/kube-scheduler:v1.31.2 ${REGISTRY}/kube-scheduler:v1.31.2
+docker tag registry.aliyuncs.com/google_containers/kube-proxy:v1.31.2 ${REGISTRY}/kube-proxy:v1.31.2
+docker tag registry.aliyuncs.com/google_containers/coredns:v1.11.3 ${REGISTRY}/coredns:v1.11.3
+docker tag registry.aliyuncs.com/google_containers/pause:3.10 ${REGISTRY}/pause:3.10
+docker tag registry.aliyuncs.com/google_containers/etcd:3.5.24-0 ${REGISTRY}/etcd:3.5.24-0
+
+docker push ${REGISTRY}/kube-apiserver:v1.31.2
+docker push ${REGISTRY}/kube-controller-manager:v1.31.2
+docker push ${REGISTRY}/kube-scheduler:v1.31.2
+docker push ${REGISTRY}/kube-proxy:v1.31.2
+docker push ${REGISTRY}/coredns:v1.11.3
+docker push ${REGISTRY}/pause:3.10
+docker push ${REGISTRY}/etcd:3.5.24-0
 ###############################################
 
 #kubeadm config images pull --kubernetes-version=v1.31.2 --image-repository=registry.aliyuncs.com/google_containers
@@ -312,23 +346,54 @@ swapoff -a
 # 
 # sed -i 's#advertiseAddress: 1.2.3.4#advertiseAddress: 192.168.137.101#' kubeadm_config.yaml
 # sed -i 's#1.31.0#1.31.2#' kubeadm_config.yaml
-# sed -i 's#name: node#name: nanopct4-master#' kubeadm_config.yaml
-# sed -i 's#imageRepository: registry.k8s.io#imageRepository: nanopct4-master:5000#' kubeadm_config.yaml
+# sed -i 's#name: node#name: ${MASTER_HOSTNAME}#' kubeadm_config.yaml
+# sed -i 's#imageRepository: registry.k8s.io#imageRepository: ${REGISTRY}#' kubeadm_config.yaml
 # sed -i '/serviceSubnet/a\  podSubnet: "10.244.0.0/16"' kubeadm_config.yaml
 # sed -i 's#criSocket: unix:///var/run/containerd/containerd.sock#criSocket: unix:///var/run/cri-dockerd.sock#' kubeadm_config.yaml
 # #kubeadm init --config kubeadm_config.yaml --upload-certs --v=5
 ###############################################
 
-kubeadm init --apiserver-advertise-address=192.168.137.101 \
---apiserver-bind-port=6443 \
---control-plane-endpoint=nanopct4-master \
---kubernetes-version=v1.31.2 \
---image-repository=nanopct4-master:5000 \
---service-cidr=10.96.0.0/12 \
---pod-network-cidr=10.244.0.0/16 \
+kubeadm init --apiserver-advertise-address=${MASTER_IP} \
+--apiserver-bind-port=${K8S_API_PORT} \
+--control-plane-endpoint=${MASTER_HOSTNAME} \
+--kubernetes-version=${K8S_VERSION} \
+--image-repository=${REGISTRY} \
+--service-cidr=${SERVICE_CIDR} \
+--pod-network-cidr=${POD_CIDR} \
 --upload-certs \
 --cri-socket=unix:///var/run/cri-dockerd.sock \
 --v=5
+
+# K8s v1.31+: kubeadm 生成的 --pod-infra-container-image 已被 kubelet 废弃，
+# pause 镜像由 cri-dockerd 管理，移除该参数避免 kubelet 解析失败
+sed -i 's/ --pod-infra-container-image=[^ ]*//' /var/lib/kubelet/kubeadm-flags.env
+systemctl restart kubelet
+sleep 5
+
+# 等待 API server 就绪（kubeadm init 可能因 wait-control-plane 超时而退出）
+echo "Waiting for API server..."
+for i in $(seq 1 24); do
+    if kubectl --kubeconfig=/etc/kubernetes/super-admin.conf get nodes &>/dev/null; then
+        echo "API server ready"
+        break
+    fi
+    sleep 10
+done
+
+# 补全 kubeadm init 未完成的阶段（kube-proxy、coredns 等 addon）
+if ! kubectl --kubeconfig=/etc/kubernetes/super-admin.conf get ds -n kube-system kube-proxy &>/dev/null; then
+    echo "Completing kubeadm init phases (addons)..."
+    kubeadm init \
+        --apiserver-advertise-address=${MASTER_IP} \
+        --control-plane-endpoint=${MASTER_HOSTNAME} \
+        --kubernetes-version=${K8S_VERSION} \
+        --image-repository=${REGISTRY} \
+        --service-cidr=${SERVICE_CIDR} \
+        --pod-network-cidr=${POD_CIDR} \
+        --cri-socket=unix:///var/run/cri-dockerd.sock \
+        --skip-phases=preflight,certs,kubeconfig,kubelet-start,control-plane,etcd,wait-control-plane \
+        --v=3
+fi
 
 #systemctl status kubelet
 #journalctl -xefu kubelet
@@ -336,9 +401,10 @@ kubeadm init --apiserver-advertise-address=192.168.137.101 \
 #crictl --runtime-endpoint unix:///var/run/containerd/containerd.sock logs CONTAINERID
 
 mkdir -p $HOME/.kube
-cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+# K8s v1.31+: super-admin.conf 使用 system:masters 组，不依赖 RBAC 初始化
+cp -f /etc/kubernetes/super-admin.conf $HOME/.kube/config
 chown $(id -u):$(id -g) $HOME/.kube/config
-export KUBECONFIG=/etc/kubernetes/admin.conf
+export KUBECONFIG=/etc/kubernetes/super-admin.conf
 
 kubectl create secret generic registry-secret \
 --from-file=tls.crt=/etc/ssl/certs/self_registry_ca.crt \
@@ -348,7 +414,7 @@ kubectl create secret generic registry-secret \
 kubectl edit configmap coredns -n kube-system
 # 这部分是要修改的
 # hosts {
-#   192.168.137.101 nanopct4-master
+#   ${MASTER_IP} ${MASTER_HOSTNAME}
 #   192.168.137.201 nanopct4-server1
 #   192.168.137.202 nanopct4-server2
 #   192.168.137.211 orangepi5-max-server1
@@ -360,17 +426,17 @@ kubectl rollout restart deployment/coredns -n kube-system
 ##kubectl create -f https://docs.projectcalico.org/archive/v3.20/manifests/calico.yaml
 #sed -i 's?# - name: CALICO_IPV4POOL_CIDR?- name: CALICO_IPV4POOL_CIDR?g' calico.yaml
 #sed -i 's?#   value: "192.168.0.0/16"?  value: "10.244.0.0/16"?g' calico.yaml
-#sed -i 's#docker.io/calico#nanopct4-master:5000/calico#g' calico.yaml
+#sed -i 's#docker.io/calico#${REGISTRY}/calico#g' calico.yaml
 #sed -i 's/:v[0-9]*\.[0-9]*\.[0-9]*/:v3.20.1/g' calico.yaml
 #docker pull calico/cni:v3.20.1
 #docker pull calico/node:v3.20.1
 #docker pull calico/kube-controllers:v3.20.1
-#docker tag calico/cni:v3.20.1 nanopct4-master:5000/calico/cni:v3.20.1
-#docker tag calico/node:v3.20.1 nanopct4-master:5000/calico/node:v3.20.1
-#docker tag calico/kube-controllers:v3.20.1 nanopct4-master:5000/calico/kube-controllers:v3.20.1
-#docker push nanopct4-master:5000/calico/cni:v3.20.1
-#docker push nanopct4-master:5000/calico/node:v3.20.1
-#docker push nanopct4-master:5000/calico/kube-controllers:v3.20.1
+#docker tag calico/cni:v3.20.1 ${REGISTRY}/calico/cni:v3.20.1
+#docker tag calico/node:v3.20.1 ${REGISTRY}/calico/node:v3.20.1
+#docker tag calico/kube-controllers:v3.20.1 ${REGISTRY}/calico/kube-controllers:v3.20.1
+#docker push ${REGISTRY}/calico/cni:v3.20.1
+#docker push ${REGISTRY}/calico/node:v3.20.1
+#docker push ${REGISTRY}/calico/kube-controllers:v3.20.1
 #kubectl apply -f calico.yaml
 
 wget https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 -O get_helm.sh
@@ -391,7 +457,7 @@ tar -C /opt/cni/bin -xzf cni-plugins-linux-$ARCH-v1.6.0.tgz
 #helm repo add flannel https://flannel-io.github.io/flannel/
 #helm install flannel \
 #--set podCidr="10.244.0.0/16" \
-#--set image.repository="nanopct4-master:5000/flannel/flannel" \
+#--set image.repository="${REGISTRY}/flannel/flannel" \
 #--set image.tag="v0.26.2" \
 #--namespace kube-flannel \
 #--version="v0.26.2" \
@@ -403,15 +469,15 @@ tar -C /opt/cni/bin -xzf cni-plugins-linux-$ARCH-v1.6.0.tgz
 docker pull flannel/flannel-cni-plugin:v1.6.0-flannel1
 docker pull flannel/flannel:v0.26.2
 
-docker tag flannel/flannel-cni-plugin:v1.6.0-flannel1 nanopct4-master:5000/flannel/flannel-cni-plugin:v1.6.0-flannel1
-docker tag flannel/flannel:v0.26.2 nanopct4-master:5000/flannel/flannel:v0.26.2
+docker tag flannel/flannel-cni-plugin:v1.6.0-flannel1 ${REGISTRY}/flannel/flannel-cni-plugin:v1.6.0-flannel1
+docker tag flannel/flannel:v0.26.2 ${REGISTRY}/flannel/flannel:v0.26.2
 
-docker push nanopct4-master:5000/flannel/flannel-cni-plugin:v1.6.0-flannel1
-docker push nanopct4-master:5000/flannel/flannel:v0.26.2
+docker push ${REGISTRY}/flannel/flannel-cni-plugin:v1.6.0-flannel1
+docker push ${REGISTRY}/flannel/flannel:v0.26.2
 
 wget https://raw.githubusercontent.com/flannel-io/flannel/v0.26.2/Documentation/kube-flannel.yml
 #wget https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
-sed -i 's#docker.io#nanopct4-master:5000#' kube-flannel.yml
+sed -i "s#docker.io#${REGISTRY}#" kube-flannel.yml
 
 kubectl apply -f kube-flannel.yml
 
@@ -455,7 +521,7 @@ done
 docker restart $(docker ps -a | grep arm64v8/registry:latest | awk '{print $1}')
 
 servercmd=$(kubeadm token create --print-join-command)
-hostnames="nanopct4-server1 nanopct4-server2 orangepi5-max-server1"
+hostnames="nanopct4-server1 nanopct4-server2 nanopct4-server3 orangepi5-max-server1"
 IFS=' ' read -r -a hostnamearray <<< "$hostnames"
 for i in "${hostnamearray[@]}"; do
     ssh root@${i} "swapoff -a;\
@@ -479,11 +545,11 @@ done
 
 ########################################################
 # 对资源少的node打标
-hostnames="nanopct4-master nanopct4-server1 nanopct4-server2"
+hostnames="${LOW_RESOURCE_NODES[*]}"
 IFS=' ' read -r -a hostnamearray <<< "$hostnames"
 for i in "${hostnamearray[@]}"; do
-    kubectl label nodes ${i} node-type=low-resource
-    kubectl taint nodes ${i} node-type=low-resource:NoSchedule
+    kubectl label nodes ${i} node-type=low-resource --overwrite
+    kubectl taint nodes ${i} node-type=low-resource:NoSchedule --overwrite
 done
 kubectl get nodes --show-labels | grep node-type=low-resource
 ########################################################
@@ -493,36 +559,33 @@ docker run -d --name hadoop --network host\
     -v /etc/apt/:/etc/apt/ \
     -v /usr/share/keyrings/:/usr/share/keyrings/ \
     -v /etc/hosts:/etc/hosts \
-    nanopct4-master:5000/hadoop_base:latest \
+    ${REGISTRY}/hadoop_base:latest \
     bash -c "tail -f ~/.bashrc"
 
 docker rm $(docker ps -a -f "status=exited" -q)
 docker rmi $(docker images -f "dangling=true" -q)
 
-ssh root@nanopct4-server1 "shutdown -h now"
-ssh root@nanopct4-server2 "shutdown -h now"
-ssh root@orangepi5-max-server1 "shutdown -h now"
-ssh root@nanopct4-master "shutdown -h now"
+hostnames="${ALL_NODES[*]}"
+IFS=' ' read -r -a hostnamearray <<< "$hostnames"
+for i in "${hostnamearray[@]}"; do
+    ssh root@${i} "shutdown -h now"
+done
 
-ssh root@nanopct4-server1 "reboot"
-ssh root@nanopct4-server2 "reboot"
-ssh root@orangepi5-max-server1 "reboot"
-ssh root@nanopct4-master "reboot"
+for i in "${hostnamearray[@]}"; do
+    ssh root@${i} "reboot"
+done
 
-ssh root@nanopct4-server1 "systemctl restart ceph.target"
-ssh root@nanopct4-server2 "systemctl restart ceph.target"
-ssh root@orangepi5-max-server1 "systemctl restart ceph.target"
-ssh root@nanopct4-master "systemctl restart ceph.target"
+for i in "${hostnamearray[@]}"; do
+    ssh root@${i} "systemctl restart ceph.target"
+done
 
-ssh root@nanopct4-server1 "docker rmi \$(docker images -q);"
-ssh root@nanopct4-server2 "docker rmi \$(docker images -q);"
-ssh root@orangepi5-max-server1 "docker rmi \$(docker images -q);"
-ssh root@nanopct4-master "docker rmi \$(docker images -q);"
+for i in "${hostnamearray[@]}"; do
+    ssh root@${i} "docker rmi \$(docker images -q);"
+done
 
-ssh root@nanopct4-server1 "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
-ssh root@nanopct4-server2 "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
-ssh root@orangepi5-max-server1 "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
-ssh root@nanopct4-master "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
+for i in "${hostnamearray[@]}"; do
+    ssh root@${i} "docker rm \$(docker ps -a -f "status=exited" -q);docker rmi \$(docker images -f "dangling=true" -q);"
+done
 
 echo $[$(cat /sys/class/thermal/thermal_zone0/temp)/1000]°C
 echo $[$(cat /sys/class/thermal/thermal_zone1/temp)/1000]°C
@@ -539,3 +602,9 @@ echo none > trigger
 echo default-on > trigger
 # 设置绿灯闪烁的命令如下
 echo heartbeat > trigger
+# 设置
+echo none > /sys/class/leds/green_led/trigger
+echo none > /sys/class/leds/blue_led/trigger
+
+# 查看cpu频率
+cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq

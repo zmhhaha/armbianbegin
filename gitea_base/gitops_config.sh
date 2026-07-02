@@ -1,10 +1,12 @@
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+[ -f "${script_dir}/../cluster_config.sh" ] && source "${script_dir}/../cluster_config.sh"
 docker build -f Dockerfile_gitea -t gitea_base:latest .
-docker tag gitea_base:latest nanopct4-master:5000/gitea_base:latest
-docker push nanopct4-master:5000/gitea_base:latest
+docker tag gitea_base:latest ${REGISTRY}/gitea_base:latest
+docker push ${REGISTRY}/gitea_base:latest
 
 # docker pull arm64v8/mysql:latest
-# docker tag arm64v8/mysql:latest nanopct4-master:5000/mysql:latest
-# docker push nanopct4-master:5000/mysql:latest
+# docker tag arm64v8/mysql:latest ${REGISTRY}/mysql:latest
+# docker push ${REGISTRY}/mysql:latest
 
 kubectl apply -f gitea-namespace.yaml
 kubectl apply -f gitea-env.yaml
@@ -12,8 +14,8 @@ kubectl apply -f gitea.yaml
 
 # https://docs.drone.io/
 docker pull drone/drone:2.21
-docker tag drone/drone:2.21 nanopct4-master:5000/drone:2.21
-docker push nanopct4-master:5000/drone:2.21
+docker tag drone/drone:2.21 ${REGISTRY}/drone:2.21
+docker push ${REGISTRY}/drone:2.21
 
 kubectl edit configmap coredns -n kube-system
 # 这部分是要修改的
@@ -38,15 +40,15 @@ EOF
 export GOPROXY=https://mirrors.aliyun.com/goproxy,direct
 bash ./scripts/build.sh
 docker build -t drone/drone-runner-kube:latest-linux-arm64 -f docker/Dockerfile.linux.arm64 .
-docker tag drone/drone-runner-kube:latest-linux-arm64 nanopct4-master:5000/drone-runner-kube:latest-linux-arm64
-docker push nanopct4-master:5000/drone-runner-kube:latest-linux-arm64
+docker tag drone/drone-runner-kube:latest-linux-arm64 ${REGISTRY}/drone-runner-kube:latest-linux-arm64
+docker push ${REGISTRY}/drone-runner-kube:latest-linux-arm64
 
 # gcc_compiler
 docker build -f Dockerfile_gcc -t gcc_compiler:latest .
-docker tag gcc_compiler:latest nanopct4-master:5000/gcc_compiler:latest
-docker push nanopct4-master:5000/gcc_compiler:latest
+docker tag gcc_compiler:latest ${REGISTRY}/gcc_compiler:latest
+docker push ${REGISTRY}/gcc_compiler:latest
 
 # bison_flex_compiler
 docker build -f Dockerfile_bison_flex -t bison_flex_compiler:latest .
-docker tag bison_flex_compiler:latest nanopct4-master:5000/bison_flex_compiler:latest
-docker push nanopct4-master:5000/bison_flex_compiler:latest
+docker tag bison_flex_compiler:latest ${REGISTRY}/bison_flex_compiler:latest
+docker push ${REGISTRY}/bison_flex_compiler:latest

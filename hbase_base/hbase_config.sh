@@ -1,6 +1,8 @@
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+[ -f "${script_dir}/../cluster_config.sh" ] && source "${script_dir}/../cluster_config.sh"
 docker build -t hbase_base:latest .
-docker tag hbase_base:latest nanopct4-master:5000/hbase_base:latest
-docker push nanopct4-master:5000/hbase_base:latest
+docker tag hbase_base:latest ${REGISTRY}/hbase_base:latest
+docker push ${REGISTRY}/hbase_base:latest
 
 kubectl get pods | grep hbase | awk '{print $1}' | xargs -I {} kubectl exec -it {} -- jps
 
@@ -31,7 +33,7 @@ cat > /opt/hbase/conf/hbase-site.xml << EOF
   <!-- ZooKeeper配置（需指向K8s ZooKeeper服务） -->
   <property>
     <name>hbase.zookeeper.quorum</name>
-    <value>nanopct4-master:32182,nanopct4-master:32183,nanopct4-master:32184</value>
+    <value>${MASTER_HOSTNAME}:32182,${MASTER_HOSTNAME}:32183,${MASTER_HOSTNAME}:32184</value>
   </property>
 </configuration>
 EOF

@@ -1,10 +1,12 @@
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+[ -f "${script_dir}/../cluster_config.sh" ] && source "${script_dir}/../cluster_config.sh"
 docker build -f Dockerfile_mysql -t hive_mysql:latest .
-docker tag hive_mysql:latest nanopct4-master:5000/hive_mysql:latest
-docker push nanopct4-master:5000/hive_mysql:latest
+docker tag hive_mysql:latest ${REGISTRY}/hive_mysql:latest
+docker push ${REGISTRY}/hive_mysql:latest
 
 docker build -f Dockerfile_hive -t hive_hadoop:latest .
-docker tag hive_hadoop:latest nanopct4-master:5000/hive_hadoop:latest
-docker push nanopct4-master:5000/hive_hadoop:latest
+docker tag hive_hadoop:latest ${REGISTRY}/hive_hadoop:latest
+docker push ${REGISTRY}/hive_hadoop:latest
 
 # 进入 MySQL Pod
 kubectl exec -it mysql-0 -- mysql -u root -p
@@ -30,7 +32,7 @@ cat > /opt/hive/conf/hive-site.xml << EOF
 <configuration>
   <property>
     <name>javax.jdo.option.ConnectionURL</name>
-    <value>jdbc:mysql://nanopct4-master:30306/hive_metastore?createDatabaseIfNotExist=true</value>
+    <value>jdbc:mysql://${MASTER_HOSTNAME}:30306/hive_metastore?createDatabaseIfNotExist=true</value>
   </property>
   <property>
     <name>hive.metastore.uris</name>

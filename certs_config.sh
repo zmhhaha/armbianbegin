@@ -1,5 +1,5 @@
 #!/bin/bash
-hostnames="nanopct4-server1 nanopct4-server2 orangepi5-max-server1"
+hostnames="nanopct4-server1 nanopct4-server2 nanopct4-server3 orangepi5-max-server1"
 IFS=' ' read -r -a hostnamearray <<< "$hostnames"
 for i in "${hostnamearray[@]}"; do
     ssh root@${i} "mkdir -p /certs"

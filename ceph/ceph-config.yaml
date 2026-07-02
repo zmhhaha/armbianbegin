@@ -10,7 +10,7 @@ data:
   ceph.conf: |
     [global]
     fsid = 3f12b9e4-fce0-11ef-97b1-ca1173533d33
-    mon_host = 192.168.137.101,192.168.137.201,192.168.137.202
+    mon_host = 192.168.137.201,192.168.137.202,192.168.137.203
     auth_cluster_required = cephx
     auth_service_required = cephx
     auth_client_required = cephx
