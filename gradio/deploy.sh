@@ -1,29 +1,25 @@
 #!/bin/bash
 # ============================================================
-#  Gradio Agent UI 一键部署
-#  用法: bash deploy.sh
+#  Generic Gradio 构建 + 部署
+#  用法:
+#    1. 编辑 app.py 写你的 Gradio 应用
+#    2. 依赖写入 requirements.txt
+#    3. bash deploy.sh
 # ============================================================
 set -e
-script_dir="$(cd "$(dirname "$0")" && pwd)"
-cd "$script_dir"
-
+cd "$(dirname "$0")"
 [ -f "../cluster_config.sh" ] && source "../cluster_config.sh"
 REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
-IMAGE="${REGISTRY}/gradio-agent:latest"
+IMAGE="${REGISTRY}/gradio-app:latest"
 K="--kubeconfig=/etc/kubernetes/super-admin.conf"
 
 echo "=== Building ${IMAGE} ==="
-cd ..
-docker build --build-arg REGISTRY="${REGISTRY}" -t "${IMAGE}" -f gradio/Dockerfile .
-cd gradio
+docker build --build-arg REGISTRY="${REGISTRY}" -t "${IMAGE}" .
 docker push "${IMAGE}"
 
-echo "=== Deploying to K8s ==="
+echo "=== Deploying ==="
 kubectl apply ${K} -f k8s-deployment.yaml
-
-echo "=== Waiting ==="
-sleep 15
-kubectl get pods -n gradio-agent ${K}
+sleep 10
+kubectl get pods -n gradio-app ${K}
 echo ""
-echo "Done! Internal: http://gradio-agent.gradio-agent.svc.cluster.local:7860"
-echo "Web UI:      http://<node-ip>:30080/gradio  (via ingress-nginx)"
+echo "Done: http://gradio-app.gradio-app.svc.cluster.local:7860"

@@ -1,94 +1,78 @@
+# ============================================================
+#  FastAPI K8s 部署模板
+#  替换所有 <...> 占位符为你的实际值
+# ============================================================
 ---
-# Namespace
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: fastapi-agent
+  name: fastapi-app
 ---
-# ConfigMap — 模型配置
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: fastapi-agent-config
-  namespace: fastapi-agent
+  name: fastapi-config
+  namespace: fastapi-app
 data:
-  PROVIDER: "deepseek"
+  APP_MODULE: "app.main:app"          # uvicorn 启动模块
   API_PORT: "8000"
+  # 其他业务配置放这里
 ---
-# Secret — API Key（部署前替换为真实值）
 apiVersion: v1
 kind: Secret
 metadata:
-  name: fastapi-agent-secret
-  namespace: fastapi-agent
+  name: fastapi-secret
+  namespace: fastapi-app
 type: Opaque
 stringData:
-  OPENAI_API_KEY: "sk-your-api-key-here"
+  # 密钥放这里，例如:
+  # OPENAI_API_KEY: "sk-xxx"
+  # DATABASE_URL: "postgresql://..."
 ---
-# Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fastapi-agent
-  namespace: fastapi-agent
-  labels:
-    app: fastapi-agent
+  name: fastapi-app
+  namespace: fastapi-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: fastapi-agent
+      app: fastapi-app
   template:
     metadata:
       labels:
-        app: fastapi-agent
+        app: fastapi-app
     spec:
       containers:
-      - name: fastapi-agent
-        image: arm-cluster-master:5000/fastapi-agent:latest
+      - name: fastapi
+        image: arm-cluster-master:5000/fastapi-app:latest
         imagePullPolicy: Always
         ports:
         - name: http
           containerPort: 8000
         envFrom:
         - configMapRef:
-            name: fastapi-agent-config
+            name: fastapi-config
         - secretRef:
-            name: fastapi-agent-secret
+            name: fastapi-secret
         resources:
-          requests:
-            cpu: 250m
-            memory: 512Mi
-          limits:
-            cpu: 2000m
-            memory: 2Gi
+          requests: {cpu: 250m, memory: 256Mi}
+          limits:   {cpu: 1000m, memory: 1Gi}
         livenessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 30
+          httpGet: {path: /health, port: 8000}
+          initialDelaySeconds: 10
           periodSeconds: 30
         readinessProbe:
-          httpGet:
-            path: /health
-            port: 8000
-          initialDelaySeconds: 10
+          httpGet: {path: /health, port: 8000}
+          initialDelaySeconds: 5
           periodSeconds: 10
-        volumeMounts:
-        - name: data
-          mountPath: /app/data
-      volumes:
-      - name: data
-        emptyDir: {}
 ---
-# Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: fastapi-agent
-  namespace: fastapi-agent
-  labels:
-    app: fastapi-agent
+  name: fastapi-app
+  namespace: fastapi-app
 spec:
   type: ClusterIP
   ports:
@@ -96,4 +80,4 @@ spec:
     port: 8000
     targetPort: 8000
   selector:
-    app: fastapi-agent
+    app: fastapi-app

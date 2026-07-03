@@ -1,88 +1,73 @@
+# ============================================================
+#  Gradio K8s 部署模板
+#  替换所有 <...> 占位符为你的实际值
+# ============================================================
 ---
-# Namespace
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: gradio-agent
+  name: gradio-app
 ---
-# ConfigMap
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: gradio-agent-config
-  namespace: gradio-agent
+  name: gradio-config
+  namespace: gradio-app
 data:
-  PROVIDER: "deepseek"
   GRADIO_SERVER_PORT: "7860"
 ---
-# Secret — API Key
 apiVersion: v1
 kind: Secret
 metadata:
-  name: gradio-agent-secret
-  namespace: gradio-agent
+  name: gradio-secret
+  namespace: gradio-app
 type: Opaque
-stringData:
-  OPENAI_API_KEY: "sk-your-api-key-here"
+stringData: {}
 ---
-# Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: gradio-agent
-  namespace: gradio-agent
-  labels:
-    app: gradio-agent
+  name: gradio-app
+  namespace: gradio-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: gradio-agent
+      app: gradio-app
   template:
     metadata:
       labels:
-        app: gradio-agent
+        app: gradio-app
     spec:
       containers:
-      - name: gradio-agent
-        image: arm-cluster-master:5000/gradio-agent:latest
+      - name: gradio
+        image: arm-cluster-master:5000/gradio-app:latest
         imagePullPolicy: Always
         ports:
         - name: http
           containerPort: 7860
         envFrom:
         - configMapRef:
-            name: gradio-agent-config
+            name: gradio-config
         - secretRef:
-            name: gradio-agent-secret
+            name: gradio-secret
         resources:
-          requests:
-            cpu: 250m
-            memory: 512Mi
-          limits:
-            cpu: 2000m
-            memory: 2Gi
+          requests: {cpu: 250m, memory: 256Mi}
+          limits:   {cpu: 1000m, memory: 1Gi}
         livenessProbe:
-          httpGet:
-            path: /
-            port: 7860
-          initialDelaySeconds: 60
+          httpGet: {path: /, port: 7860}
+          initialDelaySeconds: 30
           periodSeconds: 30
         readinessProbe:
-          httpGet:
-            path: /
-            port: 7860
-          initialDelaySeconds: 30
+          httpGet: {path: /, port: 7860}
+          initialDelaySeconds: 10
           periodSeconds: 10
 ---
-# Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: gradio-agent
-  namespace: gradio-agent
-  labels:
-    app: gradio-agent
+  name: gradio-app
+  namespace: gradio-app
 spec:
   type: ClusterIP
   ports:
@@ -90,4 +75,4 @@ spec:
     port: 7860
     targetPort: 7860
   selector:
-    app: gradio-agent
+    app: gradio-app

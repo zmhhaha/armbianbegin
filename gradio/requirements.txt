@@ -1,13 +1,5 @@
-# Gradio Web UI
-gradio>=5.0.0
-
-# CrewAI Agent 核心
-crewai[tools]>=0.108.0
-anthropic>=0.40.0
-
-# 环境配置
-python-dotenv>=1.0.0
-
-# Web 抓取
-requests>=2.31.0
-beautifulsoup4>=4.12.0
+# 用户项目的额外依赖写在这里
+# Gradio 已在 Dockerfile 中预装
+# 示例：
+# torch>=2.0.0
+# transformers>=4.40.0
