@@ -1,0 +1,36 @@
+---
+# =============================================================
+# RBAC — cloudflared ServiceAccount
+# （可选：如果只做隧道转发，不需要 RBAC）
+# =============================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloudflared
+  namespace: cloudflare-tunnel
+  labels:
+    app.kubernetes.io/name: cloudflared
+---
+# ClusterRole：允许 cloudflared 发现集群内的 Service
+# 用途：cloudflared 可以通过 K8s API 自动发现服务，无需手工配置 ingress
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRole
+# metadata:
+#   name: cloudflared-service-discovery
+# rules:
+#   - apiGroups: [""]
+#     resources: ["services", "endpoints"]
+#     verbs: ["get", "list", "watch"]
+# ---
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: ClusterRoleBinding
+# metadata:
+#   name: cloudflared-service-discovery
+# roleRef:
+#   apiGroup: rbac.authorization.k8s.io
+#   kind: ClusterRole
+#   name: cloudflared-service-discovery
+# subjects:
+#   - kind: ServiceAccount
+#     name: cloudflared
+#     namespace: cloudflare-tunnel

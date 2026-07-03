@@ -1,4 +1,6 @@
 #docker build -t base:latest .
+#docker tag base:latest ${REGISTRY}/base:latest
+#docker push base:latest ${REGISTRY}/base:latest
 
 FROM arm64v8/debian:latest
 

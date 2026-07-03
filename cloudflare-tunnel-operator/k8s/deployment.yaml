@@ -1,0 +1,159 @@
+---
+# =============================================================
+# cloudflared Deployment — Cloudflare Tunnel 守护进程
+# =============================================================
+# 使用前请根据你的配置方式修改：
+#
+# 方式 A（TUNNEL_TOKEN）：
+#   1. kubectl create secret generic tunnel-credentials \
+#        --from-literal=token="<你的token>" -n cloudflare-tunnel
+#   2. 直接 apply 此文件即可
+#
+# 方式 B（自定义 config.yml + credentials.json）：
+#   1. cloudflared tunnel create <name>
+#   2. kubectl create secret generic tunnel-credentials \
+#        --from-file=credentials.json=<path> -n cloudflare-tunnel
+#   3. 编辑 tunnel-configmap.yaml 填入 ingress 规则
+#   4. 取消下面 ConfigMap volume 挂载的注释
+# =============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudflared
+  namespace: cloudflare-tunnel
+  labels:
+    app.kubernetes.io/name: cloudflared
+    app.kubernetes.io/component: tunnel
+spec:
+  replicas: 2                       # 高可用：2 副本
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cloudflared
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cloudflared
+        app.kubernetes.io/component: tunnel
+      annotations:
+        # 如果 config.yml 变更，自动滚动重启
+        checksum/config: "{{ .Values.configChecksum | default "" }}"
+    spec:
+      # ---- 优雅终止 ----
+      terminationGracePeriodSeconds: 60
+
+      # ---- 安全上下文 ----
+      securityContext:
+        fsGroup: 65532              # nonroot 用户组
+
+      containers:
+        - name: cloudflared
+          # 使用自定义镜像（基于官方 cloudflared + 启动脚本）
+          image: arm-cluster-master:5000/cloudflared-k8s:latest
+          imagePullPolicy: IfNotPresent
+
+          # 直接通过 sh -c 运行 cloudflared，展开 TUNNEL_TOKEN 环境变量
+          command: ["/bin/sh", "-c"]
+          args: ["exec cloudflared tunnel --no-autoupdate run --token $TUNNEL_TOKEN"]
+
+          # ---- 环境变量 ----
+          env:
+            # *** TUNNEL_TOKEN：从 Secret 注入 ***
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tunnel-credentials
+                  key: token
+
+          # ---- 端口 ----
+          ports:
+            - name: metrics
+              containerPort: 2001
+              protocol: TCP
+
+          # ---- 资源限制 ----
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+          # ---- 健康检查 ----
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 2001
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 2001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # ---- Volume 挂载 ----
+          volumeMounts:
+            # 方式 B：挂载 credentials.json
+            # - name: credentials
+            #   mountPath: /etc/cloudflared/credentials.json
+            #   subPath: credentials.json
+            #   readOnly: true
+
+            # 方式 B：挂载 config.yml
+            # - name: config
+            #   mountPath: /etc/cloudflared/config.yml
+            #   subPath: config.yml
+            #   readOnly: true
+
+            # 临时目录
+            - name: tmp
+              mountPath: /var/run/cloudflared
+
+      # ---- 重启策略 ----
+      restartPolicy: Always
+
+      # ---- 亲和性（打散到不同节点，提高可用性）----
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: cloudflared
+                topologyKey: kubernetes.io/hostname
+
+      # ---- Volumes ----
+      volumes:
+        # 方式 B：credentials.json
+        # - name: credentials
+        #   secret:
+        #     secretName: tunnel-credentials
+        #     items:
+        #       - key: credentials.json
+        #         path: credentials.json
+
+        # 方式 B：config.yml
+        # - name: config
+        #   configMap:
+        #     name: tunnel-config
+        #     items:
+        #       - key: config.yml
+        #         path: config.yml
+
+        # 临时目录
+        - name: tmp
+          emptyDir:
+            sizeLimit: 10Mi

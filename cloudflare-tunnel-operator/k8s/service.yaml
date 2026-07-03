@@ -1,0 +1,43 @@
+---
+# =============================================================
+# cloudflared Service — 暴露 Metrics（供 Prometheus 抓取）
+# =============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudflared-metrics
+  namespace: cloudflare-tunnel
+  labels:
+    app.kubernetes.io/name: cloudflared
+    app.kubernetes.io/component: metrics
+spec:
+  type: ClusterIP
+  clusterIP: None                    # Headless service
+  selector:
+    app.kubernetes.io/name: cloudflared
+  ports:
+    - name: metrics
+      port: 2001
+      targetPort: 2001
+      protocol: TCP
+---
+# =============================================================
+# ServiceMonitor — Prometheus Operator 自动发现
+# （如果集群安装了 Prometheus Operator，取消注释）
+# =============================================================
+# apiVersion: monitoring.coreos.com/v1
+# kind: ServiceMonitor
+# metadata:
+#   name: cloudflared
+#   namespace: cloudflare-tunnel
+#   labels:
+#     app.kubernetes.io/name: cloudflared
+#     release: prometheus
+# spec:
+#   selector:
+#     matchLabels:
+#       app.kubernetes.io/name: cloudflared
+#   endpoints:
+#     - port: metrics
+#       interval: 30s
+#       path: /metrics

@@ -1,0 +1,46 @@
+---
+# =============================================================
+# Tunnel ConfigMap — cloudflared 配置文件
+# =============================================================
+# 如果你用 TUNNEL_TOKEN 方式启动，不需要这个 ConfigMap。
+# 如果你需要自定义 ingress 规则（精细控制域名路由），使用此 ConfigMap。
+#
+# ingress 规则说明：
+#   - 每个 hostname 对应一个 K8s 内部 service
+#   - 最后一条 catch-all 规则必须存在（通常返回 404）
+#   - service 格式：http://<svc-name>.<namespace>.svc.cluster.local:<port>
+# =============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tunnel-config
+  namespace: cloudflare-tunnel
+  labels:
+    app.kubernetes.io/name: cloudflared
+data:
+  config.yml: |
+    # ---- Cloudflare Tunnel Configuration ----
+    # tunnel: <tunnel-id>           # 如果用 TUNNEL_TOKEN，无需此行
+    # credentials-file: /etc/cloudflared/credentials.json
+
+    # 日志和监控
+    loglevel: info
+    # metrics: 0.0.0.0:2001        # 已通过命令行参数设置
+
+    # ---- Ingress Rules ----
+    # 将外部域名路由到集群内部 service
+    ingress:
+      # 示例：app.yourdomain.com → 集群内 my-app service
+      # - hostname: app.example.com
+      #   service: http://my-app.default.svc.cluster.local:8080
+      #
+      # 示例：另一个子域名
+      # - hostname: api.example.com
+      #   service: http://api-service.default.svc.cluster.local:3000
+      #
+      # 示例：泛域名（把其他都转发到同一个 service）
+      # - hostname: "*.example.com"
+      #   service: http://ingress-controller.nginx.svc.cluster.local:80
+
+      # 未匹配的流量返回 404（必须存在）
+      - service: http_status:404

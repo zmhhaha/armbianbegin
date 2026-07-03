@@ -605,6 +605,9 @@ echo heartbeat > trigger
 # 设置
 echo none > /sys/class/leds/green_led/trigger
 echo none > /sys/class/leds/blue_led/trigger
+#在crontab中添加以下内容即可在开机时关闭绿灯和蓝灯的闪烁
+@reboot echo none > /sys/class/leds/green_led/trigger
+@reboot echo none > /sys/class/leds/blue_led/trigger
 
 # 查看cpu频率
 cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_max_freq

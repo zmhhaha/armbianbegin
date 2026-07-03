@@ -1,4 +1,4 @@
-# ceph-csi-encryption-kms-config.yaml
+# ceph-csi-encryption-kms-config.yaml — KMS 加密配置（未启用，占位用）
 apiVersion: v1
 kind: ConfigMap
 metadata:

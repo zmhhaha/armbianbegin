@@ -1,19 +1,20 @@
-# ceph-rbd-storageclass.yaml
+# ceph-rbd-storageclass.yaml — RBD 块存储（默认 StorageClass）
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: ceph-rbd
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
 provisioner: rbd.csi.ceph.com
 parameters:
-  clusterID: 3f12b9e4-fce0-11ef-97b1-ca1173533d33  # 通过 `ceph fsid` 获取
+  clusterID: 3a4899f0-7689-11f1-90a0-c0742bfe683a
   pool: k8s-pool
   imageFeatures: layering
-  # 引用 Secret
-  csi.storage.k8s.io/provisioner-secret-name: ceph-admin-secret
+  csi.storage.k8s.io/provisioner-secret-name: ceph-secret
   csi.storage.k8s.io/provisioner-secret-namespace: default
-  csi.storage.k8s.io/controller-expand-secret-name: ceph-admin-secret
-  csi.storage.k8s.io/controller-expand-secret-namespace: default 
-  csi.storage.k8s.io/node-stage-secret-name: ceph-admin-secret
+  csi.storage.k8s.io/controller-expand-secret-name: ceph-secret
+  csi.storage.k8s.io/controller-expand-secret-namespace: default
+  csi.storage.k8s.io/node-stage-secret-name: ceph-secret
   csi.storage.k8s.io/node-stage-secret-namespace: default
 reclaimPolicy: Delete
 allowVolumeExpansion: true

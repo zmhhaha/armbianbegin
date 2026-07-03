@@ -1,0 +1,32 @@
+---
+# =============================================================
+# Kustomization — 一键部署所有资源
+# 用法: kubectl apply -k ./k8s
+# =============================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cloudflare-tunnel
+
+resources:
+  - namespace.yaml
+  - tunnel-credentials-secret.yaml
+  - tunnel-configmap.yaml
+  - rbac.yaml
+  - deployment.yaml
+  - service.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: cloudflare-tunnel
+
+# 如果你用的是自己构建的镜像，设置镜像名
+# images:
+#   - name: cloudflare-tunnel-operator
+#     newTag: latest
+
+# 如果你需要使用 ConfigMap 方式（config.yml），生成 checksum 触发滚动更新
+# configMapGenerator:
+#   - name: tunnel-config
+#     files:
+#       - config.yml
+#     behavior: replace
