@@ -1,0 +1,93 @@
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gradio-agent
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gradio-agent-config
+  namespace: gradio-agent
+data:
+  PROVIDER: "deepseek"
+  GRADIO_SERVER_PORT: "7860"
+---
+# Secret — API Key
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gradio-agent-secret
+  namespace: gradio-agent
+type: Opaque
+stringData:
+  OPENAI_API_KEY: "sk-your-api-key-here"
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gradio-agent
+  namespace: gradio-agent
+  labels:
+    app: gradio-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gradio-agent
+  template:
+    metadata:
+      labels:
+        app: gradio-agent
+    spec:
+      containers:
+      - name: gradio-agent
+        image: arm-cluster-master:5000/gradio-agent:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 7860
+        envFrom:
+        - configMapRef:
+            name: gradio-agent-config
+        - secretRef:
+            name: gradio-agent-secret
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 7860
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 7860
+          initialDelaySeconds: 30
+          periodSeconds: 10
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: gradio-agent
+  namespace: gradio-agent
+  labels:
+    app: gradio-agent
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 7860
+    targetPort: 7860
+  selector:
+    app: gradio-agent

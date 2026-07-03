@@ -36,7 +36,7 @@ cat > /opt/hive/conf/hive-site.xml << EOF
   </property>
   <property>
     <name>hive.metastore.uris</name>
-    <value>thrift://192.168.317.101:30983</value>
+    <value>thrift://${MASTER_IP}:30983</value>
   </property>
   <property>
     <name>javax.jdo.option.ConnectionDriverName</name>

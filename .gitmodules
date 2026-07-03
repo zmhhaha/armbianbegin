@@ -1,0 +1,3 @@
+[submodule "panghu_agent"]
+	path = panghu_agent
+	url = git@github.com:zmhhaha/panghu_agent.git

@@ -1,0 +1,20 @@
+# FastAPI 服务
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
+# 数据库
+sqlalchemy>=2.0.0
+
+# Token 追踪
+litellm>=1.50.0
+
+# 环境配置
+python-dotenv>=1.0.0
+
+# CrewAI Agent 核心
+crewai[tools]>=0.108.0
+anthropic>=0.40.0
+
+# Web 抓取
+requests>=2.31.0
+beautifulsoup4>=4.12.0
