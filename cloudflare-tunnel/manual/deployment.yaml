@@ -54,7 +54,7 @@ spec:
         - name: cloudflared
           # 使用自定义镜像（基于官方 cloudflared + 启动脚本）
           image: arm-cluster-master:5000/cloudflared-k8s:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
 
           # 直接通过 sh -c 运行 cloudflared，展开 TUNNEL_TOKEN 环境变量
           command: ["/bin/sh", "-c"]

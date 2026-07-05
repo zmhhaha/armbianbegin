@@ -1,0 +1,71 @@
+# SQLite Data Service — 独立镜像，纯数据库服务
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sqlite-data
+  namespace: data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: ceph-rbd
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqlite
+  namespace: data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sqlite
+  template:
+    metadata:
+      labels:
+        app: sqlite
+    spec:
+      containers:
+      - name: sqlite
+        image: arm-cluster-master:5000/sqlite:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DB_PATH
+          value: /data/data.db
+        - name: PORT
+          value: "8000"
+        resources:
+          requests: {cpu: 50m, memory: 64Mi}
+          limits:   {cpu: 200m, memory: 256Mi}
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        livenessProbe:
+          httpGet: {path: /health, port: 8000}
+          initialDelaySeconds: 5
+          periodSeconds: 30
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: sqlite-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqlite
+  namespace: data
+spec:
+  ports:
+  - port: 8000
+  selector:
+    app: sqlite

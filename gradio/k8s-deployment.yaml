@@ -31,6 +31,8 @@ spec:
         ports:
         - containerPort: 7860
         env:
+        - name: API_BASE
+          value: "http://api.research-agent.svc.cluster.local"
         - name: PROVIDER
           value: deepseek
         - name: OPENAI_API_KEY
