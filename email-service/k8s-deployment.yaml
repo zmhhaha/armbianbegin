@@ -1,0 +1,80 @@
+# ============================================================
+#  Email Service — K8s 部署
+#  用法: kubectl apply -f k8s-deployment.yaml
+#  注意: Secret 中的 SMTP 密码需要手动创建
+# ============================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: email-service
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: email-config
+  namespace: email-service
+data:
+  SMTP_HOST: "smtp.qq.com"
+  SMTP_PORT: "465"
+  SMTP_FROM: "your-email@qq.com"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: email-secret
+  namespace: email-service
+type: Opaque
+stringData:
+  SMTP_USER: "your-email@qq.com"
+  SMTP_PASS: "your-smtp-auth-code"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: email
+  namespace: email-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: email
+  template:
+    metadata:
+      labels:
+        app: email
+    spec:
+      containers:
+      - name: email
+        image: arm-cluster-master:5000/email-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: email-config
+        - secretRef:
+            name: email-secret
+        resources:
+          requests: {cpu: 50m, memory: 64Mi}
+          limits: {cpu: 200m, memory: 128Mi}
+        livenessProbe:
+          httpGet: {path: /health, port: 8000}
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        readinessProbe:
+          httpGet: {path: /health, port: 8000}
+          initialDelaySeconds: 3
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: email
+  namespace: email-service
+spec:
+  selector:
+    app: email
+  ports:
+  - port: 80
+    targetPort: 8000

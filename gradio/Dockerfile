@@ -14,16 +14,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY gradio/requirements.txt               ./requirements-gradio.txt
-COPY panghu_agent/crewai/requirements.txt ./requirements-crewai.txt
+COPY gradio/requirements.txt          ./requirements-gradio.txt
 RUN pip install --break-system-packages --no-cache-dir \
     -i https://mirrors.aliyun.com/pypi/simple/ \
     --trusted-host mirrors.aliyun.com \
-    -r requirements-gradio.txt \
-    -r requirements-crewai.txt
+    -r requirements-gradio.txt
 
-COPY panghu_agent/crewai/       ./crewai/
-COPY panghu_agent/gradio_app.py ./app.py
+COPY panghu_agent/app/ui/app.py       ./app.py
 
 ENV PYTHONUNBUFFERED=1 \
     GRADIO_SERVER_NAME="0.0.0.0" \
