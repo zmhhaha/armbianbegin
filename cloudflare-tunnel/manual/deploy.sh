@@ -18,7 +18,7 @@ IMAGE="${REGISTRY}/cloudflared-k8s:latest"
 # ============================================================
 # 1. 读取 token
 # ============================================================
-TOKEN_FILE="${script_dir}/.token"
+TOKEN_FILE="${script_dir}/../.token"
 if [ ! -f "$TOKEN_FILE" ]; then
     echo "ERROR: .token 文件不存在！"
     echo "  请在 Cloudflare Zero Trust → Networks → Tunnels 中创建 Tunnel"
@@ -37,7 +37,7 @@ echo "Token loaded (${#TUNNEL_TOKEN} chars)"
 # ============================================================
 echo ""
 echo "=== Building ${IMAGE} ==="
-docker build --build-arg REGISTRY="${REGISTRY}" -t "${IMAGE}" .
+docker build --build-arg REGISTRY="${REGISTRY}" -t "${IMAGE}" -f ../Dockerfile ..
 echo "Build complete"
 
 # ============================================================
@@ -66,12 +66,12 @@ kubectl create secret generic tunnel-credentials \
     --dry-run=client -o yaml $K | kubectl apply $K -f -
 
 # 应用所有 K8s 资源
-kubectl apply -f k8s/namespace.yaml $K
-kubectl apply -f k8s/tunnel-configmap.yaml $K 2>/dev/null || true
-kubectl apply -f k8s/service.yaml $K
+kubectl apply -f namespace.yaml $K
+kubectl apply -f tunnel-configmap.yaml $K 2>/dev/null || true
+kubectl apply -f service.yaml $K
 
 # 渲染 deployment 并替换镜像名
-sed "s|cloudflare-tunnel-operator:latest|${IMAGE}|g" k8s/deployment.yaml | kubectl apply $K -f -
+sed "s|cloudflare-tunnel-operator:latest|${IMAGE}|g" deployment.yaml | kubectl apply $K -f -
 
 # ============================================================
 # 5. 验证

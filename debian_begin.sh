@@ -122,7 +122,7 @@ cat > /etc/docker/daemon.json << EOF
         "https://docker.m.daocloud.io",
         "https://registry.aliyuncs.com"
     ],
-    "insecure-registries": ["http://${REGISTRY}"]
+    "insecure-registries": ["${REGISTRY}"]
 }
 EOF
 systemctl daemon-reload
@@ -411,15 +411,23 @@ kubectl create secret generic registry-secret \
 --from-file=tls.key=/etc/ssl/certs/self_registry_ca.key \
 --namespace=kube-system
 
-kubectl edit configmap coredns -n kube-system
-# 这部分是要修改的
-# hosts {
-#   ${MASTER_IP} ${MASTER_HOSTNAME}
-#   192.168.137.201 nanopct4-server1
-#   192.168.137.202 nanopct4-server2
-#   192.168.137.211 orangepi5-max-server1
-#   fallthrough
-# }
+# CoreDNS hosts 插件 — 让所有 Pod 能解析集群主机名（冷启动关键）不搞这个flannel会循环死掉
+# 先把当前 Corefile 导出，如果还没有 hosts 段则追加
+kubectl get configmap coredns -n kube-system -o jsonpath='{.data.Corefile}' > /tmp/coredns_corefile
+if ! grep -q 'hosts {' /tmp/coredns_corefile; then
+    cat >> /tmp/coredns_corefile << CEOF
+    hosts {
+        ${MASTER_IP} ${MASTER_HOSTNAME}
+        192.168.137.201 nanopct4-server1
+        192.168.137.202 nanopct4-server2
+        192.168.137.203 nanopct4-server3
+        192.168.137.211 orangepi5-max-server1
+        fallthrough
+    }
+CEOF
+    kubectl create configmap coredns -n kube-system --from-file=Corefile=/tmp/coredns_corefile \
+        --dry-run=client -o yaml | kubectl apply -f -
+fi
 kubectl rollout restart deployment/coredns -n kube-system
 
 #wget https://docs.projectcalico.org/manifests/calico.yaml --no-check-certificate

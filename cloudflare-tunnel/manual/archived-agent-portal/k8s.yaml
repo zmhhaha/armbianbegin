@@ -1,0 +1,59 @@
+# Agent Portal — K8s 部署
+# 通过 ConfigMap 托管 index.html，python http.server 提供服务
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agent-portal
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: portal-html
+  namespace: agent-portal
+binaryData:
+  index.html: <base64-encoded-html>    # 实际部署时由脚本填充
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal
+  namespace: agent-portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-portal
+  template:
+    metadata:
+      labels:
+        app: agent-portal
+    spec:
+      containers:
+      - name: portal
+        image: arm-cluster-master:5000/base:latest
+        command: ["python3", "-m", "http.server", "8080", "--directory", "/www"]
+        ports:
+        - containerPort: 8080
+        resources:
+          requests: {cpu: 50m, memory: 32Mi}
+          limits: {cpu: 200m, memory: 64Mi}
+        volumeMounts:
+        - name: html
+          mountPath: /www
+      volumes:
+      - name: html
+        configMap:
+          name: portal-html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal
+  namespace: agent-portal
+spec:
+  selector:
+    app: agent-portal
+  ports:
+  - port: 80
+    targetPort: 8080

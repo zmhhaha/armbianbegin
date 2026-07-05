@@ -1,0 +1,36 @@
+# ============================================================
+#  正式 Tunnel + 路由（生产环境）
+#  kubectl apply -f tunnel-routes.yaml
+# ============================================================
+---
+apiVersion: cf.armbianbegin.io/v1
+kind: Tunnel
+metadata:
+  name: main
+  namespace: default
+spec:
+  tunnelToken: cf-tunnel-token
+  replicas: 2
+---
+# agent-portal 首页
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: agent-portal
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: agent.panghuer.top
+  backend: portal.agent-portal.svc.cluster.local:80
+---
+# 研究助手 UI
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: research-ui
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: research-agent.panghuer.top
+  backend: ui.research-agent.svc.cluster.local:7860
+# API 不对外开放——api.research-agent.svc.cluster.local:8000 仅集群内使用

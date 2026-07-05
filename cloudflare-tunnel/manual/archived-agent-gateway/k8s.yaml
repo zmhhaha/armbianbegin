@@ -1,0 +1,98 @@
+# ============================================================
+#  Agent Gateway — 统一入口 Ingress
+#  CF Tunnel → ingress-nginx → ExternalName → 各 Agent Service
+# ============================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agent-gateway
+---
+# ExternalName Services — 跨 namespace 引用
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: agent-gateway
+spec:
+  type: ExternalName
+  externalName: api.research-agent.svc.cluster.local
+  ports:
+  - port: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ui
+  namespace: agent-gateway
+spec:
+  type: ExternalName
+  externalName: ui.research-agent.svc.cluster.local
+  ports:
+  - port: 7860
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal
+  namespace: agent-gateway
+spec:
+  type: ExternalName
+  externalName: portal.agent-portal.svc.cluster.local
+  ports:
+  - port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: research-ui
+  namespace: agent-gateway
+spec:
+  type: ExternalName
+  externalName: ui.research-agent.svc.cluster.local
+  ports:
+  - port: 7860
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agent-gateway
+  namespace: agent-gateway
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: agent.panghuer.top
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: portal
+            port:
+              number: 80
+  - host: research.panghuer.top
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: research-ui
+            port:
+              number: 7860
+  - host: agent-api.panghuer.top
+    http:
+      paths:
+      - path: /research(/|$)(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: api
+            port:
+              number: 8000

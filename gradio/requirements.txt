@@ -1,5 +1,2 @@
-# 用户项目的额外依赖写在这里
-# Gradio 已在 Dockerfile 中预装
-# 示例：
-# torch>=2.0.0
-# transformers>=4.40.0
+gradio>=5.0.0
+python-dotenv>=1.0.0

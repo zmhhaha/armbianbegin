@@ -1,0 +1,51 @@
+# ============================================================
+#  Operator RBAC — 权限最小化
+# ============================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cf-tunnel-operator
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cf-tunnel-operator
+  namespace: cf-tunnel-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cf-tunnel-operator
+rules:
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["cf.armbianbegin.io"]
+  resources: ["tunnels", "tunnelroutes"]
+  verbs: ["*"]
+- apiGroups: ["cf.armbianbegin.io"]
+  resources: ["tunnels/status", "tunnelroutes/status"]
+  verbs: ["get", "update", "patch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["configmaps", "secrets", "events"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cf-tunnel-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cf-tunnel-operator
+subjects:
+- kind: ServiceAccount
+  name: cf-tunnel-operator
+  namespace: cf-tunnel-operator

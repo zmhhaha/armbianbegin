@@ -1,59 +1,47 @@
 # ============================================================
-#  Gradio K8s 部署模板
-#  替换所有 <...> 占位符为你的实际值
+#  Generic Agent UI 部署模板（Gradio）
+#  deploy.sh 会将 __AGENT_NAME__ 替换为实际 agent 名
+#  Gradio 内部引用绝对路径，如果要放在路径下需配合 rewrite
 # ============================================================
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: gradio-app
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: gradio-config
-  namespace: gradio-app
-data:
-  GRADIO_SERVER_PORT: "7860"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: gradio-secret
-  namespace: gradio-app
-type: Opaque
-stringData: {}
+  name: __AGENT_NAME__
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: gradio-app
-  namespace: gradio-app
+  name: ui
+  namespace: __AGENT_NAME__
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: gradio-app
+      app: __AGENT_NAME__-ui
   template:
     metadata:
       labels:
-        app: gradio-app
+        app: __AGENT_NAME__-ui
     spec:
       containers:
-      - name: gradio
-        image: arm-cluster-master:5000/gradio-app:latest
+      - name: ui
+        image: arm-cluster-master:5000/gradio-agent:latest
         imagePullPolicy: Always
         ports:
-        - name: http
-          containerPort: 7860
-        envFrom:
-        - configMapRef:
-            name: gradio-config
-        - secretRef:
-            name: gradio-secret
+        - containerPort: 7860
+        env:
+        - name: PROVIDER
+          value: deepseek
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agent-secret
+              key: OPENAI_API_KEY
+              optional: true
         resources:
-          requests: {cpu: 250m, memory: 256Mi}
-          limits:   {cpu: 1000m, memory: 1Gi}
+          requests: {cpu: 250m, memory: 512Mi}
+          limits: {cpu: 2000m, memory: 2Gi}
         livenessProbe:
           httpGet: {path: /, port: 7860}
           initialDelaySeconds: 30
@@ -66,13 +54,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: gradio-app
-  namespace: gradio-app
+  name: ui
+  namespace: __AGENT_NAME__
 spec:
-  type: ClusterIP
-  ports:
-  - name: http
-    port: 7860
-    targetPort: 7860
   selector:
-    app: gradio-app
+    app: __AGENT_NAME__-ui
+  ports:
+  - port: 7860

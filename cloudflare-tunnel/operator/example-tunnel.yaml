@@ -1,0 +1,23 @@
+# ============================================================
+#  示例模板——复制此文件修改为自己的配置
+#  正式配置见 tunnel-routes.yaml
+# ============================================================
+---
+apiVersion: cf.armbianbegin.io/v1
+kind: Tunnel
+metadata:
+  name: my-tunnel           # 改
+  namespace: default
+spec:
+  tunnelToken: cf-tunnel-token
+  replicas: 2
+---
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: my-route             # 改
+  namespace: default
+spec:
+  tunnelRef: my-tunnel       # 改
+  hostname: app.example.com  # 改
+  backend: my-service.ns.svc.cluster.local:8080  # 改

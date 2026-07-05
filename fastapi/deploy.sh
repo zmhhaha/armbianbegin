@@ -1,25 +1,28 @@
 #!/bin/bash
 # ============================================================
-#  Generic FastAPI 构建 + 部署
-#  用法:
-#    1. 把你的 app 代码放到 app/ 目录
-#    2. 依赖写入 requirements.txt
-#    3. bash deploy.sh
+#  Generic Agent API 部署
+#  用法: AGENT_NAME=panghu_agent bash deploy.sh
+#  域名: ${AGENT_NAME}-api.panghuer.top
 # ============================================================
 set -e
 cd "$(dirname "$0")"
 [ -f "../cluster_config.sh" ] && source "../cluster_config.sh"
+
+AGENT_NAME="${AGENT_NAME:-panghu_agent}"
 REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
-IMAGE="${REGISTRY}/fastapi-app:latest"
+IMAGE="${REGISTRY}/agent-api:latest"
 K="--kubeconfig=/etc/kubernetes/super-admin.conf"
 
-echo "=== Building ${IMAGE} ==="
-docker build --build-arg REGISTRY="${REGISTRY}" -t "${IMAGE}" .
+echo "=== Building ${IMAGE} (agent: ${AGENT_NAME}) ==="
+cd ..
+docker build --build-arg REGISTRY="${REGISTRY}" --build-arg AGENT_NAME="${AGENT_NAME}" -t "${IMAGE}" -f fastapi/Dockerfile .
 docker push "${IMAGE}"
+cd fastapi
 
-echo "=== Deploying ==="
-kubectl apply ${K} -f k8s-deployment.yaml
-sleep 10
-kubectl get pods -n fastapi-app ${K}
+echo "=== Deploying to K8s (namespace: ${AGENT_NAME}) ==="
+sed "s/__AGENT_NAME__/${AGENT_NAME}/g" k8s-deployment.yaml | kubectl apply ${K} -f -
+
+sleep 15
+kubectl get pods -n "${AGENT_NAME}" ${K}
 echo ""
-echo "Done: http://fastapi-app.fastapi-app.svc.cluster.local:8000"
+echo "Done! API: https://${AGENT_NAME}-api.panghuer.top"

@@ -1,0 +1,52 @@
+# Agent Portal — K8s 部署
+# index.html 通过 ConfigMap 注入（deploy.sh 自动处理）
+# 更新页面: 改 index.html → bash deploy.sh
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agent-portal
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal
+  namespace: agent-portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-portal
+  template:
+    metadata:
+      labels:
+        app: agent-portal
+    spec:
+      containers:
+      - name: portal
+        image: arm-cluster-master:5000/base:latest
+        command: ["python3", "-m", "http.server", "8080", "--directory", "/www"]
+        ports:
+        - containerPort: 8080
+        resources:
+          requests: {cpu: 50m, memory: 32Mi}
+          limits: {cpu: 200m, memory: 64Mi}
+        volumeMounts:
+        - name: html
+          mountPath: /www
+      volumes:
+      - name: html
+        configMap:
+          name: portal-html          # deploy.sh 自动创建
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal
+  namespace: agent-portal
+spec:
+  selector:
+    app: agent-portal
+  ports:
+  - port: 80
+    targetPort: 8080

@@ -6,11 +6,7 @@ set -e
 
 CONFIG_FILE="${CONFIG_FILE:-/etc/cloudflared/config.yml}"
 CREDENTIALS_FILE="${CREDENTIALS_FILE:-/etc/cloudflared/credentials.json}"
-METRICS_ADDR="${METRICS_ADDR:-0.0.0.0:2001}"
 LOGLEVEL="${LOGLEVEL:-info}"
-
-# --- 公共参数 ---
-EXTRA_ARGS="--metrics ${METRICS_ADDR} --loglevel ${LOGLEVEL}"
 
 echo "=== cloudflared starting ==="
 
@@ -20,7 +16,7 @@ echo "=== cloudflared starting ==="
 # ============================================================
 if [ -n "${TUNNEL_TOKEN}" ]; then
     echo ">> Mode: TUNNEL_TOKEN"
-    exec cloudflared tunnel run --token "${TUNNEL_TOKEN}" ${EXTRA_ARGS}
+    exec cloudflared tunnel --loglevel ${LOGLEVEL} run --token "${TUNNEL_TOKEN}"
 fi
 
 # ============================================================
@@ -37,7 +33,7 @@ if [ -f "${CONFIG_FILE}" ]; then
         fi
     fi
     echo ">> Mode: config.yml (${CONFIG_FILE})"
-    exec cloudflared tunnel run --config "${CONFIG_FILE}" ${EXTRA_ARGS}
+    exec cloudflared tunnel --loglevel ${LOGLEVEL} run --config "${CONFIG_FILE}"
 fi
 
 # ============================================================
@@ -48,9 +44,8 @@ if [ -f "${CREDENTIALS_FILE}" ]; then
     TUNNEL_ID=$(grep -o '"TunnelID"[[:space:]]*:[[:space:]]*"[^"]*"' "${CREDENTIALS_FILE}" | cut -d'"' -f4)
     if [ -n "${TUNNEL_ID}" ]; then
         echo ">> Mode: credentials.json (tunnel ${TUNNEL_ID})"
-        exec cloudflared tunnel run \
-            --credentials-file "${CREDENTIALS_FILE}" \
-            ${EXTRA_ARGS}
+        exec cloudflared tunnel --loglevel ${LOGLEVEL} run \
+            --credentials-file "${CREDENTIALS_FILE}"
     fi
 fi
 
