@@ -1,13 +1,16 @@
 #!/bin/bash
 # ============================================================
-#  Agent Portal 部署 — ConfigMap 注入 index.html
-#  更新页面只需改 index.html 然后重新执行此脚本
-#  无需重新构建镜像
+#  Agent Portal 部署
+#  构建镜像 → ConfigMap 注入 → K8s apply
 # ============================================================
 set -e
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 cd "$script_dir"
 K="--kubeconfig=/etc/kubernetes/super-admin.conf"
+
+echo "=== Building portal image ==="
+docker build -t arm-cluster-master:5000/portal:latest .
+docker push arm-cluster-master:5000/portal:latest
 
 echo "=== Encoding index.html → ConfigMap ==="
 INDEX_B64=$(base64 -w0 index.html)

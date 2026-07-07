@@ -1,6 +1,6 @@
 # Agent Portal — K8s 部署
-# index.html 通过 ConfigMap 注入（deploy.sh 自动处理）
-# 更新页面: 改 index.html → bash deploy.sh
+# index.html 通过 ConfigMap 注入，static 图片通过 PVC 挂载
+# 更新: 改 index.html → bash deploy.sh
 ---
 apiVersion: v1
 kind: Namespace
@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: portal
-        image: arm-cluster-master:5000/base:latest
+        image: arm-cluster-master:5000/portal:latest
         command: ["python3", "-m", "http.server", "8080", "--directory", "/www"]
         ports:
         - containerPort: 8080
@@ -34,10 +34,15 @@ spec:
         volumeMounts:
         - name: html
           mountPath: /www
+        - name: images
+          mountPath: /www/static
       volumes:
       - name: html
         configMap:
-          name: portal-html          # deploy.sh 自动创建
+          name: portal-html
+      - name: images
+        persistentVolumeClaim:
+          claimName: static-files
 ---
 apiVersion: v1
 kind: Service

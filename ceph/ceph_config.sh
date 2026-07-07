@@ -38,6 +38,8 @@ sed -i '/ceph-/d' ~/.ssh/authorized_keys
 
 reboot
 
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+[ -f "${script_dir}/../cluster_config.sh" ] && source "${script_dir}/../cluster_config.sh"
 # master
 cephadm bootstrap --mon-ip ${MASTER_IP} --cluster-network 192.168.137.0/24
 ceph cephadm get-pub-key > ~/ceph.pub
@@ -228,19 +230,51 @@ echo "CephFS mounted successfully!"
 #  ceph-csi v3.14.1（兼容 Ceph Squid 19.x）
 # ============================================================
 
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+[ -f "${script_dir}/../cluster_config.sh" ] && source "${script_dir}/../cluster_config.sh"
 # 0. 解压本地包
 tar -xzf ceph-csi-3.14.1.tar.gz -C /tmp/ 2>/dev/null
 CSI_DIR="/tmp/ceph-csi-3.14.1"
 [ -d "$CSI_DIR" ] || CSI_DIR="/root/ceph-csi"
 
-# 1. 替换镜像源为阿里云（国内可用）
+# 0. 拉镜像 → 推本地 registry（阿里云中转，国内可用）
+IMAGES=(
+    "quay.io/cephcsi/cephcsi:v3.14.1"
+    "registry.aliyuncs.com/google_containers/csi-provisioner:v5.2.0"
+    "registry.aliyuncs.com/google_containers/csi-node-driver-registrar:v2.13.0"
+    "registry.aliyuncs.com/google_containers/csi-resizer:v1.13.1"
+    "registry.aliyuncs.com/google_containers/csi-snapshotter:v8.2.0"
+    "registry.aliyuncs.com/google_containers/livenessprobe:v2.15.0"
+    "registry.aliyuncs.com/google_containers/csi-attacher:v4.8.0"
+)
+REG="arm-cluster-master:5000"
+for img in "${IMAGES[@]}"; do
+    base_name=$(echo "$img" | sed 's#registry.aliyuncs.com/google_containers/##')
+    base_name=$(echo "$base_name" | sed 's#quay.io/cephcsi/##')
+    echo "=== Processing $img ==="
+    docker pull "$img" 2>/dev/null || echo "(already cached)"
+    dst="${REG}/${base_name}"
+    docker tag "$img" "$dst" 2>/dev/null || docker tag "$base_name" "$dst"
+    docker push "$dst"
+done
+
+# 1. 替换 CSI yaml 镜像 → arm-cluster-master:5000/xxx:tag
+REG="arm-cluster-master:5000"
 for dir in ${CSI_DIR}/deploy/cephfs/kubernetes ${CSI_DIR}/deploy/rbd/kubernetes; do
     for f in $(ls $dir/*.yaml 2>/dev/null); do
-        sed -i 's#registry.k8s.io/sig-storage/#registry.aliyuncs.com/google_containers/#' $f
+        sed -i "s|registry.k8s.io/sig-storage/csi-provisioner:.*|${REG}/csi-provisioner:v5.2.0|" $f
+        sed -i "s|registry.k8s.io/sig-storage/csi-node-driver-registrar:.*|${REG}/csi-node-driver-registrar:v2.13.0|" $f
+        sed -i "s|registry.k8s.io/sig-storage/csi-resizer:.*|${REG}/csi-resizer:v1.13.1|" $f
+        sed -i "s|registry.k8s.io/sig-storage/csi-snapshotter:.*|${REG}/csi-snapshotter:v8.2.0|" $f
+        sed -i "s|registry.k8s.io/sig-storage/csi-attacher:.*|${REG}/csi-attacher:v4.8.0|" $f
+        sed -i "s|registry.k8s.io/sig-storage/livenessprobe:.*|${REG}/livenessprobe:v2.15.0|" $f
+        sed -i "s|quay.io/cephcsi/cephcsi:.*|${REG}/cephcsi:v3.14.1|" $f
     done
 done
 
 # 2. 创建必需的 ConfigMaps
+rm -rf ${CSI_DIR}/deploy/rbd/kubernetes/csi-config-map.yaml
+rm -rf ${CSI_DIR}/deploy/cephfs/kubernetes/csi-config-map.yaml
 FSID=$(ceph fsid 2>/dev/null | tr -d '[:space:]')
 C8S_KEY=$(ceph auth get-key client.k8s)
 
@@ -275,16 +309,67 @@ done
 kubectl apply -f ${CSI_DIR}/deploy/cephfs/kubernetes/
 kubectl apply -f ${CSI_DIR}/deploy/rbd/kubernetes/
 
-# 5. 容错：master 节点有 control-plane:NoSchedule taint，
-#    不加 toleration 的话单节点集群上 provisioner 无法调度
-sleep 5
-for deploy in csi-cephfsplugin-provisioner csi-rbdplugin-provisioner; do
-    kubectl patch deployment $deploy -n default \
-        -p '{"spec":{"template":{"spec":{"tolerations":[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists","effect":"NoSchedule"}]}}}}' \
-        2>/dev/null || true
-    kubectl scale deployment $deploy -n default --replicas=1 2>/dev/null || true
+# 5. 清理 low-resource taint + 给 DaemonSet/provisioner 加 control-plane toleration
+#   ——确保 CSI 能调度到集群所有节点
+for node in nanopct4-server1 nanopct4-server2 nanopct4-server3; do
+    kubectl taint node ${node} node-type=low-resource:NoSchedule- 2>/dev/null || true
+done
+sleep 3
+# 为 CSI 节点插件（DaemonSet）添加容忍度，使其可调度到 Master 节点
+for ds in csi-cephfsplugin csi-rbdplugin; do
+    kubectl patch daemonset "$ds" -n default --type='json' -p='[
+        {
+            "op": "add",
+            "path": "/spec/template/spec/tolerations",
+            "value": [
+                {"key": "node-role.kubernetes.io/control-plane", "operator": "Exists", "effect": "NoSchedule"},
+                {"key": "node-role.kubernetes.io/master", "operator": "Exists", "effect": "NoSchedule"}
+            ]
+        }
+    ]'
 done
 
-# 6. 等待就绪
+# 为 CSI 控制器（Deployment）添加容忍度，并缩放到 1 个副本
+for deploy in csi-cephfsplugin-provisioner csi-rbdplugin-provisioner; do
+    kubectl patch deployment "$deploy" -n default --type='json' -p='[
+        {
+            "op": "add",
+            "path": "/spec/template/spec/tolerations",
+            "value": [
+                {"key": "node-role.kubernetes.io/control-plane", "operator": "Exists", "effect": "NoSchedule"}
+            ]
+        }
+    ]' 2>/dev/null || true
+
+    kubectl scale deployment "$deploy" -n default --replicas=1 2>/dev/null || true
+done
+
+# 6. 等待就绪并验证
 sleep 20
-kubectl get pods -n default | grep csi
+echo ""
+echo "=== CSI DaemonSet (each node should have a pod) ==="
+kubectl get daemonset -n default | grep csi
+echo ""
+echo "=== CSI provisioner (all should be ready) ==="
+kubectl get deploy -n default | grep csi
+
+
+cat /etc/ceph/ceph.conf | grep mon
+mon_host = [v2:192.168.137.101:3300/0,v1:192.168.137.101:6789/0] [v2:192.168.137.201:3300/0,v1:192.168.137.201:6789/0] [v2:192.168.137.202:3300/0,v1:192.168.137.202:6789/0] [v2:192.168.137.203:3300/0,v1:192.168.137.203:6789/0] [v2:192.168.137.211:3300/0,v1:192.168.137.211:6789/0]
+ceph auth print-key client.k8s | base64 -w 0
+QVFBQ3MwZHFUbkVLTFJBQXZCRDIwMm1WT250RFduWkRiM0RnMnc9PQ==
+ceph fsid
+3a4899f0-7689-11f1-90a0-c0742bfe683a
+
+kubectl delete pod csi-cephfsplugin-4ffqq -n default                    
+kubectl delete pod csi-cephfsplugin-62g8d -n default                    
+kubectl delete pod csi-cephfsplugin-84nhp -n default                    
+kubectl delete pod csi-cephfsplugin-h6w8f -n default                    
+kubectl delete pod csi-cephfsplugin-jj2mr -n default                    
+kubectl delete pod csi-cephfsplugin-provisioner-5f4f84f69d-ch6bd -n default                    
+kubectl delete pod csi-rbdplugin-2jdtj -n default                    
+kubectl delete pod csi-rbdplugin-provisioner-78f9c5547b-m2mrf -n default                    
+kubectl delete pod csi-rbdplugin-qp2l2 -n default                    
+kubectl delete pod csi-rbdplugin-v5qph -n default                    
+kubectl delete pod csi-rbdplugin-wqqmd -n default                    
+kubectl delete pod csi-rbdplugin-zngps -n default                    

@@ -1,0 +1,77 @@
+# Casdoor — 统一身份认证平台
+# casbin/casdoor:latest (ARM64, 非 all-in-one)
+# 数据持久化到 MySQL (Ceph RBD PVC)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: casdoor
+  namespace: oauth
+  labels:
+    app: casdoor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: casdoor
+  template:
+    metadata:
+      labels:
+        app: casdoor
+    spec:
+      containers:
+      - name: casdoor
+        image: arm-cluster-master:5000/casdoor:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: origin
+          value: "https://auth.panghuer.top"
+        volumeMounts:
+        - name: casdoor-config
+          mountPath: /conf/app.conf
+          subPath: app.conf
+          readOnly: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 20
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 15
+      volumes:
+      - name: casdoor-config
+        configMap:
+          name: casdoor-config
+          items:
+          - key: app.conf
+            path: app.conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: casdoor
+  namespace: oauth
+  labels:
+    app: casdoor
+spec:
+  selector:
+    app: casdoor
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: http

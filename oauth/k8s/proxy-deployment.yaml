@@ -1,0 +1,83 @@
+# oauth2-proxy — 认证代理网关
+# 通过 Casdoor OIDC 对接 GitHub / Google / 微信 / 支付宝
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: oauth
+  labels:
+    app: oauth2-proxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app: oauth2-proxy
+    spec:
+      containers:
+      - name: oauth2-proxy
+        image: arm-cluster-master:5000/oauth2-proxy:v7.8.0
+        imagePullPolicy: Always
+        args:
+          - "--alpha-config=/etc/oauth2-proxy/alpha-config.yaml"
+          - "--cookie-secret=$(COOKIE_SECRET)"
+          - "--cookie-domain=.panghuer.top"
+          - "--cookie-secure=true"
+          - "--cookie-samesite=lax"
+          - "--cookie-expire=168h"
+          - "--cookie-refresh=60m"
+          - "--cookie-name=_oauth2_proxy"
+          - "--email-domain=$(ALLOWED_DOMAINS)"
+          - "--redirect-url=https://research-agent.panghuer.top/oauth2/callback"
+          - "--reverse-proxy=true"
+          - "--silence-ping-logging=true"
+          - "--ssl-insecure-skip-verify=true"
+        ports:
+        - containerPort: 4180
+          name: http
+        - containerPort: 44180
+          name: metrics
+        envFrom:
+        - secretRef:
+            name: oauth2-proxy-secret
+        volumeMounts:
+        - name: config
+          mountPath: /etc/oauth2-proxy
+          readOnly: true
+        resources:
+          requests: {cpu: 50m, memory: 64Mi}
+          limits: {cpu: 200m, memory: 256Mi}
+        livenessProbe:
+          httpGet: {path: /ping, port: 4180}
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet: {path: /ping, port: 4180}
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: oauth2-proxy-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy
+  namespace: oauth
+  labels:
+    app: oauth2-proxy
+spec:
+  selector:
+    app: oauth2-proxy
+  ports:
+  - port: 4180
+    targetPort: 4180
+    name: http
+  - port: 44180
+    targetPort: 44180
+    name: metrics

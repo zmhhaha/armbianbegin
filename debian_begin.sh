@@ -173,6 +173,7 @@ EOF
     cp /certs/self_registry_ca.crt /etc/ssl/certs/
     cp /certs/self_registry_ca.key /etc/ssl/certs/
     docker pull arm64v8/registry:latest
+    #镜像都在/var/lib/registry/docker/registry/v2/
     docker run -d -p 5000:5000 --name registry \
         -v /mnt/nvme/docker_registry:/var/lib/registry \
         -v /etc/ssl/certs/:/certs \

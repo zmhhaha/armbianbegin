@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: casdoor-config
+  namespace: oauth
+data:
+  app.conf: |-
+    appname = casdoor
+    httpport = 8000
+    runmode = prod
+    copyrequestbody = true
+    driverName = mysql
+    dataSourceName = casdoor:casdoor123@tcp(mysql.oauth.svc.cluster.local:3306)/
+    dbName = casdoor

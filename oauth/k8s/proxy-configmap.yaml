@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth2-proxy-config
+  namespace: oauth
+data:
+  alpha-config.yaml: |
+    # ---- OIDC 提供商: Casdoor ----
+    providers:
+      - id: oidc
+        provider: oidc
+        clientID: ${OIDC_CLIENT_ID}
+        clientSecret: ${OIDC_CLIENT_SECRET}
+        scope: "openid email profile"
+        oidcConfig:
+          issuerURL: ${OIDC_ISSUER_URL}
+          userIDClaim: "sub"
+          emailClaim: "email"
+          groupsClaim: "groups"
+
+    # ---- 上游服务路由 ----
+    upstreamConfig:
+      upstreams:
+        - id: research-agent-ui
+          path: /
+          uri: http://ui.research-agent.svc.cluster.local:7860
+          passHostHeader: true
+          proxyWebSockets: true
+
+    # ---- 注入到后端请求的用户身份 Header ----
+    injectRequestHeaders:
+      - name: X-Forwarded-User
+        values:
+          - claim: user
+      - name: X-Forwarded-Email
+        values:
+          - claim: email
+      - name: X-Forwarded-Preferred-Username
+        values:
+          - claim: preferred_username
+
+    # ---- 服务绑定地址 ----
+    server:
+      BindAddress: "0.0.0.0:4180"
+
+    metricsServer:
+      BindAddress: "0.0.0.0:44180"
