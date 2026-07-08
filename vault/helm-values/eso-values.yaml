@@ -1,0 +1,30 @@
+# ============================================================
+# External Secrets Operator Helm values
+# 安装:
+#   helm repo add external-secrets https://charts.external-secrets.io
+#   helm upgrade --install external-secrets external-secrets/external-secrets \
+#     --namespace external-secrets \
+#     --create-namespace \
+#     --values eso-values.yaml
+# ============================================================
+
+installCRDs: true        # 自动安装 SecretStore / ExternalSecret / ClusterSecretStore CRDs
+
+leaderElect: false       # 单副本不需要 leader election
+replicaCount: 1
+
+podDisruptionBudget:
+  enabled: false
+
+webhook:
+  replicaCount: 1
+  podDisruptionBudget:
+    enabled: false
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

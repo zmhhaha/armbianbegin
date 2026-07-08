@@ -1,0 +1,13 @@
+# ============================================================
+# Vault + External Secrets Operator 命名空间
+# ============================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-secrets

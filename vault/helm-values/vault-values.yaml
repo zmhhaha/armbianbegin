@@ -1,0 +1,64 @@
+# ============================================================
+# Vault Helm values — standalone + 文件存储
+# 适用场景: ARM64 自建 K8s 集群，资源受限环境
+# 安装:
+#   helm repo add hashicorp https://helm.releases.hashicorp.com
+#   helm upgrade --install vault hashicorp/vault \
+#     --namespace vault \
+#     --create-namespace \
+#     --values vault-values.yaml
+# ============================================================
+
+global:
+  enabled: true
+
+injector:
+  enabled: false          # 使用 External Secrets Operator，禁用 Vault Agent Injector
+
+server:
+  image:
+    repository: hashicorp/vault
+    tag: "1.18.0"         # 已支持 linux/arm64
+    pullPolicy: IfNotPresent
+
+  # 资源限制 — 适合 ARM 单板机
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 500m
+    limits:
+      memory: 1Gi
+      cpu: 1000m
+
+  # 单节点 + 文件存储（非 HA Raft）
+  standalone:
+    enabled: true
+    config: |
+      ui = true
+
+      listener "tcp" {
+        address          = "[::]:8200"
+        cluster_address  = "[::]:8201"
+        tls_disable      = true          # 内部访问，CF Tunnel 对外层加密
+      }
+
+      storage "file" {
+        path = "/vault/data"
+      }
+
+  # 数据持久化
+  dataStorage:
+    enabled: true
+    size: 10Gi
+    storageClass: "ceph-rbd"             # 使用 Ceph RBD 存储类
+    accessMode: ReadWriteOnce
+
+  # 默认 Service（ClusterIP）
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 8200
+
+  # 默认不暴露外部 LB，通过 kubectl port-forward 或 CF Tunnel 访问 UI
+  ingress:
+    enabled: false

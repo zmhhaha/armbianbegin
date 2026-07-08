@@ -14,7 +14,7 @@ spec:
   storageClassName: ceph-cephfs
   resources:
     requests:
-      storage: 1Gi
+      storage: 50Mi
 ---
 apiVersion: batch/v1
 kind: Job
@@ -62,7 +62,7 @@ spec:
   storageClassName: ceph-cephfs
   resources:
     requests:
-      storage: 1Gi
+      storage: 50Mi
 ---
 apiVersion: batch/v1
 kind: Job
@@ -110,7 +110,7 @@ spec:
   storageClassName: ceph-cephfs
   resources:
     requests:
-      storage: 1Gi
+      storage: 50Mi
 ---
 apiVersion: batch/v1
 kind: Job
