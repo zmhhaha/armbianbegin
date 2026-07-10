@@ -567,13 +567,4 @@ kubectl apply --server-side -f \
 
 ```bash
 # 重启 deployment
-kubectl rollout restart deployment -n research-agent api
-
-# 等待重启完成
-kubectl rollout status deployment -n research-agent api
 ```
-
-**注意**：
-- 如果 ConfigMap 也是通过 `envFrom` 注入的，同理需要重启 Pod
-- 如果使用 Volume 挂载的方式（`volumes[]` + `volumeMounts[]`），ConfigMap 会自动同步（有延迟），但 Secret 挂载的文件也会自动更新
-- 只有**环境变量方式**需要重启

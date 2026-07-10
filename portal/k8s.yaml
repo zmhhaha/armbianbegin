@@ -1,0 +1,53 @@
+# ============================================================
+#  Portal K8s 部署模板（无 PVC — 适用于 agent、game）
+#  通过 sed "s/__APP__/<app>/g" 替换后部署
+# ============================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: __APP__-portal
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal
+  namespace: __APP__-portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: __APP__-portal
+  template:
+    metadata:
+      labels:
+        app: __APP__-portal
+    spec:
+      containers:
+      - name: portal
+        image: arm-cluster-master:5000/portal:latest
+        command: ["python3", "-m", "http.server", "8080", "--directory", "/www"]
+        ports:
+        - containerPort: 8080
+        resources:
+          requests: {cpu: 50m, memory: 32Mi}
+          limits: {cpu: 200m, memory: 64Mi}
+        volumeMounts:
+        - name: html
+          mountPath: /www
+      volumes:
+      - name: html
+        configMap:
+          name: portal-html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal
+  namespace: __APP__-portal
+spec:
+  selector:
+    app: __APP__-portal
+  ports:
+  - port: 80
+    targetPort: 8080

@@ -1,22 +1,26 @@
-# oauth2-proxy — 认证代理网关
-# 通过 Casdoor OIDC 对接 GitHub / Google / 微信 / 支付宝
+# ============================================================
+#  oauth2-proxy 认证代理部署模板
+#  部署时通过 sed 替换 __TARGET_NAME__ 创建不同实例:
+#    sed "s/__TARGET_NAME__/research-agent/g" proxy-deployment.yaml | kubectl apply -f -
+#    sed "s/__TARGET_NAME__/scientific-agent/g" proxy-deployment.yaml | kubectl apply -f -
+# ============================================================
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: oauth2-proxy
+  name: oauth2-proxy-__TARGET_NAME__
   namespace: oauth
   labels:
-    app: oauth2-proxy
+    app: oauth2-proxy-__TARGET_NAME__
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: oauth2-proxy
+      app: oauth2-proxy-__TARGET_NAME__
   template:
     metadata:
       labels:
-        app: oauth2-proxy
+        app: oauth2-proxy-__TARGET_NAME__
     spec:
       containers:
       - name: oauth2-proxy
@@ -32,7 +36,7 @@ spec:
           - "--cookie-refresh=60m"
           - "--cookie-name=_oauth2_proxy"
           - "--email-domain=$(ALLOWED_DOMAINS)"
-          - "--redirect-url=https://research-agent.panghuer.top/oauth2/callback"
+          - "--redirect-url=https://__TARGET_NAME__.panghuer.top/oauth2/callback"
           - "--reverse-proxy=true"
           - "--silence-ping-logging=true"
           - "--ssl-insecure-skip-verify=true"
@@ -62,18 +66,18 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: oauth2-proxy-config
+          name: oauth2-proxy-config-__TARGET_NAME__
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: oauth2-proxy
+  name: oauth2-proxy-__TARGET_NAME__
   namespace: oauth
   labels:
-    app: oauth2-proxy
+    app: oauth2-proxy-__TARGET_NAME__
 spec:
   selector:
-    app: oauth2-proxy
+    app: oauth2-proxy-__TARGET_NAME__
   ports:
   - port: 4180
     targetPort: 4180

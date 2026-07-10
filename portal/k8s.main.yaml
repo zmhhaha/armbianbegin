@@ -1,26 +1,27 @@
-# Agent Portal — K8s 部署
-# index.html 通过 ConfigMap 注入，static 图片通过 PVC 挂载
-# 更新: 改 index.html → bash deploy.sh
+# ============================================================
+#  Portal K8s 部署模板（带 PVC 挂载 — 适用于 main）
+#  通过 sed "s/__APP__/<app>/g" 替换后部署
+# ============================================================
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: agent-portal
+  name: __APP__-portal
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: portal
-  namespace: agent-portal
+  namespace: __APP__-portal
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: agent-portal
+      app: __APP__-portal
   template:
     metadata:
       labels:
-        app: agent-portal
+        app: __APP__-portal
     spec:
       containers:
       - name: portal
@@ -48,10 +49,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: portal
-  namespace: agent-portal
+  namespace: __APP__-portal
 spec:
   selector:
-    app: agent-portal
+    app: __APP__-portal
   ports:
   - port: 80
     targetPort: 8080

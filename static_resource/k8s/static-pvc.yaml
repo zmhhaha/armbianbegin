@@ -1,5 +1,6 @@
 # ============================================================
-#  Static 文件 PVC — 收款码图片等静态资源
+#  Static 文件 PVC — 收款码图片等静态资源（仅 main-portal）
+#  其他门户（agent/game）通过 URL 引用的方式读取
 #  用法: kubectl apply -f static-pvc.yaml
 # ============================================================
 ---
@@ -7,7 +8,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: static-files
-  namespace: research-agent
+  namespace: main-portal
 spec:
   accessModes:
     - ReadWriteMany
@@ -20,103 +21,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: init-static
-  namespace: research-agent
-spec:
-  ttlSecondsAfterFinished: 60
-  template:
-    spec:
-      nodeName: arm-cluster-master
-      restartPolicy: Never
-      containers:
-      - name: copy
-        image: arm-cluster-master:5000/base:latest
-        command:
-          - sh
-          - -c
-          - |
-            echo "Copying static files to PVC..."
-            cp -v /src/*.jpg /pvc/
-            echo "Done:"
-            ls -la /pvc/
-        volumeMounts:
-        - name: src
-          mountPath: /src
-        - name: dest
-          mountPath: /pvc
-      volumes:
-      - name: src
-        hostPath:
-          path: /root/armbianbegin/static_resource
-      - name: dest
-        persistentVolumeClaim:
-          claimName: static-files
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: static-files
-  namespace: agent-portal
-spec:
-  accessModes:
-    - ReadWriteMany
-  storageClassName: ceph-cephfs
-  resources:
-    requests:
-      storage: 50Mi
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: init-static
-  namespace: agent-portal
-spec:
-  ttlSecondsAfterFinished: 60
-  template:
-    spec:
-      nodeName: arm-cluster-master
-      restartPolicy: Never
-      containers:
-      - name: copy
-        image: arm-cluster-master:5000/base:latest
-        command:
-          - sh
-          - -c
-          - |
-            echo "Copying static files to PVC..."
-            cp -v /src/*.jpg /pvc/
-            echo "Done:"
-            ls -la /pvc/
-        volumeMounts:
-        - name: src
-          mountPath: /src
-        - name: dest
-          mountPath: /pvc
-      volumes:
-      - name: src
-        hostPath:
-          path: /root/armbianbegin/static_resource
-      - name: dest
-        persistentVolumeClaim:
-          claimName: static-files
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: static-files
-  namespace: scientific-agent
-spec:
-  accessModes:
-    - ReadWriteMany
-  storageClassName: ceph-cephfs
-  resources:
-    requests:
-      storage: 50Mi
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: init-static
-  namespace: scientific-agent
+  namespace: main-portal
 spec:
   ttlSecondsAfterFinished: 60
   template:

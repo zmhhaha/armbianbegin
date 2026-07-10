@@ -32,5 +32,15 @@ metadata:
 spec:
   tunnelRef: main
   hostname: research-agent.panghuer.top
-  backend: ui.research-agent.svc.cluster.local:7860
-# API 不对外开放——api.research-agent.svc.cluster.local:8000 仅集群内使用
+  backend: oauth2-proxy-research-agent.oauth.svc.cluster.local:4180
+---
+# 科研综述 UI
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: scientific-ui
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: scientific-agent.panghuer.top
+  backend: oauth2-proxy-scientific-agent.oauth.svc.cluster.local:4180

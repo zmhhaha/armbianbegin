@@ -18,7 +18,7 @@
     | **Application name** | 自定义应用名称，例如 `MyApp-Casdoor` |
     | **Homepage URL** | 您的应用主页地址，例如 `https://your-app.com` 或 Casdoor 首页 |
     | **Application description** | （可选）应用描述 |
-    | **Authorization callback URL** | **关键！** 填写您的 Casdoor 回调地址，格式为 `https://<您的Casdoor域名>/api/login/oauth`<br>例如：`https://casdoor.example.com/api/login/oauth` |
+    | **Authorization callback URL** | **关键！** 填写您的 Casdoor 回调地址，格式为 `https://<您的Casdoor域名>/callback`<br>例如：`https://casdoor.example.com/callback` |
 
 4.  **生成凭证**：
     *   点击 **Register application** 完成创建。

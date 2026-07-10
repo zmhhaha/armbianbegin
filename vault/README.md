@@ -162,7 +162,7 @@ secret/data/<namespace>/<app-name>/<key>
 
 ```bash
 kubectl exec -n vault vault-0 -- vault kv put secret/data/oauth/oauth2-proxy \
-  COOKIE_SECRET="$(openssl rand -base64 32)" \
+  COOKIE_SECRET="$(openssl rand -hex 16)" \
   OIDC_CLIENT_ID="my-client" \
   OIDC_CLIENT_SECRET="my-secret"
 ```

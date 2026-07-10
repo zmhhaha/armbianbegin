@@ -139,7 +139,7 @@ Step 1: 写入 Vault ──── Step 2: 创建 ExternalSecret ──── Ste
 ```
 # 手动方式（推荐首次使用）
 kubectl exec -n vault vault-0 -- vault kv put secret/data/oauth/oauth2-proxy \
-  COOKIE_SECRET="$(openssl rand -base64 32)" \
+  COOKIE_SECRET="$(openssl rand -hex 16)" \
   OIDC_CLIENT_ID="xxxx" \
   OIDC_CLIENT_SECRET="xxxx"
 

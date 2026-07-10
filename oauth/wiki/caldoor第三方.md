@@ -8,7 +8,7 @@
 1.  **创建 GitHub App**：
     *   前往 GitHub 的 **Developer Settings** 创建一个新的 GitHub App。
     *   填写 App 名称、主页 URL 等基本信息。
-    *   关键步骤：在 GitHub App 的设置中，将 **`Callback URL`** 设置为你的 Casdoor 回调地址。这个地址通常为 `https://<你的Casdoor域名>/api/login/oauth`。
+    *   关键步骤：在 GitHub App 的设置中，将 **`Callback URL`** 设置为你的 Casdoor 回调地址。这个地址通常为 `https://<你的Casdoor域名>/callback`。
     *   创建完成后，生成并记录 **`Client ID`** 和 **`Client Secret`**。
 
 2.  **在 Casdoor 中添加提供商**：
@@ -69,7 +69,7 @@
 
 ### 💎 总结与注意事项
 
-1.  **回调地址 (Callback URL) 是核心**：在第三方平台（如 GitHub/支付宝）配置时，**必须**将回调地址（`Redirect URI`）正确设置为你的 Casdoor 地址，通常是 `https://<你的casdoor域名>/api/login/oauth`。同时，在 Casdoor 应用配置中，**重定向 URL (Redirect URL)** 也要设置为你的**业务应用**的回调地址。
+1.  **回调地址 (Callback URL) 是核心**：在第三方平台（如 GitHub/支付宝）配置时，**必须**将回调地址（`Redirect URI`）正确设置为你的 Casdoor 地址，通常是 `https://<你的casdoor域名>/callback`。同时，在 Casdoor 应用配置中，**重定向 URL (Redirect URL)** 也要设置为你的**业务应用**的回调地址。
 2.  **注意微信的“第二套”密钥**：微信登录的“第二套密钥”（`Client ID 2` / `Client Secret 2`）是为**微信内网页**场景设计的。如果你只是想在普通网页上提供扫码登录，配置第一套即可。
 3.  **支付宝需要证书**：支付宝登录强制使用证书模式，因此必须在 Casdoor 中正确创建并关联证书。
 4.  **遇到问题看日志**：如果配置后无法登录，首先检查 Casdoor 和第三方平台的回调地址是否完全一致，并查看 Casdoor 的日志获取详细错误信息。
