@@ -53,6 +53,11 @@ COMPONENTS["secret/data/gitops/gitea"]="Gitea 密钥配置"
 COMPONENTS["secret/data/gitops/drone"]="Drone CI 密钥（DRONE_RPC_SECRET, DRONE_GITEA_CLIENT_SECRET）"
 COMPONENTS["secret/data/infra/registry"]="私有镜像仓库 TLS 证书"
 COMPONENTS["secret/data/infra/ceph"]="Ceph 认证密钥"
+COMPONENTS["secret/data/txt2img/ark"]="txt2img-proxy 火山引擎方舟 API Key"
+COMPONENTS["secret/data/txt2img/replicate"]="txt2img-proxy Replicate API Key"
+COMPONENTS["secret/data/txt2img/together"]="txt2img-proxy Together AI API Key"
+COMPONENTS["secret/data/txt2img/stability"]="txt2img-proxy Stability AI API Key"
+COMPONENTS["secret/data/txt2img/openai"]="txt2img-proxy OpenAI API Key"
 
 # 定义每个路径下要写入的键值映射（交互式提示用）
 declare -A KEY_MAP
@@ -65,6 +70,11 @@ KEY_MAP["secret/data/gitops/gitea"]="GITEA_SECRET_KEY GITEA_INTERNAL_TOKEN GITEA
 KEY_MAP["secret/data/gitops/drone"]="DRONE_RPC_SECRET DRONE_GITEA_CLIENT_ID DRONE_GITEA_CLIENT_SECRET"
 KEY_MAP["secret/data/infra/registry"]="TLS_CRT TLS_KEY"
 KEY_MAP["secret/data/infra/ceph"]="CEPH_USER_ID CEPH_USER_KEY"
+KEY_MAP["secret/data/txt2img/ark"]="ARK_API_KEY"
+KEY_MAP["secret/data/txt2img/replicate"]="REPLICATE_API_KEY"
+KEY_MAP["secret/data/txt2img/together"]="TOGETHER_API_KEY"
+KEY_MAP["secret/data/txt2img/stability"]="STABILITY_API_KEY"
+KEY_MAP["secret/data/txt2img/openai"]="OPENAI_API_KEY"
 
 # ============================================================
 #  写入 Vault 函数

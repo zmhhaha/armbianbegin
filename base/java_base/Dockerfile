@@ -1,6 +1,8 @@
-#docker build -t java_base:latest .
+#docker build -t ${REGISTRY}/java_base:latest .
+#docker push ${REGISTRY}/java_base:latest
 
-FROM base:latest
+ARG REGISTRY=arm-cluster-master:5000
+FROM ${REGISTRY}/base:latest
 
 #######################################################
 # # 安装必要的依赖 https://jdk.java.net

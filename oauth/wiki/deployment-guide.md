@@ -13,7 +13,8 @@
 - [五、Cloudflare Tunnel 路由](#五cloudflare-tunnel-路由)
 - [六、Secret 管理（Vault + ESO）](#六secret-管理vault--eso)
 - [七、常用运维命令](#七常用运维命令)
-- [八、常见问题与排查](#八常见问题与排查)
+- [八、多 OAuth 提供商配置方案](#八多-oauth-提供商配置方案)
+- [九、常见问题与排查](#九常见问题与排查)
 
 ---
 
@@ -348,7 +349,83 @@ kubectl exec -n vault vault-0 -- vault kv get secret/oauth/oauth2-proxy
 
 ---
 
-## 八、常见问题与排查
+## 八、多 OAuth 提供商配置方案
+
+### 不同提供商的不同注册策略
+
+由于支付宝/微信不返回用户名，而 GitHub/Google 回传完整用户信息，需要在 Casdoor 中区别对待：
+
+| Provider | CanSignUp | Rule | 首次登录行为 |
+|----------|-----------|------|-------------|
+| **GitHub** | ✅ | `all` | 自动注册，无感登录 |
+| **Google** | ✅ | `all` | 自动注册，无感登录 |
+| **支付宝** | ❌ | `Login` | 需手动注册后绑定 |
+| **微信** | ❌ | `Login` | 需手动注册后绑定 |
+
+### 配置步骤
+
+在 `https://auth.panghuer.top` 操作：
+
+#### Step 1：新建普通组织（替代 built-in）
+
+> **组织 (Organizations)** → **添加**
+
+| 字段 | 值 |
+|------|-----|
+| **名称 (Name)** | `panghu`（或其他） |
+| **显示名称 (Display Name)** | `Panghu Users` |
+
+#### Step 2：修改应用归属组织
+
+> **应用 (Applications)** → 编辑你的应用
+
+| 字段 | 改成 |
+|------|------|
+| **组织 (Organization)** | 从 `built-in` 改为 `panghu` |
+
+#### Step 3：配置各 Provider
+
+在应用的 **Providers** 区域，找到每个 Provider：
+
+**GitHub / Google：**
+- `Rule` = `all`
+- `CanSignUp` = ✅ 勾选
+
+**支付宝 / 微信：**
+- `Rule` = `Login`
+- `CanSignUp` = ❌ 不勾选
+
+#### Step 4：全局设置
+
+在应用编辑页面：
+
+- **Enable SignUp** = ✅ 勾选（全局必须开）
+- **Signin Methods** 只保留 `Password` 和 `OAuth`，去掉不需要的
+
+#### Step 5：实际限制
+
+当前测试结果：
+
+- **GitHub / Google** — ✅ 自动注册，无感登录
+- **注册（邮箱+密码）** — ✅ 正常注册，注册后直接可用，无需绑定任何 OAuth
+- **注册后绑定支付宝/微信** — ❌ `Failed to link user account`，Casdoor 当前版本存在 bug，无法完成绑定
+
+这意味着支付宝/微信 OAuth **目前不可用**。用户只有两个入口：
+
+```
+登录页入口：
+├── GitHub 登录  → 自动注册，无感使用
+├── 邮箱密码注册 → 填表单注册后使用
+└── [支付宝/微信] → ❌ 暂不可用（Casdoor bug）
+```
+
+如果未来需要支付宝/微信登录，可以考虑：
+1. 升级 Casdoor 版本（当前版本可能存在绑定 bug）
+2. 不改登录入口，直接通过 email+password 注册使用（已实现）
+
+---
+
+## 九、常见问题与排查
 
 ### 问题 1：COOKIE_SECRET 长度不对
 
@@ -450,3 +527,103 @@ kubectl logs -n oauth deploy/casdoor --tail=50 | grep -i "error\|callback\|token
 - `audienceClaims` 未配置 → 见问题 2
 - COOKIE_SECRET 过长 → 见问题 1
 - 回调 URL 不匹配 → 检查 Casdoor 应用配置中的重定向 URL
+
+---
+
+### 问题 6：第三方登录提示"不存在且不允许注册新账户"
+
+**现象**：
+```
+GitHub 与用户名: xxx 不存在且 不允许注册新账户, 请联系IT支持
+```
+
+**原因**：Casdoor 应用的 `EnableSignUp` 未开启，同时应用使用的是 `built-in` 组织（该组织默认禁止自动注册新用户）。
+
+**解决**：不要用 `built-in` 组织，新建一个普通组织存放用户：
+
+1. 访问 `https://auth.panghuer.top` → **组织 (Organizations)** → **添加**
+   ```
+   名称 (Name): panghu
+   显示名称: Panghu Users
+   ```
+
+2. 修改应用所属组织：
+   **应用 (Applications)** → 编辑你的应用 → **组织** 从 `built-in` 改为 `panghu`
+
+3. 开启自动注册并设置 Provider 规则为 `all`：
+   - 勾选 **Enable SignUp**
+   - 在 **Providers** 区域，找到 GitHub → **Rule** 改为 `all`
+
+配置后用户首次用 GitHub 登录时会自动创建账号，全程无感，无需手动注册。
+
+---
+
+### 问题 7：支付宝登录提示"用户的组织和名称不能为空"
+
+**现象**：支付宝扫码跳回后报错：
+```
+用户的组织和名称不能为空
+```
+
+**原因**：支付宝 OAuth 回调不返回 `name`（用户名）字段，Casdoor 创建用户时需要组织+名称，信息不完整导致失败。Casdoor 本身没有为第三方 OAuth Provider 设置默认名称的 UI 配置项（GitHub issue #3912 同类问题）。
+
+通过数据库修改 `provider` 表的 `user_mapping` 字段可以将支付宝返回的字段映射到 Casdoor 用户字段。例如：
+
+| 映射源（支付宝） | 映射目标（Casdoor） |
+|-----------------|-------------------|
+| `user_id` | `id` |
+| `avatar` | `avatarUrl` |
+
+但支付宝不返回 `name` 字段，所以即使映射了也无法解决用户名缺失的问题。
+
+**解决**：
+
+目前没有一劳永逸的 UI 配置方案。可用以下替代方案：
+
+方案一（改用密码登录或邮箱登录）：
+在 Casdoor 后台 → **应用 (Applications)** → **Signup Items** 中配置注册表单，让用户首次登录时填写用户名。
+
+方案二（手动创建用户）：
+在 Casdoor 后台 → **用户 (Users)** 中手动预创建用户，与支付宝账号绑定。
+
+方案三（接其他 OAuth 提供商）：
+GitHub、Google 等 OAuth 提供商回传用户名信息，不会出现此问题。如果主要使用 GitHub 登录，支付宝登录问题可以忽略。
+
+> 支付宝 OAuth 本身不返回用户昵称，这是支付宝平台的设计限制。需要在 Casdoor 的提供商配置中设置默认名称映射才能自动注册成功。
+
+---
+
+### 问题 8：支付宝 OAuth 绑定报 asn1: syntax error: sequence truncated
+
+**现象**：在 Casdoor 中配置支付宝证书模式（公钥证书模式）后，绑定/登录时报错：
+```
+asn1: syntax error: sequence truncated
+```
+
+**尝试过的修复（均无效）**：
+
+| 尝试 | 结果 |
+|------|------|
+| App Cert: Certificate = appCertPublicKey.crt, Private Key = appPrivateKey.txt | ❌ 无效 |
+| Root Cert: Certificate = alipayCertPublicKey.crt, Private Key = alipayRootCert.crt | ❌ 无效 |
+| 私钥格式问题：阿里工具生成 PKCS#8（纯 ASN.1 DER，无 PEM 头），加 PKCS#1 或 PKCS#8 PEM 头均无效 | ❌ 无效 |
+| 编译修复版 Casdoor（rsaSignWithRSA256 增加 PKCS#1 回退） | ❌ 无效（阿里私钥本身非标准 ASN.1） |
+| 升级 Casdoor 镜像 | ❌ 无效 |
+
+**原因**：Casdoor（Go）底层 `crypto/x509` 库解析支付宝证书链时存在 ASN1 解析 bug，属于 Casdoor 框架层面的问题，非配置可解决（参考 GitHub Issue #5118）。即使修改 Casdoor 源码增加 PKCS#1 回退后，阿里密钥工具生成的非标准 ASN.1 私钥仍无法被 Go 的 x509 库正确解析。
+
+**结论**：**支付宝 OAuth 在当前环境不可用。** 根本原因是阿里密钥工具生成的非标准 ASN.1 私钥无法被 Go 语言的 x509 库解析。可用 OpenSSL 重新生成标准私钥解决。
+
+如要修复，可以用 OpenSSL 重新生成标准 RSA 私钥并上传公钥到支付宝：
+```bash
+openssl genrsa -out alipay_private.pem 2048
+openssl rsa -in alipay_private.pem -pubout -out alipay_public.pem
+```
+然后在支付宝开放平台替换公钥，将私钥写入 Casdoor。
+
+**不影响其他功能**：
+- GitHub 登录/自动注册 ✅ 正常
+- 邮箱密码注册 ✅ 正常
+- 支付收款码已在页面底部展示
+
+如果未来修复此问题，可以尝试升级 Casdoor 到更新版本，或关注 Casdoor 官方 Issue #5118 的进展。

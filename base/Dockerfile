@@ -1,7 +1,8 @@
-#docker build -t base:latest .
-#docker tag base:latest ${REGISTRY}/base:latest
-#docker push base:latest ${REGISTRY}/base:latest
+#docker build -t ${REGISTRY}/base:latest .
+#docker tag ${REGISTRY}/base:latest ${REGISTRY}/base:latest
+#docker push ${REGISTRY}/base:latest
 
+ARG REGISTRY=arm-cluster-master:5000
 FROM arm64v8/debian:latest
 
 RUN sed -i "s/deb.debian.org/mirrors.ustc.edu.cn/g" /etc/apt/sources.list.d/debian.sources && \
