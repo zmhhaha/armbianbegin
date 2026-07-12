@@ -1,3 +1,6 @@
 [submodule "panghu_agent"]
 	path = panghu_agent
 	url = git@github.com:zmhhaha/panghu_agent.git
+[submodule "panghu_game"]
+	path = panghu_game
+	url = git@github.com:zmhhaha/panghu_game.git
