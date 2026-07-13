@@ -12,3 +12,4 @@ data:
     driverName = mysql
     dataSourceName = casdoor:casdoor123@tcp(mysql.oauth.svc.cluster.local:3306)/
     dbName = casdoor
+    verificationCodeTimeout = 10

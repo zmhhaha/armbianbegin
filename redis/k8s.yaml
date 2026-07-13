@@ -1,0 +1,180 @@
+# ============================================================
+#  Redis — 通用缓存/KV 存储服务
+#  用法: kubectl apply -f k8s.yaml
+#  注意: REDIS_PASSWORD 由 ExternalSecret 从 Vault 同步,
+#        见 ../vault/inventory/redis-externalsecret.yaml
+# ============================================================
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: data
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: data
+data:
+  redis.conf: |
+    # ── 基本 ──────────────────────────────────
+    port 6379
+    bind 0.0.0.0
+    daemonize no
+    protected-mode yes
+    # 密码由 Secret volume 挂载注入, initContainer 写入 redis.conf
+
+    # ── 持久化 ────────────────────────────────
+    save 900 1
+    save 300 10
+    save 60 10000
+    appendonly yes
+    appendfsync everysec
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+
+    # ── 内存管理 ──────────────────────────────
+    maxmemory 1gb
+    maxmemory-policy allkeys-lru
+
+    # ── 性能 ──────────────────────────────────
+    timeout 0
+    tcp-keepalive 300
+    databases 16
+
+    # ── 日志 ──────────────────────────────────
+    loglevel notice
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: data
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  serviceName: redis
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      initContainers:
+      - name: init-config
+        image: busybox:1.36
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/sh
+        - -ec
+        - |
+          set -e
+          # Secret 作为文件挂载, 从文件读取密码
+          REDIS_PASSWORD=$(cat /etc/redis-secret/REDIS_PASSWORD)
+          # ConfigMap 是只读挂载, 复制到 writable emptyDir 再追加密码
+          cp /etc/redis-config/redis.conf /etc/redis/redis.conf
+          echo "requirepass ${REDIS_PASSWORD}" >> /etc/redis/redis.conf
+          echo "masterauth ${REDIS_PASSWORD}"  >> /etc/redis/redis.conf
+          echo ">>> redis.conf generated OK"
+        volumeMounts:
+        - name: config-readonly
+          mountPath: /etc/redis-config
+        - name: config
+          mountPath: /etc/redis
+        - name: secret
+          mountPath: /etc/redis-secret
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        imagePullPolicy: IfNotPresent
+        command:
+        - redis-server
+        - /etc/redis/redis.conf
+        ports:
+        - containerPort: 6379
+          name: redis
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: config
+          mountPath: /etc/redis
+        - name: secret
+          mountPath: /etc/redis-secret
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -ec
+            - PASSWORD=$(cat /etc/redis-secret/REDIS_PASSWORD); redis-cli -a "$PASSWORD" ping
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -ec
+            - PASSWORD=$(cat /etc/redis-secret/REDIS_PASSWORD); redis-cli -a "$PASSWORD" ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+      volumes:
+      - name: config-readonly
+        configMap:
+          name: redis-config
+      - name: config
+        emptyDir: {}
+      - name: secret
+        secret:
+          secretName: redis-secret
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: ceph-rbd
+      resources:
+        requests:
+          storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: data
+  labels:
+    app: redis
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-nodeport
+  namespace: data
+  labels:
+    app: redis
+spec:
+  type: NodePort
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+    nodePort: 30379
+    name: redis

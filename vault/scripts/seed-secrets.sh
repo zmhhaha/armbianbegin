@@ -58,6 +58,12 @@ COMPONENTS["secret/data/txt2img/replicate"]="txt2img-proxy Replicate API Key"
 COMPONENTS["secret/data/txt2img/together"]="txt2img-proxy Together AI API Key"
 COMPONENTS["secret/data/txt2img/stability"]="txt2img-proxy Stability AI API Key"
 COMPONENTS["secret/data/txt2img/openai"]="txt2img-proxy OpenAI API Key"
+COMPONENTS["secret/data/postgres/app"]="PostgreSQL 通用数据库密码"
+COMPONENTS["secret/data/redis/app"]="Redis 通用缓存密码"
+COMPONENTS["secret/data/school-of-one/db"]="School of One 数据库连接串"
+COMPONENTS["secret/data/school-of-one/jwt"]="School of One JWT 签名密钥"
+COMPONENTS["secret/data/school-of-one/llm"]="School of One DeepSeek API Key"
+COMPONENTS["secret/data/school-of-one/redis"]="School of One Redis 连接串"
 
 # 定义每个路径下要写入的键值映射（交互式提示用）
 declare -A KEY_MAP
@@ -75,6 +81,12 @@ KEY_MAP["secret/data/txt2img/replicate"]="REPLICATE_API_KEY"
 KEY_MAP["secret/data/txt2img/together"]="TOGETHER_API_KEY"
 KEY_MAP["secret/data/txt2img/stability"]="STABILITY_API_KEY"
 KEY_MAP["secret/data/txt2img/openai"]="OPENAI_API_KEY"
+KEY_MAP["secret/data/postgres/app"]="POSTGRES_PASSWORD"
+KEY_MAP["secret/data/redis/app"]="REDIS_PASSWORD"
+KEY_MAP["secret/data/school-of-one/db"]="DB_URL（连接串: postgresql://appuser:密码@postgres.data.svc.cluster.local:5432/school_of_one）"
+KEY_MAP["secret/data/school-of-one/jwt"]="JWT_SECRET（随机 64 位 hex）"
+KEY_MAP["secret/data/school-of-one/llm"]="DEEPSEEK_API_KEY OPENAI_API_KEY（可选）"
+KEY_MAP["secret/data/school-of-one/redis"]="REDIS_URL（连接串: redis://:密码@redis.data.svc.cluster.local:6379/0）"
 
 # ============================================================
 #  写入 Vault 函数
