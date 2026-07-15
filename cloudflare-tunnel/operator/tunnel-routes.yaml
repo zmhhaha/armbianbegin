@@ -44,3 +44,14 @@ spec:
   tunnelRef: main
   hostname: scientific-agent.panghuer.top
   backend: oauth2-proxy-scientific-agent.oauth.svc.cluster.local:4180
+---
+# School of One
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: school-of-one
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: school-of-one.panghuer.top
+  backend: oauth2-proxy-school-of-one.oauth.svc.cluster.local:80

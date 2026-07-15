@@ -1,0 +1,54 @@
+# ============================================================
+#  oauth2-proxy ConfigMap — School of One 游戏版
+#  区别于 agent 版（Gradio 7860），游戏前端是 Nginx 80 端口
+#  部署：
+#    sed "s/__TARGET_NAME__/school-of-one/g" game-proxy-configmap.yaml | kubectl apply -f -
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth2-proxy-config-__TARGET_NAME__
+  namespace: oauth
+data:
+  alpha-config.yaml: |
+    # ---- OIDC 提供商: Casdoor ----
+    providers:
+      - id: oidc
+        provider: oidc
+        clientID: ${OIDC_CLIENT_ID}
+        clientSecret: ${OIDC_CLIENT_SECRET}
+        scope: "openid email profile"
+        oidcConfig:
+          issuerURL: ${OIDC_ISSUER_URL}
+          userIDClaim: "sub"
+          emailClaim: "email"
+          groupsClaim: "groups"
+          audienceClaims: ["aud"]
+
+    # ---- 上游服务路由（Nginx 80 端口） ----
+    upstreamConfig:
+      upstreams:
+        - id: __TARGET_NAME__-ui
+          path: /
+          uri: http://ui.__TARGET_NAME__.svc.cluster.local:80
+          passHostHeader: true
+          proxyWebSockets: true
+
+    # ---- 注入到后端请求的用户身份 Header ----
+    injectRequestHeaders:
+      - name: X-Forwarded-User
+        values:
+          - claim: user
+      - name: X-Forwarded-Email
+        values:
+          - claim: email
+      - name: X-Forwarded-Preferred-Username
+        values:
+          - claim: preferred_username
+
+    # ---- 服务绑定地址 ----
+    server:
+      BindAddress: "0.0.0.0:4180"
+
+    metricsServer:
+      BindAddress: "0.0.0.0:44180"
