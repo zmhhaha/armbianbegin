@@ -1,0 +1,56 @@
+# ============================================================
+#  oauth2-proxy ConfigMap — txt2img-proxy 版
+#  上游服务是 Gradio UI (7860 端口)
+#  API 仅在集群内部可访问，不对外暴露
+#  部署：
+#    kubectl apply -f k8s/txt2img-proxy-configmap.yaml
+#    sed "s/__TARGET_NAME__/txt2img/g" k8s/proxy-deployment.yaml | kubectl apply -f -
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth2-proxy-config-txt2img
+  namespace: oauth
+data:
+  alpha-config.yaml: |
+    # ---- OIDC 提供商: Casdoor ----
+    providers:
+      - id: oidc
+        provider: oidc
+        clientID: ${OIDC_CLIENT_ID}
+        clientSecret: ${OIDC_CLIENT_SECRET}
+        scope: "openid email profile"
+        oidcConfig:
+          issuerURL: ${OIDC_ISSUER_URL}
+          userIDClaim: "sub"
+          emailClaim: "email"
+          groupsClaim: "groups"
+          audienceClaims: ["aud"]
+
+    # ---- txt2img Gradio UI 上游 ----
+    upstreamConfig:
+      upstreams:
+        - id: txt2img-ui
+          path: /
+          uri: http://ui.txt2img.svc.cluster.local:7860
+          passHostHeader: true
+          proxyWebSockets: true
+
+    # ---- 注入到后端请求的用户身份 Header ----
+    injectRequestHeaders:
+      - name: X-Forwarded-User
+        values:
+          - claim: user
+      - name: X-Forwarded-Email
+        values:
+          - claim: email
+      - name: X-Forwarded-Preferred-Username
+        values:
+          - claim: preferred_username
+
+    # ---- 服务绑定地址 ----
+    server:
+      BindAddress: "0.0.0.0:4180"
+
+    metricsServer:
+      BindAddress: "0.0.0.0:44180"

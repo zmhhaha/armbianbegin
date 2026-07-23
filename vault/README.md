@@ -110,15 +110,15 @@ Vault KV v2 引擎的路径有一个容易混淆的地方：
 
 | 操作 | 写法 | 解释 |
 |------|------|------|
-| `vault kv put` **写入** | `vault kv put secret/hello key=val` | 命令**自动加** `data/` |
-| `vault kv get` **读取** | `vault kv get secret/data/hello` | 必须写 `data/` |
+| `vault kv put` **写入** | `vault kv put secret/hello key=val` | 命令**自动加** `data/`，实际存到 `secret/data/hello` |
+| `vault kv get` **读取** | `vault kv get secret/data/hello` | 必须手动写 `data/` |
 | ExternalSecret `remoteRef.key` | `secret/data/hello` | 必须写 `data/` |
 
-**常见错误**：`vault kv put secret/data/hello key=val` → 实际路径变成 `secret/data/data/hello`，ESO 读不到数据。
+**常见错误**：`vault kv put secret/data/hello key=val` → 命令自动加 `data/`，实际路径变成 `secret/data/data/hello`，ESO 读不到数据。
 
 **正确用法**：
 ```bash
-# 写入（命令自动加 data/）
+# 写入（命令自动加 data/，所以路径不加 data/）
 kubectl exec -n vault vault-0 -- vault kv put secret/test hello=world
 
 # 读取（手动加 data/）
@@ -131,6 +131,7 @@ kubectl exec -n vault vault-0 -- vault kv get secret/data/test
 ```bash
 bash vault/scripts/unseal.sh
 ```
+解封后还需**更新 Vault 的 Kubernetes auth token reviewer JWT**，否则 ESO 无法连接（见「常见问题」）。
 
 ---
 
@@ -153,6 +154,11 @@ secret/data/<namespace>/<app-name>/<key>
 | `secret/data/gitops/drone/*` | Drone 密钥 |
 | `secret/data/infra/registry/*` | 镜像仓库 TLS |
 | `secret/data/infra/ceph/*` | Ceph 认证 |
+| `secret/data/txt2img/ark/*` | txt2img-proxy 火山引擎视觉 CV AK/SK（`ARK_ACCESS_KEY` / `ARK_SECRET_KEY`） |
+| `secret/data/txt2img/replicate/*` | txt2img-proxy Replicate API Key |
+| `secret/data/txt2img/together/*` | txt2img-proxy Together AI API Key |
+| `secret/data/txt2img/stability/*` | txt2img-proxy Stability AI API Key |
+| `secret/data/txt2img/openai/*` | txt2img-proxy OpenAI API Key |
 
 ---
 

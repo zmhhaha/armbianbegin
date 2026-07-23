@@ -102,6 +102,15 @@ if [ "${SEALED_AFTER}" = "false" ]; then
     echo "  后续操作:"
     echo "    1. 验证 ESO 连接: kubectl get clustersecretstore vault-backend"
     echo "    2. 验证 ExternalSecret 同步状态"
+    echo ""
+    echo "  ⚠️  如果 ClusterSecretStore 仍然报 InvalidProviderConfig，"
+    echo "     说明 Vault 的 K8s auth token_reviewer_jwt 已过期。"
+    echo "     运行修复脚本（无需 root token）："
+    echo ""
+    echo "    bash scripts/fix-eso-auth.sh"
+    echo ""
+    echo '    kubectl rollout restart deployment -n external-secrets external-secrets'
+    echo ""
 else
     echo ""
     echo "  ❌ Vault 仍处于封禁状态"

@@ -567,4 +567,131 @@ kubectl apply --server-side -f \
 
 ```bash
 # 重启 deployment
+kubectl rollout restart deploy/<deployment-name> -n <namespace>
 ```
+
+---
+
+### 问题 10：Vault 重启后，ESO 报 "ClusterSecretStore is not ready" 或 "InvalidProviderConfig"
+
+**现象**：
+```bash
+kubectl get clustersecretstore vault-backend -o yaml | grep -A5 status:
+  message: unable to create client
+  reason: InvalidProviderConfig
+```
+
+```bash
+kubectl describe externalsecret <name> -n <ns>
+  Message:  error processing spec.data[0], err: ClusterSecretStore "vault-backend" is not ready
+```
+
+**原因**：Vault 重启（或从 Sealed 恢复）后，其 `auth/kubernetes/config` 中保存的 `token_reviewer_jwt`（Kubernetes Service Account JWT）已过期。ESO 尝试通过 Kubernetes Auth 登录 Vault 时被拒绝，导致所有 ExternalSecret 同步中断。
+
+Vault 的 Kubernetes auth 底层需要一个有 `system:auth-delegator` 权限的 SA token 来调用 Kubernetes TokenReview API。`kubectl create token` 生成的 JWT 默认仅 1 小时有效。
+
+**快速修复（推荐）**：
+```bash
+# 一键修复：创建长期 token Secret → 刷新 auth config → 重启 ESO → 强制同步
+bash vault/scripts/fix-eso-auth.sh
+```
+
+**手动排查步骤**：
+```bash
+# 1. 确认 ClusterSecretStore 状态
+kubectl get clustersecretstore vault-backend -o yaml | grep -E "Reason:|Message:"
+
+# 2. 确认 ESO 的 SA 能否登录 Vault
+ESO_JWT=$(kubectl create token external-secrets -n external-secrets)
+kubectl exec -n vault vault-0 -- vault write auth/kubernetes/login \
+  role=eso-role jwt="$ESO_JWT"
+# 如果成功，返回 token_policies: ["default" "kv-reader"]
+# 如果失败，报 403 permission denied
+```
+
+**手动修复步骤**：
+```bash
+# 1. 为 vault SA 和 ESO SA 创建长期有效的 token Secret
+kubectl apply -f - <<'EOF'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vault-token
+  namespace: vault
+  annotations:
+    kubernetes.io/service-account.name: vault
+type: kubernetes.io/service-account-token
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: external-secrets-token
+  namespace: external-secrets
+  annotations:
+    kubernetes.io/service-account.name: external-secrets
+type: kubernetes.io/service-account-token
+EOF
+
+# 2. 用 vault SA 的 JWT 作为 token_reviewer_jwt（有 system:auth-delegator 权限）
+VJWT=$(kubectl get secret vault-token -n vault -o jsonpath='{.data.token}' | base64 -d)
+kubectl exec -n vault vault-0 -- vault write auth/kubernetes/config \
+  kubernetes_host="https://kubernetes.default.svc.cluster.local:443" \
+  token_reviewer_jwt="${VJWT}"
+
+# 3. 验证 ESO 可以登录
+ESO_JWT=$(kubectl get secret external-secrets-token -n external-secrets -o jsonpath='{.data.token}' | base64 -d)
+kubectl exec -n vault vault-0 -- vault write auth/kubernetes/login \
+  role=eso-role jwt="$ESO_JWT"
+
+# 4. 重启 ESO
+kubectl rollout restart deployment -n external-secrets external-secrets
+sleep 10
+
+# 5. 强制触发所有 ExternalSecret 重新同步
+kubectl annotate externalsecret -A --all force-sync=$(date +%s) --overwrite
+```
+
+**原理说明**：
+- Vault 的 Kubernetes auth 配置中的 `token_reviewer_jwt` 是一个**服务账户的 JWT**，Vault 用它来调用 K8s API 的 TokenReview 接口验证客户端的 JWT。
+- Vault SA 通过 ClusterRoleBinding `vault-server-binding` 绑定了 `system:auth-delegator`，使其有权限调用 TokenReview API。
+- `kubernetes.io/service-account-token` 类型的 Secret 是**长期有效**的（除非手动删除），不会像 `kubectl create token` 那样 1 小时过期。
+
+**注意事项**：`fix-eso-auth.sh` 脚本会自动检测并修复，解封 Vault 后建议运行一次。
+
+---
+
+### 问题 11：ExternalSecret 因某个键不存在而阻塞整个同步
+
+**现象**：
+```bash
+Warning  UpdateFailed  ...  error processing spec.data[1] (key: secret/data/...), err: Secret does not exist
+```
+K8s Secret 为空（`NotFound`），因为 ESO 遇到一个不存在的路径就放弃同步所有 data 项。
+
+**原因**：ESO 的 `data` 列表是**原子性**的——只要任一 `remoteRef` 指向的路径或 property 在 Vault 中不存在，整个 ExternalSecret 不会生成任何内容。
+
+```yaml
+# 假设 Vault 中没有 secret/data/txt2img/replicate 这个路径
+data:
+  - secretKey: ARK_API_KEY
+    remoteRef:
+      key: secret/data/txt2img/ark          # 存在
+      property: ARK_API_KEY
+  - secretKey: REPLICATE_API_KEY
+    remoteRef:
+      key: secret/data/txt2img/replicate    # ❌ 不存在 → 整个 Secret 为空
+      property: REPLICATE_API_KEY
+```
+
+**解决**：只保留 Vault 中**实际存在**的键关联，不用的 provider 暂时移除：
+
+```yaml
+data:
+  - secretKey: ARK_API_KEY
+    remoteRef:
+      key: secret/data/txt2img/ark
+      property: ARK_API_KEY
+  # 其他 provider 在 Vault 中对应路径写入了数据后再添加
+```
+
+**教训**：为 ExternalSecret 添加新 key 前，先确保 Vault 中对应路径已有数据。ESO 不会跳过不存在的路径，一旦失败全部阻塞。

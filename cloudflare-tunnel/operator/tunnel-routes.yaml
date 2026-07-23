@@ -54,4 +54,48 @@ metadata:
 spec:
   tunnelRef: main
   hostname: school-of-one.panghuer.top
-  backend: oauth2-proxy-school-of-one.oauth.svc.cluster.local:80
+  backend: oauth2-proxy-school-of-one.oauth.svc.cluster.local:4180
+---
+# txt2img-proxy 文生图 API
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: txt2img
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: txt2img.panghuer.top
+  backend: oauth2-proxy-txt2img.oauth.svc.cluster.local:4180
+---
+# 道法自然
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: daofaziran-agent
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: daofaziran-agent.panghuer.top
+  backend: oauth2-proxy-daofaziran-agent.oauth.svc.cluster.local:4180
+---
+# 佛法无边
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: fofawubian-agent
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: fofawubian-agent.panghuer.top
+  backend: oauth2-proxy-fofawubian-agent.oauth.svc.cluster.local:4180
+---
+# 钟馗伏魔
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: zhongkuifumo-agent
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: zhongkuifumo-agent.panghuer.top
+  backend: oauth2-proxy-zhongkuifumo-agent.oauth.svc.cluster.local:4180
