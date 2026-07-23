@@ -99,3 +99,25 @@ spec:
   tunnelRef: main
   hostname: zhongkuifumo-agent.panghuer.top
   backend: oauth2-proxy-zhongkuifumo-agent.oauth.svc.cluster.local:4180
+---
+# 以马内利
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: yimaneili-agent
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: yimaneili-agent.panghuer.top
+  backend: oauth2-proxy-yimaneili-agent.oauth.svc.cluster.local:4180
+---
+# 真主至大
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: zhenzhuzhida-agent
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: zhenzhuzhida-agent.panghuer.top
+  backend: oauth2-proxy-zhenzhuzhida-agent.oauth.svc.cluster.local:4180
