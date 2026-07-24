@@ -56,6 +56,17 @@ spec:
   hostname: school-of-one.panghuer.top
   backend: oauth2-proxy-school-of-one.oauth.svc.cluster.local:4180
 ---
+# QianFu 潜伏游戏
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: qianfu
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: qianfu.panghuer.top
+  backend: oauth2-proxy-qianfu.oauth.svc.cluster.local:4180
+---
 # txt2img-proxy 文生图 API
 apiVersion: cf.armbianbegin.io/v1
 kind: TunnelRoute
