@@ -44,7 +44,7 @@ spec:
           # 游戏公开战报约定：仅放行 UUID 形式的分享页面和只读报告 API。
           # 创建、撤销和私人报告接口必须使用其他认证路径，并继续由 oauth2-proxy 保护。
           - "--skip-auth-route=^/share/[0-9a-fA-F-]{36}/?$"
-          - "--skip-auth-route=^/api/v1/shares/[0-9a-fA-F-]{36}(/export)?$"
+          - "--skip-auth-route=^/api/v1/shares/[0-9a-fA-F-]{36}(/export)?([?].*)?$"
         ports:
         - containerPort: 4180
           name: http
