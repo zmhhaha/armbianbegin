@@ -180,8 +180,8 @@ kubectl rollout restart deploy/oauth2-proxy-scientific-agent -n oauth
 | `--cookie-domain` | `.panghuer.top` | Cookie 作用域 |
 | `--cookie-secure` | `true` | 仅 HTTPS |
 | `--cookie-samesite` | `lax` | CSRF 防护 |
-| `--cookie-expire` | `168h` | Cookie 有效期 7 天 |
-| `--cookie-refresh` | `60m` | 每小时刷新 |
+| `--cookie-expire` | `720h` | Cookie 有效期 30 天（同时也对应 Casdoor refresh token 过期时间） |
+| `--cookie-refresh` | `24h` | 每 24 小时刷新（原来 60m 太短，频繁刷新导致过早跳回登录页） |
 | `--redirect-url` | `https://{target}.panghuer.top/oauth2/callback` | OIDC 回调地址 |
 | `--reverse-proxy` | `true` | 前面有反向代理 |
 | `--ssl-insecure-skip-verify` | `true` | 跳过 Casdoor TLS 验证 |
@@ -322,11 +322,22 @@ sed "s/__TARGET_NAME__/scientific-agent/g" k8s/proxy-deployment.yaml | kubectl a
 ### 重启
 
 ```bash
-# 重启 oauth2-proxy
-kubectl rollout restart deploy/oauth2-proxy-research-agent -n oauth
-kubectl rollout status deploy/oauth2-proxy-research-agent -n oauth
-kubectl rollout restart deploy/oauth2-proxy-scientific-agent -n oauth
-kubectl rollout status deploy/oauth2-proxy-scientific-agent -n oauth
+# 重启所有 agent 类
+for t in research-agent scientific-agent daofaziran-agent fofawubian-agent \
+         zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent; do
+  kubectl rollout restart deploy/oauth2-proxy-$t -n oauth
+done
+
+# txt2img
+kubectl rollout restart deploy/oauth2-proxy-txt2img -n oauth
+
+# 游戏类（school-of-one + qianfu）
+for t in school-of-one qianfu; do
+  kubectl rollout restart deploy/oauth2-proxy-$t -n oauth
+done
+
+# 等待全部就绪
+kubectl rollout status deploy -n oauth -l app -l='oauth2-proxy-'
 ```
 
 ### 调试直连
@@ -530,7 +541,29 @@ kubectl logs -n oauth deploy/casdoor --tail=50 | grep -i "error\|callback\|token
 
 ---
 
-### 问题 6：第三方登录提示"不存在且不允许注册新账户"
+### 新问题 9：OAuth2 Proxy 登录后很快过期，频繁跳回登录页
+
+**现象**：登录后不到 1 小时就要求重新登录，非常影响使用体验。
+
+**原因**：`--cookie-refresh=60m` 太短。oauth2-proxy 每 60 分钟就向 Casdoor 重新验证令牌，如果 Casdoor 端的 refresh token 过期时间 ≤ 60 分钟，刷新失败导致跳回登录页。
+
+**解决**：`--cookie-refresh` 从 `60m` 改为 `24h`，同时在 Casdoor 后台把 refresh token 过期时间设为 ≥ 24h：
+
+1. 修改 oauth2-proxy deployment args（两个模板：`proxy-deployment.yaml` + `game-proxy-deployment.yaml`）
+2. 登录 `https://auth.panghuer.top` → **应用 (Applications)** → 编辑应用
+3. 确保 `Refresh token expire (hours)` ≥ 24（建议 168，即 7 天，与 cookie-expire 一致）
+
+部署：
+```bash
+for t in research-agent scientific-agent daofaziran-agent fofawubian-agent zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent txt2img; do
+  sed "s/__TARGET_NAME__/$t/g" k8s/proxy-deployment.yaml | kubectl apply -f -
+done
+for t in school-of-one qianfu; do
+  sed "s/__TARGET_NAME__/$t/g" k8s/game-proxy-deployment.yaml | kubectl apply -f -
+done
+kubectl rollout restart deploy -n oauth -l app.kubernetes.io/name=oauth2-proxy
+```
+
 
 **现象**：
 ```

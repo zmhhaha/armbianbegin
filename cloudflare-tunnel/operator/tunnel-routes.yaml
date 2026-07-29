@@ -67,6 +67,17 @@ spec:
   hostname: qianfu.panghuer.top
   backend: oauth2-proxy-qianfu.oauth.svc.cluster.local:4180
 ---
+# 特务
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: tewu
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: tewu.panghuer.top
+  backend: oauth2-proxy-tewu.oauth.svc.cluster.local:4180
+---
 # txt2img-proxy 文生图 API
 apiVersion: cf.armbianbegin.io/v1
 kind: TunnelRoute
