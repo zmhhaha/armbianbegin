@@ -56,7 +56,7 @@ spec:
   hostname: school-of-one.panghuer.top
   backend: oauth2-proxy-school-of-one.oauth.svc.cluster.local:4180
 ---
-# QianFu 潜伏游戏
+# 潜伏
 apiVersion: cf.armbianbegin.io/v1
 kind: TunnelRoute
 metadata:
@@ -143,3 +143,14 @@ spec:
   tunnelRef: main
   hostname: zhenzhuzhida-agent.panghuer.top
   backend: oauth2-proxy-zhenzhuzhida-agent.oauth.svc.cluster.local:4180
+---
+# 游戏评测
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: game-review-agent
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: game-review-agent.panghuer.top
+  backend: oauth2-proxy-game-review-agent.oauth.svc.cluster.local:4180
