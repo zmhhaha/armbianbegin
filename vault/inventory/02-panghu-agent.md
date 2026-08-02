@@ -50,3 +50,47 @@
 ## 备注
 ...
 
+## game-review-agent（游戏试玩评价）
+
+| 属性 | 值 |
+|------|-----|
+| **命名空间** | `game-review-agent` |
+| **Secret** | `agent-secret`（LLM key）、`game-auth`（受保护游戏 cookie） |
+| **Vault 路径** | `secret/data/game-review-agent/api`、`secret/data/game-review-agent/auth` |
+| **ExternalSecret** | `vault/inventory/game-review-agent-externalsecret.yaml` |
+| **ConfigMap** | `agent-config`（手动，不走 ESO） |
+
+### 写入 Vault
+
+```bash
+# LLM key
+kubectl exec -n vault vault-0 -- vault kv put secret/game-review-agent/api \
+  OPENAI_API_KEY="sk-xxx" \
+  CUSTOM_API_KEY="sk-xxx"
+
+# 游戏访问 cookie（可选，不配则只能访问公开页面）
+kubectl exec -n vault vault-0 -- vault kv put secret/game-review-agent/auth \
+  GAME_AUTH_COOKIE="name=_oauth2_proxy;value=<cookie值>;domain=.panghuer.top;path=/;secure"
+```
+
+### 部署顺序
+
+```bash
+# 1. 创建 ConfigMap（手动，ESO 不管理 ConfigMap）
+kubectl create configmap agent-config -n game-review-agent \
+  --from-literal=PROVIDER=custom \
+  --from-literal=CUSTOM_API_BASE=http://47.109.107.37/v1 \
+  --from-literal=CUSTOM_MODEL=deepseek-v4-pro \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# 2. apply ExternalSecret（从 Vault 同步 agent-secret + game-auth）
+kubectl apply -f inventory/game-review-agent-externalsecret.yaml
+
+# 3. 验证 Secret 已生成
+kubectl get secret agent-secret game-auth -n game-review-agent
+
+# 4. 部署 API/UI 后重启使环境变量生效
+kubectl rollout restart deployment api -n game-review-agent
+```
+
+
