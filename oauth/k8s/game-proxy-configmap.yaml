@@ -36,6 +36,9 @@ data:
 
     # ---- 注入到后端请求的用户身份 Header ----
     injectRequestHeaders:
+      - name: X-Auth-Request-Sub
+        values:
+          - claim: sub
       - name: X-Forwarded-User
         values:
           - claim: user

@@ -18,7 +18,7 @@ for ns in research-agent scientific-agent daofaziran-agent fofawubian-agent \
           yimaneili-agent zhenzhuzhida-agent zhongkuifumo-agent game-review-agent; do
   echo "=== $ns ==="
   # 覆盖写为 deepseek only（先 metadata 版本递增，再 put 替换全部字段）
-  vault kv put "secret/$ns/api" \
+  kubectl exec -n vault vault-0 -- vault kv put "secret/$ns/api" \
     DEEPSEEK_API_KEY="$MASTER_KEY" \
     DEEPSEEK_BASE_URL="https://api.deepseek.com" \
     DEEPSEEK_MODEL="deepseek-v4-flash"
