@@ -67,6 +67,17 @@ spec:
   hostname: qianfu.panghuer.top
   backend: oauth2-proxy-qianfu.oauth.svc.cluster.local:4180
 ---
+# 官僚
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: guanliao
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: guanliao.panghuer.top
+  backend: oauth2-proxy-guanliao.oauth.svc.cluster.local:4180
+---
 # 特务
 apiVersion: cf.armbianbegin.io/v1
 kind: TunnelRoute
@@ -165,3 +176,14 @@ spec:
   tunnelRef: main
   hostname: xuye.panghuer.top
   backend: oauth2-proxy-xuye.oauth.svc.cluster.local:4180
+---
+# ShaPan
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: shapan
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: shapan.panghuer.top
+  backend: oauth2-proxy-shapan.oauth.svc.cluster.local:4180
