@@ -27,9 +27,11 @@ es/
 ├── deploy.sh                      # ExternalSecret、配置、Service 和 StatefulSet 部署
 └── k8s/
     ├── configmap.yaml             # elasticsearch.yml
-    ├── external-secret.yaml       # Vault -> K8s 密码同步
     ├── service.yaml               # ClusterIP + Headless Service
     └── statefulset.yaml           # 单节点 Elasticsearch
+
+vault/inventory/
+└── elasticsearch-externalsecret.yaml # Vault -> K8s 密码同步及部署说明
 ```
 
 ## 前置条件
@@ -49,6 +51,11 @@ kubectl exec -n vault vault-0 -- vault kv put secret/elasticsearch/app \
   ELASTIC_PASSWORD="${ELASTIC_PASSWORD}"
 unset ELASTIC_PASSWORD
 ```
+
+Vault 相关清单统一存放在 `vault` 目录。完整的创建、同步和验证步骤见
+`vault/inventory/elasticsearch-externalsecret.yaml` 文件首部注释。注意：Vault CLI
+写入 KV v2 时使用 `secret/elasticsearch/app`，ExternalSecret 读取时使用
+`secret/data/elasticsearch/app`。
 
 ## 构建镜像
 
@@ -74,7 +81,7 @@ bash deploy.sh
 
 部署脚本会：
 
-1. 应用 ExternalSecret 并等待 `elasticsearch-secret` 同步。
+1. 从 `vault/inventory/elasticsearch-externalsecret.yaml` 应用 ExternalSecret，并等待 `elasticsearch-secret` 同步。
 2. 应用 Elasticsearch 配置和两个 Service。
 3. 确保 StatefulSet 使用目标镜像。
 4. 等待 Pod 就绪。

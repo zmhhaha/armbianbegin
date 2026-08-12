@@ -57,7 +57,8 @@ vault/
     ├── 00-oauth.md
     ├── 01-email-service.md
     ├── 02-panghu-agent.md
-    └── 03-gitops.md
+    ├── 03-gitops.md
+    └── elasticsearch-externalsecret.yaml ← Elasticsearch 密码同步及部署说明
 ```
 
 ---
@@ -154,6 +155,7 @@ secret/data/<namespace>/<app-name>/<key>
 | `secret/data/gitops/drone/*` | Drone 密钥 |
 | `secret/data/infra/registry/*` | 镜像仓库 TLS |
 | `secret/data/infra/ceph/*` | Ceph 认证 |
+| `secret/data/elasticsearch/app/*` | `data/elasticsearch-secret` |
 | `secret/data/txt2img/ark/*` | txt2img-proxy 火山引擎视觉 CV AK/SK（`ARK_ACCESS_KEY` / `ARK_SECRET_KEY`） |
 | `secret/data/txt2img/replicate/*` | txt2img-proxy Replicate API Key |
 | `secret/data/txt2img/together/*` | txt2img-proxy Together AI API Key |

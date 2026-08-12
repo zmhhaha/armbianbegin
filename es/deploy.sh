@@ -14,6 +14,7 @@ KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
 K="--kubeconfig=${KUBECONFIG}"
 
 K8S_DIR="${SCRIPT_DIR}/k8s"
+VAULT_MANIFEST="${SCRIPT_DIR}/../vault/inventory/elasticsearch-externalsecret.yaml"
 
 fail() {
     printf '[elasticsearch] ERROR: %s\n' "$*" >&2
@@ -22,14 +23,16 @@ fail() {
 
 command -v kubectl >/dev/null 2>&1 || fail "缺少 kubectl"
 [[ -f "${KUBECONFIG}" ]] || fail "找不到 kubeconfig: ${KUBECONFIG}"
+[[ -f "${VAULT_MANIFEST}" ]] || fail "找不到 Vault 清单: ${VAULT_MANIFEST}"
 
 printf '%s\n' '=== Applying Vault ExternalSecret ==='
-kubectl "${K}" apply -f "${K8S_DIR}/external-secret.yaml"
+kubectl "${K}" apply -f "${VAULT_MANIFEST}"
 
 printf '%s\n' '=== Waiting for Elasticsearch password ==='
 if ! kubectl "${K}" wait --for=condition=Ready \
     externalsecret/elasticsearch-secret -n data --timeout=90s; then
-    echo "ExternalSecret 未就绪。请确认 Vault secret/elasticsearch/app 包含 ELASTIC_PASSWORD。" >&2
+    kubectl "${K}" describe externalsecret/elasticsearch-secret -n data >&2 || true
+    echo "ExternalSecret 未就绪。请按 vault/inventory/elasticsearch-externalsecret.yaml 文件头说明写入 Vault 密码。" >&2
     exit 1
 fi
 
