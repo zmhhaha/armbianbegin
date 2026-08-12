@@ -1,9 +1,0 @@
-apiVersion: cf.armbianbegin.io/v1
-kind: TunnelRoute
-metadata:
-  name: s3
-  namespace: default
-spec:
-  tunnelRef: main
-  hostname: s3.panghuer.top
-  backend: ceph-rgw.data.svc.cluster.local:7480

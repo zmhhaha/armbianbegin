@@ -5,8 +5,9 @@ RGW_UID="${1:-hubo}"
 DISPLAY_NAME="${2:-虎博媒体服务}"
 OUTPUT_FILE="${3:-${PWD}/${RGW_UID}-s3.env}"
 
-S3_ADMIN_ENDPOINT="${S3_ADMIN_ENDPOINT:-http://192.168.137.211:7480}"
-S3_INTERNAL_ENDPOINT="${S3_INTERNAL_ENDPOINT:-http://ceph-rgw.data.svc.cluster.local:7480}"
+S3_ENDPOINT="${S3_ENDPOINT:-}"
+S3_ADMIN_ENDPOINT="${S3_ADMIN_ENDPOINT:-${S3_ENDPOINT}}"
+S3_INTERNAL_ENDPOINT="${S3_INTERNAL_ENDPOINT:-${S3_ENDPOINT}}"
 S3_PUBLIC_ENDPOINT="${S3_PUBLIC_ENDPOINT:-https://s3.panghuer.top}"
 S3_BUCKET="${S3_BUCKET:-hubo-media}"
 S3_REGION="${S3_REGION:-us-east-1}"
@@ -17,6 +18,15 @@ for command_name in radosgw-admin python3; do
         exit 1
     }
 done
+
+[[ -n "${S3_ADMIN_ENDPOINT}" ]] || {
+    printf 'ERROR: 请设置 S3_ENDPOINT（建议使用指向 Ceph ingress VIP 的内部 DNS 地址）\n' >&2
+    exit 1
+}
+[[ -n "${S3_INTERNAL_ENDPOINT}" ]] || {
+    printf 'ERROR: 请设置 S3_INTERNAL_ENDPOINT 或 S3_ENDPOINT\n' >&2
+    exit 1
+}
 
 if [[ -e "${OUTPUT_FILE}" && "${FORCE:-0}" != "1" ]]; then
     printf 'ERROR: 凭据文件已存在: %s；如确认覆盖，请设置 FORCE=1\n' "${OUTPUT_FILE}" >&2

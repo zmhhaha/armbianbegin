@@ -22,7 +22,10 @@ set +a
 
 S3_BUCKET="${S3_BUCKET:-hubo-media}"
 S3_REGION="${S3_REGION:-us-east-1}"
-S3_ADMIN_ENDPOINT="${S3_ADMIN_ENDPOINT:-http://192.168.137.211:7480}"
+[[ -n "${S3_ADMIN_ENDPOINT:-}" ]] || {
+    printf 'ERROR: 凭据文件缺少 S3_ADMIN_ENDPOINT\n' >&2
+    exit 1
+}
 
 export AWS_ACCESS_KEY_ID="${S3_ACCESS_KEY_ID}"
 export AWS_SECRET_ACCESS_KEY="${S3_SECRET_ACCESS_KEY}"

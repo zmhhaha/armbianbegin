@@ -2,15 +2,17 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CEPH_SPEC="${SCRIPT_DIR}/cephadm-rgw.yaml"
-K8S_SERVICE="${SCRIPT_DIR}/k8s/service.yaml"
-TUNNEL_ROUTE="${SCRIPT_DIR}/k8s/tunnel-route.yaml"
+RGW_SPEC="${SCRIPT_DIR}/cephadm-rgw.yaml"
+INGRESS_TEMPLATE="${SCRIPT_DIR}/cephadm-ingress.yaml.tpl"
+TUNNEL_ROUTE_TEMPLATE="${SCRIPT_DIR}/k8s/tunnel-route.yaml.tpl"
 
-SERVICE_NAME="rgw.s3"
-RGW_PORT="7480"
-EXPECTED_DAEMONS="2"
-RGW_HOSTS=("orangepi5-max-server1" "nanopct4-server1")
-RGW_ENDPOINTS=("192.168.137.211" "192.168.137.201")
+RGW_SERVICE="rgw.s3"
+INGRESS_SERVICE="ingress.rgw.s3"
+RGW_PORT="7481"
+INGRESS_PORT="7480"
+EXPECTED_RGW="${EXPECTED_RGW:-2}"
+EXPECTED_INGRESS="${EXPECTED_INGRESS:-2}"
+RGW_VIRTUAL_IP="${RGW_VIRTUAL_IP:-}"
 KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
 ALLOW_HEALTH_WARN="${ALLOW_HEALTH_WARN:-0}"
 EXPOSE_PUBLIC="${EXPOSE_PUBLIC:-0}"
@@ -24,13 +26,82 @@ fail() {
     exit 1
 }
 
-for command_name in ceph kubectl curl python3; do
+wait_for_daemon_type() {
+    local service_name="$1"
+    local daemon_type="$2"
+    local expected="$3"
+    local deadline=$((SECONDS + 600))
+    local running
+
+    while (( SECONDS < deadline )); do
+        running="$({ ceph orch ps --service_name "${service_name}" --format json 2>/dev/null || printf '[]'; } | python3 -c '
+import json
+import sys
+
+daemon_type = sys.argv[1]
+daemons = json.load(sys.stdin)
+print(sum(
+    1 for daemon in daemons
+    if daemon.get("daemon_type") == daemon_type
+    and daemon.get("status_desc") == "running"
+))
+' "${daemon_type}")"
+        log "${service_name}/${daemon_type}: running=${running}, expected=${expected}"
+        if [[ "${running}" == "${expected}" ]]; then
+            return 0
+        fi
+        sleep 5
+    done
+
+    ceph orch ps --service_name "${service_name}" --refresh || true
+    fail "${service_name}/${daemon_type} 在 600 秒内未全部就绪"
+}
+
+for command_name in ceph curl ping python3; do
     command -v "${command_name}" >/dev/null 2>&1 || fail "缺少命令: ${command_name}"
 done
 
-[[ -f "${CEPH_SPEC}" ]] || fail "找不到 ${CEPH_SPEC}"
-[[ -f "${K8S_SERVICE}" ]] || fail "找不到 ${K8S_SERVICE}"
-[[ -f "${KUBECONFIG}" ]] || fail "找不到 kubeconfig: ${KUBECONFIG}"
+[[ -f "${RGW_SPEC}" ]] || fail "找不到 ${RGW_SPEC}"
+[[ -f "${INGRESS_TEMPLATE}" ]] || fail "找不到 ${INGRESS_TEMPLATE}"
+[[ -n "${RGW_VIRTUAL_IP}" ]] || fail \
+    "请设置 RGW_VIRTUAL_IP=<192.168.137.0/24 中未占用的地址>/24"
+
+if ! vip_address="$(python3 - "${RGW_VIRTUAL_IP}" <<'PY'
+import ipaddress
+import sys
+
+try:
+    interface = ipaddress.ip_interface(sys.argv[1])
+except ValueError as error:
+    raise SystemExit(f"无效的 RGW_VIRTUAL_IP: {error}")
+
+service_network = ipaddress.ip_network("192.168.137.0/24")
+if interface.network != service_network:
+    raise SystemExit(f"RGW_VIRTUAL_IP 必须位于 {service_network} 并使用 /24")
+if interface.ip == ipaddress.ip_address("192.168.137.101"):
+    raise SystemExit("192.168.137.101 是主节点固定地址，不能作为 Keepalived 漂移 VIP")
+print(interface.ip)
+PY
+)"; then
+    fail "RGW_VIRTUAL_IP 校验失败"
+fi
+
+managed_vip="$(ceph orch ls --export --format json 2>/dev/null | python3 -c '
+import json
+import sys
+
+services = json.load(sys.stdin)
+service = next(
+    (item for item in services if item.get("service_name") == "ingress.rgw.s3"),
+    {},
+)
+print(service.get("spec", {}).get("virtual_ip", ""))
+' || true)"
+
+if ping -c 1 -W 1 "${vip_address}" >/dev/null 2>&1 \
+    && [[ "${managed_vip}" != "${RGW_VIRTUAL_IP}" ]]; then
+    fail "VIP ${vip_address} 已有设备响应，且不是现有 ingress.rgw.s3 的受管 VIP"
+fi
 
 health="$(ceph health 2>/dev/null || true)"
 [[ -n "${health}" ]] || fail "无法连接 Ceph 集群"
@@ -44,70 +115,61 @@ if [[ "${health}" == HEALTH_WARN* && "${ALLOW_HEALTH_WARN}" != "1" ]]; then
     fail "Ceph 处于 HEALTH_WARN；修复告警，或确认风险后使用 ALLOW_HEALTH_WARN=1"
 fi
 
-host_table="$(ceph orch host ls)"
-for host_name in "${RGW_HOSTS[@]}"; do
-    host_row="$(awk -v host="${host_name}" '$1 == host { print }' <<<"${host_table}")"
-    [[ -n "${host_row}" ]] || fail "cephadm 中不存在主机: ${host_name}"
-    [[ "${host_row}" != *Offline* ]] || fail "cephadm 主机处于 Offline: ${host_name}"
-done
-
-log "应用 cephadm ServiceSpec: ${CEPH_SPEC}"
-ceph orch apply -i "${CEPH_SPEC}"
-
-log "等待 ${EXPECTED_DAEMONS} 个 RGW daemon 进入 running"
-deadline=$((SECONDS + 300))
-ready=0
-while (( SECONDS < deadline )); do
-    status="$({ ceph orch ls --format json 2>/dev/null || printf '[]'; } | python3 -c '
+online_hosts="$(ceph orch host ls --format json | python3 -c '
 import json
 import sys
 
-service_name = sys.argv[1]
-services = json.load(sys.stdin)
-service = next((item for item in services if item.get("service_name") == service_name), {})
-state = service.get("status", {})
-print("{} {}".format(state.get("running", 0), state.get("size", 0)))
-' "${SERVICE_NAME}")"
-    read -r running size <<<"${status}"
-    log "daemon: running=${running}, size=${size}"
-    if [[ "${running}" == "${EXPECTED_DAEMONS}" && "${size}" == "${EXPECTED_DAEMONS}" ]]; then
+hosts = json.load(sys.stdin)
+print(sum(1 for host in hosts if str(host.get("status", "")).lower() != "offline"))
+')"
+required_hosts="${EXPECTED_RGW}"
+if (( EXPECTED_INGRESS > required_hosts )); then
+    required_hosts="${EXPECTED_INGRESS}"
+fi
+(( online_hosts >= required_hosts )) || fail \
+    "在线 cephadm 主机只有 ${online_hosts} 台，至少需要 ${required_hosts} 台"
+
+ingress_spec="$(mktemp)"
+trap 'rm -f "${ingress_spec}"' EXIT
+sed "s|__RGW_VIRTUAL_IP__|${RGW_VIRTUAL_IP}|g" \
+    "${INGRESS_TEMPLATE}" >"${ingress_spec}"
+
+log "应用动态 RGW ServiceSpec"
+ceph orch apply -i "${RGW_SPEC}"
+log "等待 ${EXPECTED_RGW} 个 RGW daemon"
+wait_for_daemon_type "${RGW_SERVICE}" rgw "${EXPECTED_RGW}"
+
+log "应用 Ceph ingress ServiceSpec（VIP ${RGW_VIRTUAL_IP}）"
+ceph orch apply -i "${ingress_spec}"
+log "等待 ${EXPECTED_INGRESS} 个 HAProxy 和 Keepalived 实例"
+wait_for_daemon_type "${INGRESS_SERVICE}" haproxy "${EXPECTED_INGRESS}"
+wait_for_daemon_type "${INGRESS_SERVICE}" keepalived "${EXPECTED_INGRESS}"
+
+ready=0
+for _ in {1..24}; do
+    code="$(curl --silent --show-error --output /dev/null --connect-timeout 5 \
+        --write-out '%{http_code}' "http://${vip_address}:${INGRESS_PORT}/" || true)"
+    if [[ "${code}" == "200" || "${code}" == "403" ]]; then
+        log "Ceph ingress VIP ready (HTTP ${code})"
         ready=1
         break
     fi
     sleep 5
 done
-
-if (( ready != 1 )); then
-    ceph orch ps --service_name "${SERVICE_NAME}" || true
-    fail "RGW 在 300 秒内未全部就绪"
-fi
-
-failed_endpoints=0
-for endpoint in "${RGW_ENDPOINTS[@]}"; do
-    code="$(curl --silent --show-error --output /dev/null --connect-timeout 5 \
-        --write-out '%{http_code}' "http://${endpoint}:${RGW_PORT}/" || true)"
-    if [[ "${code}" == "200" || "${code}" == "403" ]]; then
-        log "RGW endpoint ${endpoint}:${RGW_PORT} ready (HTTP ${code})"
-    else
-        printf '[rgw] WARN: RGW endpoint %s:%s returned HTTP %s\n' \
-            "${endpoint}" "${RGW_PORT}" "${code:-000}" >&2
-        failed_endpoints=$((failed_endpoints + 1))
-    fi
-done
-
-(( failed_endpoints == 0 )) || fail "至少一个 RGW endpoint 未通过健康检查"
-
-log "创建 Kubernetes 内部 Service"
-kubectl --kubeconfig="${KUBECONFIG}" apply -f "${K8S_SERVICE}"
+(( ready == 1 )) || fail "VIP ${vip_address}:${INGRESS_PORT} 在 120 秒内未就绪"
 
 if [[ "${EXPOSE_PUBLIC}" == "1" ]]; then
-    [[ -f "${TUNNEL_ROUTE}" ]] || fail "找不到 ${TUNNEL_ROUTE}"
+    command -v kubectl >/dev/null 2>&1 || fail "缺少命令: kubectl"
+    [[ -f "${KUBECONFIG}" ]] || fail "找不到 kubeconfig: ${KUBECONFIG}"
+    [[ -f "${TUNNEL_ROUTE_TEMPLATE}" ]] || fail "找不到 ${TUNNEL_ROUTE_TEMPLATE}"
+    tunnel_route="$(mktemp)"
+    trap 'rm -f "${ingress_spec}" "${tunnel_route}"' EXIT
+    sed "s|__S3_BACKEND__|${vip_address}:${INGRESS_PORT}|g" \
+        "${TUNNEL_ROUTE_TEMPLATE}" >"${tunnel_route}"
     log "创建 Cloudflare Tunnel 公网路由"
-    kubectl --kubeconfig="${KUBECONFIG}" apply -f "${TUNNEL_ROUTE}"
+    kubectl --kubeconfig="${KUBECONFIG}" apply -f "${tunnel_route}"
 fi
 
 log "部署完成"
-log "K8s endpoint: http://ceph-rgw.data.svc.cluster.local:${RGW_PORT}"
-if [[ "${EXPOSE_PUBLIC}" == "1" ]]; then
-    log "Public endpoint: https://s3.panghuer.top"
-fi
+log "Ceph ingress endpoint: http://${vip_address}:${INGRESS_PORT}"
+log "请将内部 DNS 的 S3 记录指向 ${vip_address}，应用不要使用 daemon 节点地址"

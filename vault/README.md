@@ -51,14 +51,16 @@ vault/
 ├── scripts/
 │   ├── init-vault.sh          ← Vault 初始化（K8s auth, policy, role）
 │   ├── unseal.sh              ← Vault 解封辅助脚本
-│   └── seed-secrets.sh        ← 将现有密钥写入 Vault（交互式）
+│   ├── seed-secrets.sh        ← 将现有密钥写入 Vault（交互式）
+│   └── store-s3-credentials.sh ← 将 S3 凭据文件写入 Vault KV v2
 │
 └── inventory/                 ← 各组件迁移追踪
     ├── 00-oauth.md
     ├── 01-email-service.md
     ├── 02-panghu-agent.md
     ├── 03-gitops.md
-    └── elasticsearch-externalsecret.yaml ← Elasticsearch 密码同步及部署说明
+    ├── elasticsearch-externalsecret.yaml ← Elasticsearch 密码同步及部署说明
+    └── panghu-chat-s3-externalsecret.yaml ← 虎博 S3 凭据同步及部署说明
 ```
 
 ---
@@ -156,6 +158,7 @@ secret/data/<namespace>/<app-name>/<key>
 | `secret/data/infra/registry/*` | 镜像仓库 TLS |
 | `secret/data/infra/ceph/*` | Ceph 认证 |
 | `secret/data/elasticsearch/app/*` | `data/elasticsearch-secret` |
+| `secret/data/panghu-chat/s3/*` | `panghu-chat/hubo-s3` |
 | `secret/data/txt2img/ark/*` | txt2img-proxy 火山引擎视觉 CV AK/SK（`ARK_ACCESS_KEY` / `ARK_SECRET_KEY`） |
 | `secret/data/txt2img/replicate/*` | txt2img-proxy Replicate API Key |
 | `secret/data/txt2img/together/*` | txt2img-proxy Together AI API Key |

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-CREDENTIALS_FILE="${1:?用法: store-in-vault.sh <credentials-file> [vault-path]}"
+CREDENTIALS_FILE="${1:?用法: store-s3-credentials.sh <credentials-file> [vault-path]}"
 VAULT_PATH="${2:-secret/panghu-chat/s3}"
 
 for command_name in vault python3; do

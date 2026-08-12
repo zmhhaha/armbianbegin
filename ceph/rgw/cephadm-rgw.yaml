@@ -1,9 +1,16 @@
+# 部署方式:
+#   cd /root/armbianbegin/ceph/rgw
+#   RGW_VIRTUAL_IP=<同网段空闲IP>/24 ALLOW_HEALTH_WARN=1 bash deploy.sh
+#
+# RGW daemon 不绑定指定节点。cephadm 从在线主机中选择两个节点部署，
+# 节点变化时由编排器重新调度。客户端通过 ingress 的漂移 VIP 访问。
 service_type: rgw
 service_id: s3
 placement:
-  hosts:
-    - orangepi5-max-server1
-    - nanopct4-server1
+  count: 2
+  host_pattern: "*"
+networks:
+  - 192.168.137.0/24
 spec:
   rgw_frontend_type: beast
-  rgw_frontend_port: 7480
+  rgw_frontend_port: 7481
