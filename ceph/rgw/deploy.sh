@@ -16,6 +16,9 @@ RGW_VIRTUAL_IP="${RGW_VIRTUAL_IP:-}"
 KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
 ALLOW_HEALTH_WARN="${ALLOW_HEALTH_WARN:-0}"
 EXPOSE_PUBLIC="${EXPOSE_PUBLIC:-0}"
+REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
+HAPROXY_IMAGE="${HAPROXY_IMAGE:-${REGISTRY}/ceph-haproxy:2.8-arm64}"
+KEEPALIVED_IMAGE="${KEEPALIVED_IMAGE:-${REGISTRY}/ceph-keepalived:2.2.8-arm64}"
 
 log() {
     printf '[rgw] %s\n' "$*"
@@ -128,6 +131,13 @@ if (( EXPECTED_INGRESS > required_hosts )); then
 fi
 (( online_hosts >= required_hosts )) || fail \
     "在线 cephadm 主机只有 ${online_hosts} 台，至少需要 ${required_hosts} 台"
+
+configured_haproxy="$(ceph config get mgr mgr/cephadm/container_image_haproxy 2>/dev/null || true)"
+configured_keepalived="$(ceph config get mgr mgr/cephadm/container_image_keepalived 2>/dev/null || true)"
+if [[ "${configured_haproxy}" != "${HAPROXY_IMAGE}" \
+    || "${configured_keepalived}" != "${KEEPALIVED_IMAGE}" ]]; then
+    fail "cephadm 尚未配置 ARM64 ingress 镜像。依次执行 build-ingress-images.sh --push 和 configure-ingress-images.sh，然后重新运行 deploy.sh"
+fi
 
 ingress_spec="$(mktemp)"
 trap 'rm -f "${ingress_spec}"' EXIT

@@ -26,6 +26,8 @@
 rgw/
 ├── cephadm-rgw.yaml                # 动态调度的 RGW ServiceSpec
 ├── cephadm-ingress.yaml.tpl        # Ceph ingress 模板，部署时注入 VIP
+├── build-ingress-images.sh         # 构建并推送 ARM64 ingress 镜像
+├── configure-ingress-images.sh     # 配置 cephadm 镜像并执行安全 mgr failover
 ├── deploy.sh                       # 预检查、部署和就绪等待
 ├── check.sh                        # 只读健康检查
 ├── create-s3-user.sh               # 创建 S3 用户和权限受限凭据文件
@@ -44,6 +46,7 @@ rgw/
 
 - 在 Ceph 管理节点上使用 root 或等价权限用户执行。
 - `ceph`、`curl` 和 `python3` 可用。
+- `docker` 可用，私有 Registry `arm-cluster-master:5000` 可访问。
 - 至少两台 cephadm 主机在线。
 - 在 `192.168.137.0/24` 中准备一个未占用 VIP，例如 `<S3_VIP>/24`。
 - 网络允许 Keepalived VRRP；如交换机禁用 VRRP 组播，可在 ingress 模板中改用单播配置。
@@ -53,7 +56,21 @@ rgw/
 
 ## 部署
 
-先确认候选 VIP 没有被使用，然后部署：
+Ceph Squid 19.2.4 默认的 `quay.io/ceph/haproxy:2.3` 和
+`quay.io/ceph/keepalived:2.2.4` 是 AMD64 镜像，不能直接运行在本集群的
+ARM64 节点。首次部署先构建兼容镜像并配置 cephadm：
+
+```bash
+cd /root/armbianbegin/ceph/rgw
+bash build-ingress-images.sh --push
+bash configure-ingress-images.sh
+```
+
+`configure-ingress-images.sh` 会确认两个镜像都是 ARM64，并在存在 standby mgr
+时执行一次标准 mgr failover，使 cephadm 的非运行时镜像选项生效。
+
+然后确认候选 VIP 没有被使用并部署：
+VIP部署为192.168.137.111
 
 ```bash
 cd /root/armbianbegin/ceph/rgw
@@ -72,6 +89,20 @@ RGW_VIRTUAL_IP=<S3_VIP>/24 ./check.sh
 2. 部署两个动态调度的 RGW daemon。
 3. 部署两个 HAProxy 和两个 Keepalived 实例。
 4. 等待 Ceph ingress VIP 返回 S3 XML。
+
+### 从 `Exec format error` 恢复
+
+如果 ingress 已经因为默认 AMD64 镜像失败，而 `rgw.s3` 两个实例已经运行，
+无需删除 RGW 服务或对象池。中止旧的等待脚本，同步最新代码后执行：
+
+```bash
+cd /root/armbianbegin/ceph/rgw
+bash build-ingress-images.sh --push
+bash configure-ingress-images.sh
+RGW_VIRTUAL_IP=192.168.137.111/24 ALLOW_HEALTH_WARN=1 bash deploy.sh
+```
+
+cephadm 会重试现有 `ingress.rgw.s3`，不会重复创建对象数据。
 
 如果需要公网入口：
 
