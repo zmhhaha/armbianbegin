@@ -4,3 +4,6 @@
 [submodule "panghu_game"]
 	path = panghu_game
 	url = git@github.com:zmhhaha/panghu_game.git
+[submodule "panghu_chat"]
+	path = panghu_chat
+	url = git@github.com:zmhhaha/panghu_chat.git

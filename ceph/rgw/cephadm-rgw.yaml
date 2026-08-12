@@ -1,0 +1,9 @@
+service_type: rgw
+service_id: s3
+placement:
+  hosts:
+    - orangepi5-max-server1
+    - nanopct4-server1
+spec:
+  rgw_frontend_type: beast
+  rgw_frontend_port: 7480
