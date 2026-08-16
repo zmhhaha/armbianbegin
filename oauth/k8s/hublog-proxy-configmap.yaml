@@ -1,0 +1,48 @@
+# 部署方式：确认 Hublog Service 已存在后，执行 bash oauth/k8s/deploy-hublog-proxy.sh。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth2-proxy-config-hublog
+  namespace: oauth
+data:
+  alpha-config.yaml: |
+    providers:
+      - id: oidc
+        provider: oidc
+        clientID: ${OIDC_CLIENT_ID}
+        clientSecret: ${OIDC_CLIENT_SECRET}
+        scope: "openid email profile"
+        oidcConfig:
+          issuerURL: ${OIDC_ISSUER_URL}
+          userIDClaim: "sub"
+          emailClaim: "email"
+          groupsClaim: "groups"
+          audienceClaims: ["aud"]
+
+    upstreamConfig:
+      upstreams:
+        - id: hublog-api
+          path: /
+          uri: http://hublog-api.hublog.svc.cluster.local:80
+          passHostHeader: true
+          proxyWebSockets: true
+
+    injectRequestHeaders:
+      - name: X-Auth-Request-Sub
+        values:
+          - claim: sub
+      - name: X-Forwarded-User
+        values:
+          - claim: user
+      - name: X-Forwarded-Email
+        values:
+          - claim: email
+      - name: X-Forwarded-Preferred-Username
+        values:
+          - claim: preferred_username
+
+    server:
+      BindAddress: "0.0.0.0:4180"
+
+    metricsServer:
+      BindAddress: "0.0.0.0:44180"

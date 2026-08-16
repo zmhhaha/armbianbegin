@@ -187,3 +187,14 @@ spec:
   tunnelRef: main
   hostname: shapan.panghuer.top
   backend: oauth2-proxy-shapan.oauth.svc.cluster.local:4180
+---
+# Hublog：公网只能经统一 SSO 代理进入业务 API
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: hublog
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: hublog.panghuer.top
+  backend: oauth2-proxy-hublog.oauth.svc.cluster.local:4180

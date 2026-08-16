@@ -45,6 +45,23 @@ bash build.sh --deploy
 
 在 `cloudflare-tunnel/operator/tunnel-routes.yaml` 中将 backend 改为 `oauth2-proxy.oauth.svc.cluster.local:4180`。
 
+### Hublog
+
+Hublog 与其他服务一样，将 oauth2-proxy 清单统一放在 `oauth/k8s`，并复用现有的 `proxy-deployment.yaml` 和 `oauth2-proxy-secret`：
+
+```bash
+cd ~/armbianbegin/oauth/k8s
+bash deploy-hublog-proxy.sh
+```
+
+部署前需要满足：
+
+- `hublog/hublog-api` Service 已存在。
+- Casdoor 应用允许回调 `https://hublog.panghuer.top/oauth2/callback`。
+- `oauth/oauth2-proxy-secret` 包含共享 OIDC 和 Cookie 配置。
+
+公网链路为 `hublog.panghuer.top` → Cloudflare Tunnel → `oauth2-proxy-hublog` → `hublog-api`。代理向业务服务注入稳定的 `X-Auth-Request-Sub`，Hublog 使用该值绑定本地用户。不要把 `hublog-api` 直接暴露为 NodePort、LoadBalancer 或 TunnelRoute。
+
 ## Casdoor（可选）
 
 如需接入微信、支付宝等非标准 OAuth 提供商，可以基于 `base` 镜像 + Casdoor 官方 ARM64 二进制自行构建。Dockerfile 模板见本目录。
