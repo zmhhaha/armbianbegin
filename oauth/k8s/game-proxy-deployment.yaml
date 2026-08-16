@@ -39,6 +39,7 @@ spec:
           - "--email-domain=$(ALLOWED_DOMAINS)"
           - "--redirect-url=https://__TARGET_NAME__.panghuer.top/oauth2/callback"
           - "--reverse-proxy=true"
+          - "--skip-provider-button=true"
           - "--silence-ping-logging=true"
           - "--ssl-insecure-skip-verify=true"
           # 游戏公开战报约定：仅放行 UUID 形式的分享页面和只读报告 API。

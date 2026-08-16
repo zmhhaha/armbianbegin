@@ -38,6 +38,7 @@ spec:
           - "--email-domain=$(ALLOWED_DOMAINS)"
           - "--redirect-url=https://__TARGET_NAME__.panghuer.top/oauth2/callback"
           - "--reverse-proxy=true"
+          - "--skip-provider-button=true"
           - "--silence-ping-logging=true"
           - "--ssl-insecure-skip-verify=true"
         ports:
