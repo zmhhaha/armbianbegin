@@ -133,6 +133,13 @@ kubectl get tunnelroute
   ```
   https://research-agent.panghuer.top/oauth2/callback
   https://scientific-agent.panghuer.top/oauth2/callback
+  https://daofaziran-agent.panghuer.top/oauth2/callback
+  https://fofawubian-agent.panghuer.top/oauth2/callback
+  https://zhongkuifumo-agent.panghuer.top/oauth2/callback
+  https://yimaneili-agent.panghuer.top/oauth2/callback
+  https://zhenzhuzhida-agent.panghuer.top/oauth2/callback
+  https://zhougongjiemeng-agent.panghuer.top/oauth2/callback
+  https://txt2img.panghuer.top/oauth2/callback
   ```
 - 保存后获取 `Client ID` 和 `Client Secret`
 
@@ -324,7 +331,8 @@ sed "s/__TARGET_NAME__/scientific-agent/g" k8s/proxy-deployment.yaml | kubectl a
 ```bash
 # 重启所有 agent 类
 for t in research-agent scientific-agent daofaziran-agent fofawubian-agent \
-         zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent; do
+         zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent \
+         zhougongjiemeng-agent; do
   kubectl rollout restart deploy/oauth2-proxy-$t -n oauth
 done
 
@@ -555,7 +563,7 @@ kubectl logs -n oauth deploy/casdoor --tail=50 | grep -i "error\|callback\|token
 
 部署：
 ```bash
-for t in research-agent scientific-agent daofaziran-agent fofawubian-agent zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent txt2img; do
+for t in research-agent scientific-agent daofaziran-agent fofawubian-agent zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent zhougongjiemeng-agent txt2img; do
   sed "s/__TARGET_NAME__/$t/g" k8s/proxy-deployment.yaml | kubectl apply -f -
 done
 for t in school-of-one qianfu; do

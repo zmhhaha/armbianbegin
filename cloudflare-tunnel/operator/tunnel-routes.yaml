@@ -155,6 +155,17 @@ spec:
   hostname: zhenzhuzhida-agent.panghuer.top
   backend: oauth2-proxy-zhenzhuzhida-agent.oauth.svc.cluster.local:4180
 ---
+# 周公解梦
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: zhougongjiemeng-agent
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: zhougongjiemeng-agent.panghuer.top
+  backend: oauth2-proxy-zhougongjiemeng-agent.oauth.svc.cluster.local:4180
+---
 # 游戏评测
 apiVersion: cf.armbianbegin.io/v1
 kind: TunnelRoute

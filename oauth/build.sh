@@ -64,8 +64,8 @@ deploy_k8s() {
 
 deploy_proxy() {
     echo ""
-    echo "=== 部署 oauth2-proxy 实例（research-agent + scientific-agent + daofaziran-agent + fofawubian-agent + zhongkuifumo-agent + yimaneili-agent + zhenzhuzhida-agent + txt2img）==="
-    for target in research-agent scientific-agent daofaziran-agent fofawubian-agent zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent; do
+    echo "=== 部署 oauth2-proxy 实例（research-agent + scientific-agent + daofaziran-agent + fofawubian-agent + zhongkuifumo-agent + yimaneili-agent + zhenzhuzhida-agent + zhougongjiemeng-agent + txt2img）==="
+    for target in research-agent scientific-agent daofaziran-agent fofawubian-agent zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent zhougongjiemeng-agent; do
         echo "  ── 部署 ${target} ──"
         sed "s/__TARGET_NAME__/${target}/g" k8s/proxy-configmap.yaml | kubectl apply ${K} -f -
         sed "s/__TARGET_NAME__/${target}/g" k8s/proxy-deployment.yaml | kubectl apply ${K} -f -
@@ -111,6 +111,7 @@ case "${1:-}" in
         echo "    zhongkuifumo-agent:  http://oauth2-proxy-zhongkuifumo-agent.oauth.svc.cluster.local:4180"
         echo "    yimaneili-agent:     http://oauth2-proxy-yimaneili-agent.oauth.svc.cluster.local:4180"
         echo "    zhenzhuzhida-agent:  http://oauth2-proxy-zhenzhuzhida-agent.oauth.svc.cluster.local:4180"
+        echo "    zhougongjiemeng-agent: http://oauth2-proxy-zhougongjiemeng-agent.oauth.svc.cluster.local:4180"
         echo "    txt2img:           http://oauth2-proxy-txt2img.oauth.svc.cluster.local:4180"
         echo ""
         echo "  下一步:"
@@ -123,6 +124,7 @@ case "${1:-}" in
         echo "                https://zhongkuifumo-agent.panghuer.top/oauth2/callback"
         echo "                https://yimaneili-agent.panghuer.top/oauth2/callback"
         echo "                https://zhenzhuzhida-agent.panghuer.top/oauth2/callback"
+        echo "                https://zhougongjiemeng-agent.panghuer.top/oauth2/callback"
         echo "                https://txt2img.panghuer.top/oauth2/callback"
         echo "    3. 更新 secret.yaml 中 OIDC_CLIENT_ID/SECRET"
         echo "    4. 确保 tunnel-routes.yaml 已更新指向 oauth2-proxy"
@@ -139,7 +141,7 @@ case "${1:-}" in
         echo ""
         echo "  --push          拉取 oauth2-proxy + Casdoor 镜像并推送到私有 registry"
         echo "  --deploy        拉取镜像 + 部署 Casdoor + 部署 oauth2-proxy 多个实例"
-        echo "  --deploy-proxy  仅部署/更新 oauth2-proxy 实例（research-agent + scientific-agent + daofaziran-agent + fofawubian-agent + zhongkuifumo-agent + yimaneili-agent + zhenzhuzhida-agent + txt2img）"
+        echo "  --deploy-proxy  仅部署/更新 oauth2-proxy 实例（research-agent + scientific-agent + daofaziran-agent + fofawubian-agent + zhongkuifumo-agent + yimaneili-agent + zhenzhuzhida-agent + zhougongjiemeng-agent + txt2img）"
         echo ""
         echo "  oauth2-proxy 实例:"
         echo "    research-agent:     oauth2-proxy-research-agent.oauth.svc.cluster.local:4180"
@@ -149,6 +151,7 @@ case "${1:-}" in
         echo "    zhongkuifumo-agent:  oauth2-proxy-zhongkuifumo-agent.oauth.svc.cluster.local:4180"
         echo "    yimaneili-agent:     oauth2-proxy-yimaneili-agent.oauth.svc.cluster.local:4180"
         echo "    zhenzhuzhida-agent:  oauth2-proxy-zhenzhuzhida-agent.oauth.svc.cluster.local:4180"
+        echo "    zhougongjiemeng-agent: oauth2-proxy-zhougongjiemeng-agent.oauth.svc.cluster.local:4180"
         echo "    txt2img:            oauth2-proxy-txt2img.oauth.svc.cluster.local:4180"
         ;;
     *)
@@ -166,6 +169,7 @@ case "${1:-}" in
         echo "    zhongkuifumo-agent:  oauth2-proxy-zhongkuifumo-agent.oauth.svc.cluster.local:4180"
         echo "    yimaneili-agent:     oauth2-proxy-yimaneili-agent.oauth.svc.cluster.local:4180"
         echo "    zhenzhuzhida-agent:  oauth2-proxy-zhenzhuzhida-agent.oauth.svc.cluster.local:4180"
+        echo "    zhougongjiemeng-agent: oauth2-proxy-zhougongjiemeng-agent.oauth.svc.cluster.local:4180"
         echo "    txt2img:            oauth2-proxy-txt2img.oauth.svc.cluster.local:4180"
         ;;
 esac
