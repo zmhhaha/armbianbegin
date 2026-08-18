@@ -205,11 +205,14 @@ kubectl exec -n vault vault-0 -- vault write auth/kubernetes/role/eso-role \
 ### 解封（重启后）
 
 ```bash
-bash scripts/unseal.sh
-# 或手动：
-kubectl exec -n vault vault-0 -- vault operator unseal <key1>
-kubectl exec -n vault vault-0 -- vault operator unseal <key2>
-kubectl exec -n vault vault-0 -- vault operator unseal <key3>
+# 依次完成解封、Vault CLI 登录恢复和 ESO 认证检查
+bash scripts/unseal.sh --interactive
+
+# 或从离线保管的初始化凭证恢复
+bash scripts/unseal.sh --from-file /secure/path/vault-init.json
+
+# Vault 已解封，仅恢复 CLI token
+bash scripts/login.sh --interactive
 ```
 
 ### 暴露 Vault UI 到局域网
@@ -592,6 +595,9 @@ Vault 的 Kubernetes auth 底层需要一个有 `system:auth-delegator` 权限�
 
 **快速修复（推荐）**：
 ```bash
+# fix-eso-auth.sh 需要 Vault CLI 已登录
+bash vault/scripts/login.sh --interactive
+
 # 一键修复：创建长期 token Secret → 刷新 auth config → 重启 ESO → 强制同步
 bash vault/scripts/fix-eso-auth.sh
 ```

@@ -6,7 +6,7 @@
 #    ./deploy.sh               # 仅部署 Vault + ESO
 #    ./deploy.sh --init        # 部署 + 初始化 Vault（首次运行）
 #    ./deploy.sh --seed        # 部署 + 初始化 + 种子密钥
-#    ./deploy.sh --unseal      # 仅执行解封操作（重启后需要）
+#    ./deploy.sh --unseal --interactive  # 解封、CLI 登录和 ESO 恢复
 #
 #  前提条件:
 #    - Helm 已安装（通常在 debian_begin.sh 中已装）
@@ -212,7 +212,8 @@ case "${1:-}" in
         verify
         ;;
     --unseal)
-        bash scripts/unseal.sh
+        shift
+        bash scripts/unseal.sh "$@"
         ;;
     *)
         # 仅部署或手动指定子命令
@@ -223,12 +224,12 @@ case "${1:-}" in
             deploy_k8s_manifests
             verify
         else
-            echo "用法: $0 [--init|--seed|--unseal]"
+            echo "用法: $0 [--init|--seed|--unseal [--interactive|--from-file <file>]]"
             echo ""
             echo "  (无参数)  仅部署 Vault + ESO"
             echo "  --init    部署 + 初始化 Vault（首次运行）"
             echo "  --seed    部署 + 初始化 + 种子密钥写入"
-            echo "  --unseal  仅解封 Vault（重启后需要）"
+            echo "  --unseal  恢复 Vault：解封、CLI 登录和 ESO 认证检查"
         fi
         ;;
 esac

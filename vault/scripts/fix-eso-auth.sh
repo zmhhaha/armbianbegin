@@ -22,6 +22,10 @@
 #    - ClusterSecretStore vault-backend 报 InvalidProviderConfig
 #    - ESO 日志报: unable to log in with Kubernetes auth: permission denied
 #    - Vault 解封后所有 ExternalSecret 报 "ClusterSecretStore is not ready"
+#
+#  前置条件:
+#    - Vault 已解封
+#    - 已运行 bash scripts/login.sh 恢复 Vault CLI 登录
 # ============================================================
 set -euo pipefail
 
@@ -30,7 +34,8 @@ cd "$(dirname "$0")/.."
 VAULT_NS="vault"
 VAULT_POD="vault-0"
 ESO_NS="external-secrets"
-K="${KUBECONFIG:---kubeconfig=/etc/kubernetes/super-admin.conf}"
+KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
+export KUBECONFIG
 
 SA_TOKEN_SECRET_ESO="external-secrets-token"
 SA_TOKEN_SECRET_VAULT="vault-token"
@@ -52,7 +57,7 @@ check_only() {
 
     echo ""
     echo "1️⃣  ClusterSecretStore 状态:"
-    STORE_STATUS=$(kubectl get clustersecretstore vault-backend -o yaml | grep -E "Reason:|Message:" | head -4)
+    STORE_STATUS=$(kubectl get clustersecretstore vault-backend -o yaml | grep -E "^[[:space:]]+(reason|message):" | head -4 || true)
     echo "$STORE_STATUS"
 
     echo ""
@@ -107,6 +112,11 @@ EOF
 }
 
 fix_auth() {
+    if ! kubectl exec -n "${VAULT_NS}" "${VAULT_POD}" -- vault token lookup >/dev/null 2>&1; then
+        err "Vault CLI 未登录，请先运行: bash scripts/login.sh"
+        exit 1
+    fi
+
     info "确保长期 token Secret 存在..."
     ensure_sa_token_secret "vault" "${VAULT_NS}" "${SA_TOKEN_SECRET_VAULT}"
     ensure_sa_token_secret "external-secrets" "${ESO_NS}" "${SA_TOKEN_SECRET_ESO}"
@@ -173,10 +183,11 @@ case "${1:-}" in
         check_only
         echo ""
         # 如果未修复，自动运行修复
-        STORE_OK=$(kubectl get clustersecretstore vault-backend -o yaml | grep -c "Valid" 2>/dev/null || true)
+        STORE_OK=$(kubectl get clustersecretstore vault-backend \
+          -o jsonpath='{range .status.conditions[?(@.type=="Ready")]}{.status}{end}' 2>/dev/null || true)
         ESO_OK=$(kubectl exec -n ${VAULT_NS} ${VAULT_POD} -- vault write auth/kubernetes/login \
           role=eso-role jwt="$(kubectl get secret external-secrets-token -n ${ESO_NS} -o jsonpath='{.data.token}' 2>/dev/null | base64 -d)" &>/dev/null && echo "ok" || echo "")
-        if [ -z "${ESO_OK}" ] || [ "${STORE_OK}" -eq 0 ]; then
+        if [ -z "${ESO_OK}" ] || [ "${STORE_OK}" != "True" ]; then
             echo ""
             warn "检测到异常，自动修复中..."
             fix_auth

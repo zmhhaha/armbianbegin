@@ -50,7 +50,9 @@ vault/
 │
 ├── scripts/
 │   ├── init-vault.sh          ← Vault 初始化（K8s auth, policy, role）
-│   ├── unseal.sh              ← Vault 解封辅助脚本
+│   ├── unseal.sh              ← Vault 解封、CLI 登录和 ESO 恢复
+│   ├── login.sh               ← 单独恢复 Vault CLI token
+│   ├── fix-eso-auth.sh        ← 修复 Vault Kubernetes Auth / ESO
 │   ├── seed-secrets.sh        ← 将现有密钥写入 Vault（交互式）
 │   └── store-s3-credentials.sh ← 将 S3 凭据文件写入 Vault KV v2
 │
@@ -132,9 +134,27 @@ kubectl exec -n vault vault-0 -- vault kv get secret/data/test
 ### Vault 重启后解封
 
 ```bash
-bash vault/scripts/unseal.sh
+cd vault
+bash scripts/unseal.sh --interactive
 ```
-解封后还需**更新 Vault 的 Kubernetes auth token reviewer JWT**，否则 ESO 无法连接（见「常见问题」）。
+
+该脚本依次完成：
+
+1. 隐藏输入 3 个 `unseal key` 并解封 Vault。
+2. 隐藏输入 `root_token`，恢复 Vault Pod 内的 CLI 登录缓存。
+3. 检查并按需修复 Kubernetes Auth 的 token reviewer JWT 和 ESO。
+
+也可以从安全保管的初始化文件一次恢复：
+
+```bash
+bash scripts/unseal.sh --from-file /secure/path/vault-init.json
+```
+
+Vault 已解封但 CLI token 丢失或失效时，只运行：
+
+```bash
+bash scripts/login.sh --interactive
+```
 
 ---
 

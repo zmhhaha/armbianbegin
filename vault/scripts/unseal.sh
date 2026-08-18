@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
-#  Vault 解封辅助脚本
-#  用途: Vault Pod 重启后需要重新解封
+#  Vault 恢复脚本
+#  用途: Vault Pod 重启后完成解封、CLI 登录和 ESO 认证检查
 #
 #  用法:
 #    bash scripts/unseal.sh                    # 交互式输入 keys（推荐，不写入 shell history）
@@ -9,7 +9,7 @@
 #    bash scripts/unseal.sh --from-file <file> # 从 vault-init.json 读取
 #
 #  注意:
-#    需要 3/5 个 unseal keys 的解封阈值才能生效
+#    解封需要 3/5 个 unseal keys；恢复 CLI 登录还需要 root_token
 # ============================================================
 set -euo pipefail
 
@@ -19,6 +19,25 @@ VAULT_NS="vault"
 VAULT_POD="vault-0"
 KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
 export KUBECONFIG
+
+finish_recovery() {
+    local login_args=()
+    if [[ $# -eq 2 && "$1" == "--from-file" ]]; then
+        login_args=(--from-file "$2")
+    elif [[ $# -eq 1 && "$1" == "--interactive" ]]; then
+        login_args=(--interactive)
+    fi
+
+    echo ""
+    echo "=== 恢复 Vault CLI 登录 ==="
+    bash scripts/login.sh "${login_args[@]}"
+
+    if kubectl get clustersecretstore vault-backend >/dev/null 2>&1; then
+        echo ""
+        echo "=== 检查 Vault Kubernetes Auth / ESO ==="
+        bash scripts/fix-eso-auth.sh
+    fi
+}
 
 # 检查 Vault Pod 是否运行
 if ! kubectl get pod ${VAULT_POD} -n ${VAULT_NS} &>/dev/null; then
@@ -38,7 +57,8 @@ except Exception:
 ')
 
 if [ "${SEALED}" = "false" ]; then
-    echo "Vault 已经解封，无需操作"
+    echo "Vault 已经解封，继续检查 CLI 登录和 ESO"
+    finish_recovery "$@"
     exit 0
 fi
 
@@ -136,23 +156,12 @@ except Exception:
 if [ "${SEALED_AFTER}" = "false" ]; then
     echo ""
     echo "  ✅ Vault 已成功解封！"
-    echo ""
-    echo "  后续操作:"
-    echo "    1. 验证 ESO 连接: kubectl get clustersecretstore vault-backend"
-    echo "    2. 验证 ExternalSecret 同步状态"
-    echo ""
-    echo "  ⚠️  如果 ClusterSecretStore 仍然报 InvalidProviderConfig，"
-    echo "     说明 Vault 的 K8s auth token_reviewer_jwt 已过期。"
-    echo "     运行修复脚本（无需 root token）："
-    echo ""
-    echo "    bash scripts/fix-eso-auth.sh"
-    echo ""
-    echo '    kubectl rollout restart deployment -n external-secrets external-secrets'
-    echo ""
+    finish_recovery "$@"
 else
     echo ""
     echo "  ❌ Vault 仍处于封禁状态"
     echo "  请检查 Pod 状态: kubectl describe pod -n ${VAULT_NS} ${VAULT_POD}"
+    exit 1
 fi
 
 # 重置token和key
