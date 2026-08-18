@@ -11,6 +11,7 @@ kubectl -n hublog get service hublog-api >/dev/null
 
 kubectl apply -f "${SCRIPT_DIR}/hublog-proxy-configmap.yaml"
 sed "s/__TARGET_NAME__/hublog/g" "${SCRIPT_DIR}/proxy-deployment.yaml" | kubectl apply -f -
+kubectl rollout restart deployment/oauth2-proxy-hublog -n oauth
 kubectl rollout status deployment/oauth2-proxy-hublog -n oauth --timeout=180s
 
 kubectl -n oauth get deployment,service -l app=oauth2-proxy-hublog

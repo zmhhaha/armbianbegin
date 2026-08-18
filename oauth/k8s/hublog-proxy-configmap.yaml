@@ -30,7 +30,8 @@ data:
     injectRequestHeaders:
       - name: X-Auth-Request-Sub
         values:
-          - claim: sub
+          # oauth2-proxy 将 provider 的 userIDClaim (sub) 保存为会话 user。
+          - claim: user
       - name: X-Forwarded-User
         values:
           - claim: user
