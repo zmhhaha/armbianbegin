@@ -3,6 +3,7 @@
 #   bash deploy-agent-proxy.sh daofaziran-agent
 #   bash deploy-agent-proxy.sh fofawubian-agent
 #   bash deploy-agent-proxy.sh game-review-agent
+#   bash deploy-agent-proxy.sh literature-downloader
 #   bash deploy-agent-proxy.sh research-agent
 #   bash deploy-agent-proxy.sh scientific-agent
 #   bash deploy-agent-proxy.sh txt2img
