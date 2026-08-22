@@ -23,6 +23,17 @@ spec:
   hostname: agent.panghuer.top
   backend: portal.agent-portal.svc.cluster.local:80
 ---
+# Panghu Chat 门户首页
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: chat-portal
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: chat.panghuer.top
+  backend: portal.chat-portal.svc.cluster.local:80
+---
 # 研究助手 UI
 apiVersion: cf.armbianbegin.io/v1
 kind: TunnelRoute

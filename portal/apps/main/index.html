@@ -10,11 +10,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .header{text-align:center;padding:60px 20px 20px}
 .header h1{font-size:2.8em;background:linear-gradient(135deg,#60a5fa,#a78bfa,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
 .header p{color:#94a3b8;font-size:1.1em}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:32px;max-width:900px;margin:0 auto;padding:32px 20px 60px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;max-width:1080px;margin:0 auto;padding:32px 20px 60px}
 .card{background:#1e293b;border-radius:20px;padding:40px;border:1px solid #334155;transition:all .2s;text-decoration:none;color:inherit;display:flex;flex-direction:column;align-items:center;text-align:center}
 .card:hover{transform:translateY(-4px)}
 .card.agent:hover{border-color:#60a5fa;box-shadow:0 8px 30px rgba(96,165,250,.2)}
 .card.game:hover{border-color:#f59e0b;box-shadow:0 8px 30px rgba(245,158,11,.2)}
+.card.chat:hover{border-color:#2dd4bf;box-shadow:0 8px 30px rgba(45,212,191,.2)}
 .card .icon{font-size:4em;margin-bottom:16px}
 .card h2{font-size:1.5em;margin-bottom:8px;color:#f1f5f9}
 .card p{color:#94a3b8;line-height:1.6;margin-bottom:0}
@@ -35,6 +36,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="icon">🎮</div>
     <h2>Game</h2>
     <p>游戏中心 · 学习之余，放松一下</p>
+  </a>
+  <a href="https://chat.panghuer.top/" class="card chat">
+    <div class="icon">虎</div>
+    <h2>Panghu Chat</h2>
+    <p>朋友之间，认真写点东西，分享想法并保持联系。</p>
   </a>
 </div>
 <div class="footer" style="text-align:center;padding:20px;color:#475569;font-size:.85em">Powered by ArmbianBegin &copy; 2026</div>

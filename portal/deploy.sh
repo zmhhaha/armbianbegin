@@ -6,9 +6,10 @@
 #    bash deploy.sh agent      # 部署 agent 门户
 #    bash deploy.sh game       # 部署 game 门户
 #    bash deploy.sh main       # 部署 main 门户
+#    bash deploy.sh chat       # 部署 Panghu Chat 门户
 #
-#  命名空间约定: {app}-portal（如 agent-portal / game-portal / main-portal）
-#  镜像: portal:latest（三个门户共用同一镜像）
+#  命名空间约定: {app}-portal（如 agent-portal / game-portal / main-portal / chat-portal）
+#  镜像: portal:latest（各门户共用同一镜像）
 #  index.html 通过 ConfigMap 注入
 # ============================================================
 set -e
