@@ -199,6 +199,17 @@ spec:
   hostname: game-review-agent.panghuer.top
   backend: oauth2-proxy-game-review-agent.oauth.svc.cluster.local:4180
 ---
+# 笑谈人间
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: xiaotanrenjian-agent
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: xiaotanrenjian-agent.panghuer.top
+  backend: oauth2-proxy-xiaotanrenjian-agent.oauth.svc.cluster.local:4180
+---
 # XuYe literature reader
 apiVersion: cf.armbianbegin.io/v1
 kind: TunnelRoute

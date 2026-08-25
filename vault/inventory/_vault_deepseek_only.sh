@@ -16,7 +16,7 @@ echo "使用 key: $(echo $MASTER_KEY | cut -c1-6)..."
 
 for ns in research-agent scientific-agent daofaziran-agent fofawubian-agent \
           yimaneili-agent zhenzhuzhida-agent zhongkuifumo-agent \
-          zhougongjiemeng-agent game-review-agent; do
+          zhougongjiemeng-agent xiaotanrenjian-agent game-review-agent; do
   echo "=== $ns ==="
   # 覆盖写为 deepseek only（先 metadata 版本递增，再 put 替换全部字段）
   kubectl exec -n vault vault-0 -- vault kv put "secret/$ns/api" \

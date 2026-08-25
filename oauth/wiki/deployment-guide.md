@@ -139,6 +139,7 @@ kubectl get tunnelroute
   https://yimaneili-agent.panghuer.top/oauth2/callback
   https://zhenzhuzhida-agent.panghuer.top/oauth2/callback
   https://zhougongjiemeng-agent.panghuer.top/oauth2/callback
+  https://xiaotanrenjian-agent.panghuer.top/oauth2/callback
   https://txt2img.panghuer.top/oauth2/callback
   ```
 - 保存后获取 `Client ID` 和 `Client Secret`
@@ -248,6 +249,10 @@ backend: oauth2-proxy-research-agent.oauth.svc.cluster.local:4180
 # 科研综述 UI（需要 OAuth 认证）
 hostname: scientific-agent.panghuer.top
 backend: oauth2-proxy-scientific-agent.oauth.svc.cluster.local:4180
+
+# 笑谈人间 UI（需要 OAuth 认证）
+hostname: xiaotanrenjian-agent.panghuer.top
+backend: oauth2-proxy-xiaotanrenjian-agent.oauth.svc.cluster.local:4180
 ```
 
 ### Service 命名规则
@@ -256,6 +261,7 @@ backend: oauth2-proxy-scientific-agent.oauth.svc.cluster.local:4180
 
 - Research: `oauth2-proxy-research-agent.oauth.svc.cluster.local:4180`
 - Scientific: `oauth2-proxy-scientific-agent.oauth.svc.cluster.local:4180`
+- 笑谈人间: `oauth2-proxy-xiaotanrenjian-agent.oauth.svc.cluster.local:4180`
 
 ---
 
@@ -332,7 +338,7 @@ sed "s/__TARGET_NAME__/scientific-agent/g" k8s/proxy-deployment.yaml | kubectl a
 # 重启所有 agent 类
 for t in research-agent scientific-agent daofaziran-agent fofawubian-agent \
          zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent \
-         zhougongjiemeng-agent; do
+         zhougongjiemeng-agent xiaotanrenjian-agent; do
   kubectl rollout restart deploy/oauth2-proxy-$t -n oauth
 done
 
@@ -563,7 +569,7 @@ kubectl logs -n oauth deploy/casdoor --tail=50 | grep -i "error\|callback\|token
 
 部署：
 ```bash
-for t in research-agent scientific-agent daofaziran-agent fofawubian-agent zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent zhougongjiemeng-agent txt2img; do
+for t in research-agent scientific-agent daofaziran-agent fofawubian-agent zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent zhougongjiemeng-agent xiaotanrenjian-agent txt2img; do
   sed "s/__TARGET_NAME__/$t/g" k8s/proxy-deployment.yaml | kubectl apply -f -
 done
 for t in school-of-one qianfu; do

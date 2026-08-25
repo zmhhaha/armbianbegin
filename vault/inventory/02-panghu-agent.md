@@ -94,3 +94,23 @@ kubectl rollout restart deployment api -n game-review-agent
 ```
 
 
+## xiaotanrenjian-agent（笑谈人间）
+
+| 属性 | 值 |
+|------|-----|
+| **命名空间** | `xiaotanrenjian-agent` |
+| **Secret** | `agent-secret`（DeepSeek/API 凭据） |
+| **Vault 路径** | `secret/data/xiaotanrenjian-agent/api` |
+| **ExternalSecret** | `vault/inventory/xiaotanrenjian-agent-externalsecret.yaml` |
+| **入口** | `https://xiaotanrenjian-agent.panghuer.top` |
+
+### 写入 DeepSeek 凭据
+
+```bash
+kubectl exec -n vault vault-0 -- vault kv put secret/xiaotanrenjian-agent/api \
+  DEEPSEEK_API_KEY="sk-xxx" \
+  DEEPSEEK_BASE_URL="https://api.deepseek.com" \
+  DEEPSEEK_MODEL="deepseek-v4-flash"
+```
+
+然后运行 `panghu_agent/scripts/deploy-agent-config.sh xiaotanrenjian-agent --restart`，再部署 API/UI 和 OAuth 代理。
