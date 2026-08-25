@@ -1,0 +1,11 @@
+[Unit]
+Description=Protect NanoPC Kubernetes nodes from high memory scheduling
+After=kubelet.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=KUBECONFIG=/etc/kubernetes/super-admin.conf
+Environment=HIGH_WATERMARK=80
+Environment=LOW_WATERMARK=75
+ExecStart=/usr/local/sbin/k8s-node-memory-guard
