@@ -54,7 +54,7 @@ spec:
           mountPath: /etc/oauth2-proxy
           readOnly: true
         resources:
-          requests: {cpu: 50m, memory: 64Mi}
+          requests: {cpu: 10m, memory: 32Mi}
           limits: {cpu: 200m, memory: 256Mi}
         livenessProbe:
           httpGet: {path: /ping, port: 4180}

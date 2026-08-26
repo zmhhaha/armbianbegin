@@ -1,0 +1,19 @@
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: gitea
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: gitea.panghuer.top
+  backend: gitea.gitops.svc.cluster.local:3000
+---
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: drone
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: drone.panghuer.top
+  backend: drone-server.gitops.svc.cluster.local:8080
