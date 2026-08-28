@@ -9,7 +9,7 @@ set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 POSTGRES_POD="${POSTGRES_POD:-postgres-0}"
-POSTGRES_ADMIN_USER="${POSTGRES_ADMIN_USER:-postgres}"
+POSTGRES_ADMIN_USER="${POSTGRES_ADMIN_USER:-appuser}"
 POSTGRES_ADMIN_DB="${POSTGRES_ADMIN_DB:-appdb}"
 GITEA_DB_NAME="${GITEA_DB_NAME:-gitea}"
 GITEA_DB_USER="${GITEA_DB_USER:-gitea}"
