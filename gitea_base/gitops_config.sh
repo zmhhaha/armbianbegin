@@ -27,10 +27,7 @@ build_images() {
     export GOSUMDB=sum.golang.org
     go clean -modcache
     bash ./scripts/build.sh
-    # Alpine 3.13's default CDN is unavailable on this network. The runner's
-    # Dockerfile inherits that source, so replace it before the ARM64 build.
-    sed -i 's@RUN apk add -U --no-cache ca-certificates@RUN sed -i "s|dl-cdn.alpinelinux.org|mirrors.tuna.tsinghua.edu.cn|g" /etc/apk/repositories \&\& apk add -U --no-cache ca-certificates@' docker/Dockerfile.linux.arm64
-    docker build -t drone/drone-runner-kube:latest-linux-arm64 -f docker/Dockerfile.linux.arm64 .
+    docker build -t drone/drone-runner-kube:latest-linux-arm64 -f ../Dockerfile_drone_runner_kube .
     docker tag drone/drone-runner-kube:latest-linux-arm64 "${REGISTRY}/drone-runner-kube:latest-linux-arm64"
     docker push "${REGISTRY}/drone-runner-kube:latest-linux-arm64"
     popd >/dev/null
