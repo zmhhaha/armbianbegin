@@ -10,7 +10,9 @@ RUN groupadd -g 1001 git && useradd -u 1001 -g git -m -s /bin/bash git && \
     chown -R git:git /etc/gitea/app.ini && \
     chmod 0777 /etc/gitea/app.ini
 
-RUN wget https://dl.gitea.com/gitea/1.23.8/gitea-1.23.8-linux-arm64 -O /usr/local/bin/gitea && \
+RUN wget --tries=5 --timeout=30 \
+    https://gh-proxy.com/https://github.com/go-gitea/gitea/releases/download/v1.23.8/gitea-1.23.8-linux-arm64 \
+    -O /usr/local/bin/gitea && \
     chmod +x /usr/local/bin/gitea
 
 RUN apt install -y git
