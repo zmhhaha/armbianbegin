@@ -8,7 +8,7 @@ data:
   DRONE_GITEA_SERVER: "https://gitea.panghuer.top"
   DRONE_SERVER_HOST: "drone.panghuer.top"
   DRONE_SERVER_PROTO: "https"
-  DRONE_HTTP_BIND: ":8080"
+  DRONE_SERVER_PORT: ":8080"
   DRONE_LOGS_DEBUG: "false"
   DRONE_WEBHOOK_ALLOW_ALL_HOSTS: "false"
   DRONE_RPC_PROTO: "http"
