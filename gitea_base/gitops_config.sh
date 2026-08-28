@@ -21,7 +21,11 @@ build_images() {
         git clone https://github.com/drone-runners/drone-runner-kube.git
     fi
     pushd drone-runner-kube >/dev/null
-    export GOPROXY=https://mirrors.aliyun.com/goproxy,direct
+    # Aliyun's mirror currently serves a checksum-mismatched docker/distribution
+    # module for this legacy runner; use the Chinese Go proxy with sumdb checks.
+    export GOPROXY=https://goproxy.cn,direct
+    export GOSUMDB=sum.golang.org
+    go clean -modcache
     bash ./scripts/build.sh
     docker build -t drone/drone-runner-kube:latest-linux-arm64 -f docker/Dockerfile.linux.arm64 .
     docker tag drone/drone-runner-kube:latest-linux-arm64 "${REGISTRY}/drone-runner-kube:latest-linux-arm64"
