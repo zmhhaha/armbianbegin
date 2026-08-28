@@ -6,7 +6,7 @@ cd "${script_dir}"
 
 kubectl apply -f gitops-namespace.yaml
 kubectl apply -f drone-builds-namespace.yaml
-kubectl apply -f external-secrets.yaml
+kubectl apply -f ../vault/inventory/gitops-externalsecret.yaml
 
 kubectl wait --for=condition=Ready externalsecret/gitea-secrets -n gitops --timeout=120s
 

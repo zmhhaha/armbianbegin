@@ -44,7 +44,7 @@ build_images() {
 deploy_all() {
     kubectl apply -f gitops-namespace.yaml
     kubectl apply -f drone-builds-namespace.yaml
-    kubectl apply -f external-secrets.yaml
+    kubectl apply -f ../vault/inventory/gitops-externalsecret.yaml
     for secret in gitea-secrets drone-server-secrets drone-runner-secrets; do
         kubectl wait --for=condition=Ready "externalsecret/${secret}" -n gitops --timeout=120s
     done
