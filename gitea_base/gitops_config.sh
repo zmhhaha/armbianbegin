@@ -32,11 +32,11 @@ build_images() {
     docker push "${REGISTRY}/drone-runner-kube:latest-linux-arm64"
     popd >/dev/null
 
-    docker build -f gcc_compiler/Dockerfile_gcc -t gcc_compiler:latest gcc_compiler
+    docker build -f gcc_compiler/Dockerfile_gcc -t gcc_compiler:latest .
     docker tag gcc_compiler:latest "${REGISTRY}/gcc_compiler:latest"
     docker push "${REGISTRY}/gcc_compiler:latest"
 
-    docker build -f bison_flex_compiler/Dockerfile_bison_flex -t bison_flex_compiler:latest bison_flex_compiler
+    docker build -f bison_flex_compiler/Dockerfile_bison_flex -t bison_flex_compiler:latest .
     docker tag bison_flex_compiler:latest "${REGISTRY}/bison_flex_compiler:latest"
     docker push "${REGISTRY}/bison_flex_compiler:latest"
 }
