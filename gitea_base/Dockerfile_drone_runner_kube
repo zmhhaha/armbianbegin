@@ -1,14 +1,13 @@
 # Local ARM64 image definition for Drone Kubernetes runner.
-# The upstream Dockerfile pins EOL Alpine 3.13; use maintained Alpine 3.20.
-FROM alpine:3.20 AS alpine
-
-RUN apk add --no-cache ca-certificates
+# Reuse the locally available base image so this build does not depend on
+# Alpine CDN access just to obtain CA certificates.
+FROM base:latest AS certs
 
 FROM scratch
 
 LABEL org.opencontainers.image.title="drone-runner-kube"
 
-COPY --from=alpine /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY release/linux/arm64/drone-runner-kube /usr/local/bin/drone-runner-kube
 
 ENTRYPOINT ["/usr/local/bin/drone-runner-kube"]
