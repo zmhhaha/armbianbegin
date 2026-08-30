@@ -22,10 +22,23 @@ spec:
           runAsUser: 0
         command: ["/bin/sh", "-c"]
         args:
-        - chown -R 1001:1001 /var/lib/gitea
+        - >-
+          set -eu;
+          chown -R 1001:1001 /var/lib/gitea;
+          cp /etc/gitea-template/app.ini /etc/gitea/app.ini;
+          password=$(printf '%s' "$GITEA__database__PASSWD" | sed 's/[\\&|]/\\\\&/g');
+          sed -i "s|^PASSWD =.*|PASSWD = ${password}|" /etc/gitea/app.ini
+        env:
+        - name: GITEA__database__PASSWD
+          valueFrom:
+            secretKeyRef: {name: gitea-secrets, key: GITEA__database__PASSWD}
         volumeMounts:
         - name: gitea-data
           mountPath: /var/lib/gitea
+        - name: gitea-config-template
+          mountPath: /etc/gitea-template
+        - name: gitea-config-generated
+          mountPath: /etc/gitea
       containers:
       - name: gitea
         image: arm-cluster-master:5000/gitea_base:latest
@@ -56,9 +69,10 @@ spec:
         volumeMounts:
         - name: gitea-data
           mountPath: /var/lib/gitea
-        - name: gitea-config
-          mountPath: /etc/gitea/app.ini
-          subPath: app.ini
+        - name: gitea-config-template
+          mountPath: /etc/gitea-template
+        - name: gitea-config-generated
+          mountPath: /etc/gitea
         livenessProbe:
           httpGet:
             path: /
@@ -72,9 +86,11 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       volumes:
-      - name: gitea-config
+      - name: gitea-config-template
         configMap:
           name: gitea-config
+      - name: gitea-config-generated
+        emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: gitea-data
