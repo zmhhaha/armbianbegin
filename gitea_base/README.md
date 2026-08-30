@@ -74,7 +74,7 @@ kubectl -n gitops exec -it gitea-0 -- \
   admin user create \
   --username admin \
   --password '设置一个临时强密码' \
-  --email admin@panghu.top \
+  --email admin@panghuer.top \
   --admin \
   --must-change-password=false
 ```
@@ -187,7 +187,7 @@ kubectl rollout restart statefulset/drone-server -n gitops
 Drone 实际发送给 Gitea 的 OAuth 回调地址是：
 
 ```text
-https://drone.panghu.top/login
+https://drone.panghuer.top/login
 ```
 
 在 Gitea“右上角头像 -> 设置 -> 应用 -> 管理 OAuth2 应用”中，将 Drone 应用的重定向 URI 精确设置为该地址。必须使用 HTTPS，域名和路径完全一致，末尾不能多 `/`。
