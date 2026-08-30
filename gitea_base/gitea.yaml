@@ -38,14 +38,21 @@ spec:
         envFrom:
         - configMapRef:
             name: gitea-env
-        - secretRef:
-            name: gitea-secrets
         env:
         - name: GITEA__database__PASSWD
           valueFrom:
             secretKeyRef:
               name: gitea-secrets
               key: GITEA__database__PASSWD
+        - name: GITEA__security__SECRET_KEY
+          valueFrom:
+            secretKeyRef: {name: gitea-secrets, key: GITEA__security__SECRET_KEY}
+        - name: GITEA__security__INTERNAL_TOKEN
+          valueFrom:
+            secretKeyRef: {name: gitea-secrets, key: GITEA__security__INTERNAL_TOKEN}
+        - name: GITEA__oauth2__JWT_SECRET
+          valueFrom:
+            secretKeyRef: {name: gitea-secrets, key: GITEA__oauth2__JWT_SECRET}
         volumeMounts:
         - name: gitea-data
           mountPath: /var/lib/gitea
