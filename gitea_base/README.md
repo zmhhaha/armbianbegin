@@ -117,7 +117,7 @@ kubectl -n gitops exec -it gitea-0 -- \
 创建 Drone 使用的 OAuth 客户端，回调地址填写：
 
 ```text
-https://drone.panghuer.top/authorize
+https://drone.panghuer.top/login
 ```
 
 将客户端信息写入 Vault：
@@ -162,3 +162,36 @@ kubectl logs -n gitops -l app=gitea
 kubectl describe externalsecret -n gitops
 kubectl logs -n gitops statefulset/drone-server
 ```
+
+## Drone 部署问题记录
+
+### `Invalid port configuration`
+
+Drone 2.21 使用 `DRONE_SERVER_PORT`，不要使用旧的 `DRONE_HTTP_BIND`：
+
+```yaml
+DRONE_SERVER_PORT: ":8080"
+```
+
+修改后重新应用并重启：
+
+```bash
+kubectl apply -f drone-env.yaml
+kubectl rollout restart statefulset/drone-server -n gitops
+```
+
+如果服务器 ConfigMap 仍有旧变量，说明本地修改没有同步到服务器；`git pull` 不会同步本地未提交的改动。
+
+### `Unregistered Redirect URI`
+
+Drone 实际发送给 Gitea 的 OAuth 回调地址是：
+
+```text
+https://drone.panghu.top/login
+```
+
+在 Gitea“右上角头像 -> 设置 -> 应用 -> 管理 OAuth2 应用”中，将 Drone 应用的重定向 URI 精确设置为该地址。必须使用 HTTPS，域名和路径完全一致，末尾不能多 `/`。
+
+### `Complete your Drone Registration`
+
+这是首次登录的正常资料补充页面。填写邮箱、全名和公司名称（个人使用可填写 `Personal`）后提交即可。每个首次登录的用户都需要完成一次；如反复出现，请先在 Gitea“头像 -> 设置 -> 账户”中补充邮箱和全名。
