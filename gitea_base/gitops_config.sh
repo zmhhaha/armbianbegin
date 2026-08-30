@@ -49,6 +49,7 @@ deploy_all() {
         kubectl wait --for=condition=Ready "externalsecret/${secret}" -n gitops --timeout=120s
     done
     kubectl apply -f gitea-env.yaml
+    kubectl apply -f gitea-config.yaml
     kubectl apply -f gitea.yaml
     kubectl apply -f drone-env.yaml
     kubectl apply -f drone.yaml

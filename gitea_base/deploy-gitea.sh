@@ -11,6 +11,7 @@ kubectl apply -f ../vault/inventory/gitops-externalsecret.yaml
 kubectl wait --for=condition=Ready externalsecret/gitea-secrets -n gitops --timeout=120s
 
 kubectl apply -f gitea-env.yaml
+kubectl apply -f gitea-config.yaml
 kubectl apply -f gitea.yaml
 
 kubectl rollout status statefulset/gitea -n gitops --timeout=180s

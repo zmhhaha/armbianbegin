@@ -56,6 +56,9 @@ spec:
         volumeMounts:
         - name: gitea-data
           mountPath: /var/lib/gitea
+        - name: gitea-config
+          mountPath: /etc/gitea/app.ini
+          subPath: app.ini
         livenessProbe:
           httpGet:
             path: /
@@ -68,6 +71,10 @@ spec:
             port: 3000
           initialDelaySeconds: 5
           periodSeconds: 5
+      volumes:
+      - name: gitea-config
+        configMap:
+          name: gitea-config
   volumeClaimTemplates:
   - metadata:
       name: gitea-data
