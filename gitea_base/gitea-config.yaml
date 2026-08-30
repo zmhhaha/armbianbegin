@@ -14,7 +14,7 @@ data:
     HOST = postgres.data.svc.cluster.local:5432
     NAME = gitea
     USER = gitea
-    PASSWD =
+    PASSWD = 1593572486
     LOG_SQL = false
     [server]
     PROTOCOL = http
