@@ -195,3 +195,60 @@ https://drone.panghuer.top/login
 ### `Complete your Drone Registration`
 
 这是首次登录的正常资料补充页面。填写邮箱、全名和公司名称（个人使用可填写 `Personal`）后提交即可。每个首次登录的用户都需要完成一次；如反复出现，请先在 Gitea“头像 -> 设置 -> 账户”中补充邮箱和全名。
+
+## Gitea 重启问题记录
+
+### 重启后反复进入初始配置页
+
+Gitea 日志中的 `Prepare to run install page` 表示安装锁或数据库状态没有被正确读取。Gitea 的数据库表和仓库数据保存在 PostgreSQL 与 Gitea PVC 中，不应通过删除 PVC 解决。完成首次安装后，应在配置中固定：
+
+```ini
+[security]
+INSTALL_LOCK = true
+```
+
+### `password authentication failed for user "gitea"`
+
+该错误表示 PostgreSQL 中 `gitea` 角色密码与 Gitea 实际读取的密码不一致。密码应只保存在 Vault，并同步到 `gitops/gitea-secrets`。可用以下方式重新同步数据库角色密码：
+
+```bash
+export GITEA_DB_PASSWORD="$(kubectl -n vault exec vault-0 -- \
+  vault kv get -field=GITEA_POSTGRES_PASSWORD secret/gitops/gitea)"
+bash ./init-db.sh
+kubectl -n gitops annotate externalsecret gitea-secrets \
+  force-sync="$(date +%s)" --overwrite
+```
+
+不要把数据库密码写入镜像、Git 仓库或 ConfigMap。ConfigMap 中的 `app.ini` 只能保留 `PASSWD =` 空占位项。
+
+### 配置文件不应只放在镜像中
+
+如果 `app.ini` 只通过 Dockerfile 的 `COPY` 写入镜像，Pod 重建后容器层中的安装结果和动态配置可能丢失。当前方案使用：
+
+- `gitea-config.yaml` ConfigMap 保存非敏感 `app.ini` 模板；
+- `gitea-secrets` Secret 保存数据库密码和安全密钥；
+- `init-gitea` 容器把模板复制到 `emptyDir`，注入数据库密码后生成 `/etc/gitea/app.ini`；
+- Gitea 主容器挂载生成后的配置目录。
+
+修改非敏感配置时只需执行：
+
+```bash
+kubectl apply -f gitea-config.yaml -n gitops
+kubectl delete pod gitea-0 -n gitops
+```
+
+### `open /etc/gitea/app.ini: permission denied`
+
+Gitea 启动时会写入内部 Token。如果生成配置的 `emptyDir` 仍归 root 所有，UID 1001 的 Gitea 用户无法保存配置。`init-gitea` 在生成文件后必须执行：
+
+```bash
+chown -R 1001:1001 /etc/gitea
+```
+
+修改 StatefulSet 后重新应用并删除 Pod，使 init 容器重新生成并修正权限：
+
+```bash
+kubectl apply -f gitea.yaml -n gitops
+kubectl delete pod gitea-0 -n gitops
+kubectl rollout status statefulset/gitea -n gitops --timeout=180s
+```
