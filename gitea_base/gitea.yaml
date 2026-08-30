@@ -40,6 +40,12 @@ spec:
             name: gitea-env
         - secretRef:
             name: gitea-secrets
+        env:
+        - name: GITEA__database__PASSWD
+          valueFrom:
+            secretKeyRef:
+              name: gitea-secrets
+              key: GITEA__database__PASSWD
         volumeMounts:
         - name: gitea-data
           mountPath: /var/lib/gitea
