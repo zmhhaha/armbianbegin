@@ -13,7 +13,7 @@ data:
   OIDC_AUDIENCE: "openspec-api"
   OIDC_JWKS_URL: "https://auth.panghuer.top/.well-known/jwks.json"
   GITEA_URL: "http://gitea.gitops.svc.cluster.local:3000"
-  GITEA_OWNER: "openspec"
+  GITEA_OWNER: "openspec-service"
   WORKSPACE_ROOT: "/data/workspaces"
   BOOTSTRAP_ADMIN_SUBJECTS: "REPLACE_WITH_CASDOOR_ADMIN_SUB"
   GIT_USER: "openspec-service"

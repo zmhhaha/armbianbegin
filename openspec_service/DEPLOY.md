@@ -26,13 +26,13 @@ OpenSpec 目录只维护 API 自身的核心资源。外部基础设施清单和
 在可信终端向现有 Vault 写入服务级密钥：
 
 ```bash
-vault kv put secret/openspec/service \
+kubectl exec -n vault vault-0 -- vault kv put secret/openspec/service \
   database_url='postgres://openspec_service:<password>@postgres.data.svc.cluster.local:5432/openspec_service' \
   gitea_provision_token='<受限 Gitea token>' \
   gitea_username='openspec-service'
 ```
 
-`gitea_provision_token` 只用于创建/初始化 OpenSpec 私有仓库和查询 collaborator 权限，不得使用 Gitea 全局管理员 token。`gitea_username` 必须是该 token 所属的 Gitea 登录名，用于 Git HTTP Basic 认证；项目访问仍按 Casdoor sub 到 Gitea username 的不可变映射检查。PostgreSQL 数据库/用户需先由管理员创建。
+`gitea_provision_token` 只用于创建/初始化 OpenSpec 私有仓库和查询 collaborator 权限，不得使用 Gitea 全局管理员 token。`gitea_username` 必须是该 token 所属的 Gitea 登录名，用于 Git HTTP Basic 认证；它不是组织名。你的组织名 `openspec-service` 配置在 `k8s/core.yaml` 的 `GITEA_OWNER`。项目访问仍按 Casdoor sub 到 Gitea username 的不可变映射检查。PostgreSQL 数据库/用户需先由管理员创建。
 
 ## Casdoor 与 Gitea
 

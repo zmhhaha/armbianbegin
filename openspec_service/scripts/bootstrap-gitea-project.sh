@@ -4,7 +4,7 @@ set -euo pipefail
 # used by the MVP service; the token is never written to this repository.
 : "${GITEA_URL:=https://gitea.panghuer.top}"
 : "${GITEA_TOKEN:?Set GITEA_TOKEN}"
-: "${GITEA_OWNER:=openspec}"
+: "${GITEA_OWNER:=openspec-service}"
 : "${REPO_NAME:?Set REPO_NAME, e.g. project-a-specs}"
 : "${OWNER_USERNAME:?Set OWNER_USERNAME to the Casdoor/Gitea username}"
 json(){ curl -fsS -H "Authorization: token ${GITEA_TOKEN}" -H 'Content-Type: application/json' "$@"; }
