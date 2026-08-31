@@ -4,6 +4,7 @@ import {config} from './config.mjs';
 import * as db from './db.mjs';
 import * as gitea from './gitea.mjs';
 import * as ws from './workspace.mjs';
+import {bindClaims} from './identity.mjs';
 import {ServiceError,badRequest,notFound,forbidden} from './errors.mjs';
 
 const ranks={none:0,read:1,write:2,admin:3,owner:4};
@@ -112,8 +113,7 @@ export async function dispatch(req,res,id=requestId()){
   }
   const claims=await authenticate(req);
   const sub=subject(claims);
-  const username=claims.preferred_username||claims.name;
-  await db.bindIdentity(sub,username);
+  const username=await bindClaims(claims);
   if(parts[0]!=='v1'||parts[1]!=='projects') throw notFound();
   if(req.method==='GET'&&parts.length===2) return json(res,200,{items:await db.visibleProjects(sub,gitea)},id);
 

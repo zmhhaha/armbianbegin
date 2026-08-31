@@ -5,7 +5,7 @@
 - 项目级 REST API 路由和 UUID 边界；
 - Casdoor OIDC/JWT 校验；
 - Gitea collaborator ACL 查询，API 不可达时失败关闭；
-- PostgreSQL 项目映射、Casdoor sub 到 Gitea username 的不可变映射、审计和幂等表；
+- PostgreSQL 项目映射、Casdoor email 到 Gitea login 的首次解析、sub 到 Gitea username 的不可变映射、审计和幂等表；
 - 每项目 Git workspace、递归 specs 查询、活动 changes 查询、change 工件内容和 taskStatus、路径校验、项目级进程锁和 If-Match revision 检查；
 - 用户提供的 proposal/design/tasks/spec 工件创建和更新、文件数量和大小限制、Git author；
 - OpenSpec CLI `validate --json`、官方 delta merge、`apply-specs` 和 `archive` 接入；

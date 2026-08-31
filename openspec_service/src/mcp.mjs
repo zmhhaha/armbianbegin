@@ -4,6 +4,7 @@ import {projectAccess} from './rest.mjs';
 import * as db from './db.mjs';
 import * as gitea from './gitea.mjs';
 import * as ws from './workspace.mjs';
+import {bindClaims} from './identity.mjs';
 import {notFound,badRequest,ServiceError} from './errors.mjs';
 
 const sessions=new Map();
@@ -89,7 +90,7 @@ export async function mcpHandler(req,res){
   try{
     const claims=await authenticate(req);
     const sub=subject(claims);
-    await db.bindIdentity(sub,claims.preferred_username||claims.name);
+    await bindClaims(claims);
     if(req.method==='GET'){
       sessionId=sessionId||crypto.randomUUID();
       if(sessions.has(sessionId)&&!sessionMatches(sessionId,sub)) throw new ServiceError(401,'invalid_session','MCP session does not belong to this identity');
@@ -108,7 +109,7 @@ export async function mcpHandler(req,res){
       sessionId=sessionId||crypto.randomUUID();
       if(sessions.has(sessionId)&&!sessionMatches(sessionId,sub)) throw new ServiceError(401,'invalid_session','MCP session does not belong to this identity');
       rememberSession(sessionId,sub);
-      return response(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'openspec-service',version:'0.1.0'}}},sessionId,requestId);
+      return response(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'openspec-service',version:'0.1.1'}}},sessionId,requestId);
     }
     if(body.method==='notifications/initialized'){
       if(sessionId&&!sessionMatches(sessionId,sub)) throw new ServiceError(401,'invalid_session','MCP session does not belong to this identity');

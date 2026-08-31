@@ -88,7 +88,7 @@ POST /v1/projects/{projectId}/changes/{changeId}/archive
 
 ## Casdoor
 
-JWT 至少验证 issuer、audience、签名、过期时间和 `sub`。Casdoor organization 用于项目创建和租户归属校验，但项目成员权限必须来自 Gitea 仓库 ACL，不能仅依赖客户端传来的组织字段或 JWT 角色声明。
+JWT 至少验证 issuer、audience、签名、过期时间和 `sub`，并要求可信的 `email` claim。Casdoor 用户名和 Gitea 用户名可以不同；首次绑定按邮箱在 Gitea 中精确解析实际 login，之后固定为 `sub -> gitea_username` 的不可变映射。Casdoor organization 用于项目创建和租户归属校验，但项目成员权限必须来自 Gitea 仓库 ACL，不能仅依赖客户端传来的组织字段或 JWT 角色声明。
 
 ## 实施门槛
 

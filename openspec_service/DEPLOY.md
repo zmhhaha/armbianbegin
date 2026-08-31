@@ -33,7 +33,9 @@ kubectl exec -n vault vault-0 -- vault kv put secret/openspec/service \
   gitea_username='openspec-service'
 ```
 
-`gitea_provision_token` 只用于创建/初始化 OpenSpec 私有仓库和查询 collaborator 权限，不得使用 Gitea 全局管理员 token。`gitea_username` 必须是该 token 所属的 Gitea 登录名，用于 Git HTTP Basic 认证；它不是组织名。你的组织名 `openspec-service` 配置在 `k8s/core.yaml` 的 `GITEA_OWNER`。项目访问仍按 Casdoor sub 到 Gitea username 的不可变映射检查。
+`gitea_provision_token` 只用于创建/初始化 OpenSpec 私有仓库、查询 Gitea 用户邮箱和查询 collaborator 权限，不得使用 Gitea 全局管理员 token。创建 Token 时至少授予 `read:user` 以及仓库创建/内容写入/协作者管理所需的最小权限。`gitea_username` 必须是该 token 所属的 Gitea 登录名，用于 Git HTTP Basic 认证；它不是组织名。你的组织名 `openspec-service` 配置在 `k8s/core.yaml` 的 `GITEA_OWNER`。
+
+Casdoor 用户名不需要与 Gitea 用户名相同。服务首次看到某个 Casdoor `sub` 时，会用 JWT 的 `email` claim 调用 Gitea 用户搜索接口，要求邮箱精确匹配且只对应一个 Gitea 用户，然后保存实际 Gitea login；后续请求使用这个不可变绑定。Casdoor 应用需要启用 `email` scope，并确保每个 JWT 带有可信邮箱。
 
 上面的 Vault 路径已有 `database_url` 时，脚本会复用其中的密码并同步 PostgreSQL；没有时会自动生成密码。也可以显式指定密码（密码只会通过环境变量传给脚本，不要提交到 Git）：
 
@@ -47,7 +49,7 @@ OPENSPEC_DB_PASSWORD='<password>' bash openspec_service/scripts/deploy.sh --wait
 
 1. 在 Casdoor 创建 `openspec-api` OIDC 应用，audience 为 `openspec-api`。
 2. 确认 discovery 返回的真实 `issuer` 和 `jwks_uri`，更新 `k8s/core.yaml`。
-3. 在 Gitea 配置 Casdoor OAuth/OIDC，使 Casdoor `preferred_username` 映射为 Gitea 用户名。
+3. 在 Gitea 配置 Casdoor OAuth/OIDC；不要求 Casdoor `preferred_username` 与 Gitea 用户名相同，但必须保证两边用户邮箱唯一且一致。
 4. 将管理员 Casdoor `sub` 写入 `BOOTSTRAP_ADMIN_SUBJECTS`，然后滚动更新服务。
 
 ## 构建与部署

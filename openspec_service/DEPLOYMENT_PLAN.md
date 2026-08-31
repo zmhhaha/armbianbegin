@@ -47,7 +47,7 @@ Gitea/Git remote（人工 review、备份、跨应用共享）
 - **私有 Registry**：使用 `192.168.137.101:5000` 对镜像进行发布，具体地址以集群统一配置为准。
 - **Cloudflare Tunnel**：优先使用现有 tunnel 的 operator/route 模式，避免在节点开放新的公网端口。
 - **Nginx Ingress**：若使用域名到 Ingress 的路径，建议使用独立主机名，不要依赖复杂 path rewrite。
-- **Casdoor/OAuth**：服务校验 OIDC JWT，按 issuer、audience、scope/role 控制访问。
+- **Casdoor/OAuth**：服务校验 OIDC JWT，按 issuer、audience、scope/role 控制访问；首次身份绑定使用 JWT 邮箱解析 Gitea login，Casdoor/Gitea 用户名可以不同。
 - **Vault/External Secrets**：存储 Git remote token、OIDC 配置、服务签名密钥等，不把密钥写入 Git。
 - **Gitea**：作为 OpenSpec store 的 Git remote，并通过分支/PR 审核重要规划变更。
 

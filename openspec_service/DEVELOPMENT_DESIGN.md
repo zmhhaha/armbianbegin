@@ -67,7 +67,6 @@ API 不接受客户端提供的文件路径、仓库地址、分支或 shell 参
 ```json
 {
   "sub": "casdoor-user-id",
-  "preferred_username": "alice",
   "email": "alice@example.com",
   "iss": "https://auth.panghuer.top",
   "aud": "openspec-api",
@@ -79,13 +78,16 @@ OpenSpec Service 验证 JWT 的签名、issuer、audience、过期时间和 `sub
 
 ### 4.2 Casdoor 与 Gitea 用户映射
 
-Gitea 配置 Casdoor 为 OAuth/OIDC 身份提供方，使两个系统使用同一用户身份：
+Gitea 配置 Casdoor 为 OAuth/OIDC 身份提供方，使两个系统可以使用同一邮箱关联用户；两边的登录名不要求相同：
 
 ```text
-Casdoor 用户 alice -> Gitea 用户 alice
+Casdoor 用户（用户名 alice-casdoor，邮箱 alice@example.com）
+  -> Gitea 用户（用户名 alice-gitea，邮箱 alice@example.com）
 ```
 
-映射使用稳定的外部身份 ID 或 Casdoor `sub`，username/email 只用于首次绑定，不作为永久唯一身份。
+首次请求时，服务使用 JWT 的 `email` claim 调用 Gitea 用户搜索接口，要求精确匹配且只有一个结果，然后把实际 Gitea login 写入 `openspec_identity_map`。映射的主键是 Casdoor `sub`，实际 Gitea login 只在首次绑定时解析；绑定完成后，后续 ACL 查询使用数据库中保存的 login，即使用户修改 Casdoor 邮箱也不会自动切换到另一个 Gitea 账号。没有邮箱、邮箱未精确匹配、匹配多个 Gitea 用户或 Gitea API 不返回可核对邮箱时，服务拒绝绑定。
+
+用于用户搜索的服务账号 Token 必须具备最小的 Gitea `read:user` 能力，以及创建私有仓库、初始化文件和查询 collaborator 权限所需的仓库权限；不使用全局管理员 Token。Casdoor 应用必须申请 `email` scope，并确保 JWT 包含可信的 `email` claim。
 
 ## 5. Gitea 权限模型
 
@@ -111,7 +113,7 @@ Gitea 组织 Team 用于批量授权，个人仓库 collaborator 用于个人项
 校验 Casdoor JWT
   |
   v
-解析 sub / username
+解析 sub / email，并按邮箱解析 Gitea login
   |
   v
 projectId -> 项目注册表 -> Gitea owner/repository
