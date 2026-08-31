@@ -9,7 +9,7 @@ SERVICE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
 IMAGE_NAME="${IMAGE_NAME:-openspec-service}"
-IMAGE_TAG="${IMAGE_TAG:-0.1.1}"
+IMAGE_TAG="${IMAGE_TAG:-latest}"
 PLATFORM="${PLATFORM:-linux/arm64}"
 IMAGE="${IMAGE:-${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}}"
 PUSH=1
@@ -23,7 +23,7 @@ Build and push the OpenSpec Service image.
 Options:
   --no-push       Build only; do not push to the registry
   --platform VAL  Override the Docker platform (default: linux/arm64)
-  --tag VAL       Override the image tag (default: 0.1.1)
+  --tag VAL       Override the image tag (default: latest)
   --image VAL     Use a complete image reference
   -h, --help      Show this help
 

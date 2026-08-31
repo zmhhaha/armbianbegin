@@ -62,8 +62,8 @@ spec:
       serviceAccountName: openspec-service
       containers:
       - name: api
-        image: arm-cluster-master:5000/openspec-service:0.1.1
-        imagePullPolicy: IfNotPresent
+        image: arm-cluster-master:5000/openspec-service:latest
+        imagePullPolicy: Always
         envFrom:
         - configMapRef: {name: openspec-service-config}
         - secretRef: {name: openspec-service-secrets}

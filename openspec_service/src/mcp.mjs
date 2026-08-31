@@ -109,7 +109,7 @@ export async function mcpHandler(req,res){
       sessionId=sessionId||crypto.randomUUID();
       if(sessions.has(sessionId)&&!sessionMatches(sessionId,sub)) throw new ServiceError(401,'invalid_session','MCP session does not belong to this identity');
       rememberSession(sessionId,sub);
-      return response(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'openspec-service',version:'0.1.1'}}},sessionId,requestId);
+      return response(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'openspec-service',version:'latest'}}},sessionId,requestId);
     }
     if(body.method==='notifications/initialized'){
       if(sessionId&&!sessionMatches(sessionId,sub)) throw new ServiceError(401,'invalid_session','MCP session does not belong to this identity');
