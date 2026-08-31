@@ -116,7 +116,7 @@ cloudflare-tunnel/operator/openspec-service-route.yaml
 
 ## 7. 部署步骤
 
-1. 在 `openspec_service/CASDOOR_SETUP.md` 的指引下创建 Casdoor `openspec-api` 应用，确认 issuer、audience 和 JWKS；确认 Gitea 组织 `openspec-service` 和受限服务账号已准备好。
+1. 在 `openspec_service/CASDOOR_SETUP.md` 的指引下确认 Casdoor 通用 sso 应用 `panghu-suite`（audience 为其 client_id `ece3f52410b046fe0952`）、issuer 和 JWKS；确认 Gitea 组织 `openspec-service` 和受限服务账号已准备好。
 2. 在 Vault 的 `secret/openspec/service` 中准备 Gitea 服务账号字段；运行 `scripts/deploy.sh`，脚本会使用现有 PostgreSQL 管理账号创建/更新 `openspec_service` 数据库用户和数据库，写入 `database_url`，应用 ExternalSecret 并确认能同步 `openspec-service-secrets`。
 3. 构建 ARM64 镜像并推送私有 Registry。
 4. 运行 `scripts/deploy.sh`，脚本会应用 `openspec_service/k8s/` 的 namespace、PVC、Deployment 和 ClusterIP Service，应用 `vault/inventory/openspec-service-externalsecret.yaml`，并应用 `cloudflare-tunnel/operator/openspec-service-route.yaml`。
