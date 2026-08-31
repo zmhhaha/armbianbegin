@@ -4,7 +4,7 @@
 
 ```bash
 npm install
-DATABASE_URL=postgres://... GITEA_TOKEN=... OIDC_ISSUER=... OIDC_JWKS_URL=... npm start
+DATABASE_URL=postgresql://... GITEA_TOKEN=... OIDC_ISSUER=... OIDC_JWKS_URL=... npm start
 ```
 
 仓库使用 `pnpm-lock.yaml` 锁定依赖；本地也可以运行 `pnpm install --frozen-lockfile`。容器构建不复制本地 `node_modules`。
@@ -23,16 +23,23 @@ OpenSpec 目录只维护 API 自身的核心资源。外部基础设施清单和
 
 ## Vault 初始化
 
-在可信终端向现有 Vault 写入服务级密钥：
+`deploy.sh` 会按照 Hublog 的部署流程，使用现有 PostgreSQL 管理账号自动创建或更新
+`openspec_service` 角色和数据库，并将同一个数据库密码写入 Vault。首次部署前只需要在
+可信终端准备 OpenSpec 的 Gitea 服务账号字段：
 
 ```bash
 kubectl exec -n vault vault-0 -- vault kv put secret/openspec/service \
-  database_url='postgres://openspec_service:<password>@postgres.data.svc.cluster.local:5432/openspec_service' \
   gitea_provision_token='<受限 Gitea token>' \
   gitea_username='openspec-service'
 ```
 
-`gitea_provision_token` 只用于创建/初始化 OpenSpec 私有仓库和查询 collaborator 权限，不得使用 Gitea 全局管理员 token。`gitea_username` 必须是该 token 所属的 Gitea 登录名，用于 Git HTTP Basic 认证；它不是组织名。你的组织名 `openspec-service` 配置在 `k8s/core.yaml` 的 `GITEA_OWNER`。项目访问仍按 Casdoor sub 到 Gitea username 的不可变映射检查。PostgreSQL 数据库/用户需先由管理员创建。
+`gitea_provision_token` 只用于创建/初始化 OpenSpec 私有仓库和查询 collaborator 权限，不得使用 Gitea 全局管理员 token。`gitea_username` 必须是该 token 所属的 Gitea 登录名，用于 Git HTTP Basic 认证；它不是组织名。你的组织名 `openspec-service` 配置在 `k8s/core.yaml` 的 `GITEA_OWNER`。项目访问仍按 Casdoor sub 到 Gitea username 的不可变映射检查。
+
+上面的 Vault 路径已有 `database_url` 时，脚本会复用其中的密码并同步 PostgreSQL；没有时会自动生成密码。也可以显式指定密码（密码只会通过环境变量传给脚本，不要提交到 Git）：
+
+```bash
+OPENSPEC_DB_PASSWORD='<password>' bash openspec_service/scripts/deploy.sh --wait
+```
 
 ## Casdoor 与 Gitea
 
@@ -52,9 +59,9 @@ bash openspec_service/scripts/build.sh
 bash openspec_service/scripts/deploy.sh --wait
 ```
 
-`build.sh` 默认构建并推送 `linux/arm64` 镜像；只构建不推送时使用 `bash openspec_service/scripts/build.sh --no-push`。`deploy.sh` 会先应用 OpenSpec 核心资源，再应用 Vault ExternalSecret 和 Cloudflare TunnelRoute。需要分阶段部署时可使用 `--core-only`、`--skip-vault` 或 `--skip-cloudflare`。
+`build.sh` 默认构建并推送 `linux/arm64` 镜像；只构建不推送时使用 `bash openspec_service/scripts/build.sh --no-push`。`deploy.sh` 会先应用 OpenSpec 核心资源，然后创建数据库用户、同步 Vault、等待 ExternalSecret 并滚动重启服务，最后应用 Cloudflare TunnelRoute。需要分阶段部署时可使用 `--core-only`、`--skip-vault` 或 `--skip-cloudflare`。
 
-建议先应用 OpenSpec 核心资源，确认 `openspec` namespace 已创建后，再应用 Vault ExternalSecret；TunnelRoute 可在 OpenSpec Service 的 ClusterIP Service 创建后应用。
+默认 PostgreSQL 管理账号为 `appuser`，管理数据库为 `appdb`；可通过 `POSTGRES_ADMIN_USER`、`POSTGRES_ADMIN_DB` 覆盖。`--skip-vault` 会跳过数据库和 Vault 初始化，仅适合已有 Secret 的场景。
 
 集群现有 Registry 使用 HTTPS；在执行 build/push 和节点拉取前，先按集群 CA 配置 Docker/containerd 信任，不能把 `5000` 当作明文 HTTP Registry。
 
