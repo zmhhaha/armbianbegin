@@ -94,12 +94,10 @@ if [[ -n "${CASDOOR_JWT}" ]]; then
   payload="$(printf '%s' "${CASDOOR_JWT}" | cut -d. -f2)"
   claims="$(python3 -c "import base64,sys,json; s=sys.stdin.read().strip(); s+='='*(-len(s)%4); print(json.dumps(json.loads(base64.urlsafe_b64decode(s))))" <<< "${payload}" 2>/dev/null || true)"
   if [[ -n "${claims}" ]]; then
-    jwt_aud="$(printf '%s' "${claims}" | jget "d.get('aud','')")"
+    jwt_aud="$(printf '%s' "${claims}" | python3 -c "import json,sys; a=json.load(sys.stdin).get('aud',''); print(a if isinstance(a,str) else ','.join(a))")"
     jwt_email="$(printf '%s' "${claims}" | jget "d.get('email','')")"
     jwt_sub="$(printf '%s' "${claims}" | jget "d.get('sub','')")"
-    [[ "${jwt_aud}" == "${EXPECTED_AUDIENCE}" ]] \
-      && ok "JWT aud=${jwt_aud} 与期望一致" \
-      || bad "JWT aud=${jwt_aud} 与期望 ${EXPECTED_AUDIENCE} 不一致（所有请求都会被 401 拒绝）"
+    case ",${jwt_aud}," in *",${EXPECTED_AUDIENCE},"*) ok "JWT aud 含 ${EXPECTED_AUDIENCE}（实际 ${jwt_aud}）";; *) bad "JWT aud=${jwt_aud} 与期望 ${EXPECTED_AUDIENCE} 不一致（所有请求都会被 401 拒绝）";; esac
     [[ -n "${jwt_email}" ]] && ok "JWT 含 email claim: ${jwt_email}" \
       || bad "JWT 缺少 email claim（身份绑定会失败，检查 Casdoor scope/用户邮箱）"
     [[ -n "${jwt_sub}" ]] && ok "JWT sub=${jwt_sub}" \
