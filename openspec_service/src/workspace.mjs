@@ -98,7 +98,9 @@ export async function validateChange(projectRecord,changeId){
   if(!validChange(changeId)) throw badRequest('invalid change id');
   try{
     const result=await runOpenSpec(['validate',changeId,'--json'],{cwd:directory,env:{...process.env,OPENSPEC_TELEMETRY:'0',...gitEnv()},timeout:60000});
-    return JSON.parse(result.stdout);
+    const parsed=JSON.parse(result.stdout);
+    if(parsed&&typeof parsed==='object'&&parsed.root)delete parsed.root; // 不向客户端泄露本地 workspace 路径（与 archive 一致）
+    return parsed;
   }catch(error){throw Object.assign(new Error(error.stdout||error.stderr||error.message),{status:422,code:'validation_failed'});}
 }
 

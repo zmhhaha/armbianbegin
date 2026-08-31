@@ -1,0 +1,42 @@
+# OpenSpec Service 构建流水线（Drone CI）
+#
+# 前置条件：
+#   1. 在 Drone Server 中注册本仓库，并把 Gitea webhook 指向 Drone；
+#   2. runner 以 docker 类型运行（privileged + 挂载宿主 docker.sock）；
+#   3. 集群私有 registry arm-cluster-master:5000 的 CA 已在该 runner 主机上受信任。
+#
+# 未接线 Drone 时的手动替代（在 master 上原生 arm64 构建）：
+#   bash openspec_service/scripts/build.sh
+#
+# 触发：仅当 openspec_service/ 目录或集群配置变化时构建。
+
+kind: pipeline
+type: docker
+name: openspec-service-build
+
+trigger:
+  branch:
+    - main
+  paths:
+    - openspec_service/**
+    - cluster_config.sh
+
+volumes:
+  - name: docker
+    host:
+      path: /var/run/docker.sock
+
+steps:
+  - name: build-and-push
+    image: plugins/docker
+    settings:
+      context: openspec_service
+      dockerfile: openspec_service/Dockerfile
+      registry: arm-cluster-master:5000
+      repo: arm-cluster-master:5000/openspec-service
+      tags:
+        - ${DRONE_COMMIT_SHA}
+        - latest
+    volumes:
+      - name: docker
+        path: /var/run/docker.sock
