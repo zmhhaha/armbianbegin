@@ -11,7 +11,7 @@ metadata:
 data:
   OIDC_ISSUER: "https://auth.panghuer.top"
   OIDC_AUDIENCE: "ece3f52410b046fe0952"
-  OIDC_JWKS_URL: "https://auth.panghuer.top/.well-known/jwks.json"
+  OIDC_JWKS_URL: "https://auth.panghuer.top/.well-known/jwks"
   GITEA_URL: "http://gitea.gitops.svc.cluster.local:3000"
   GITEA_OWNER: "openspec-service"
   WORKSPACE_ROOT: "/data/workspaces"
