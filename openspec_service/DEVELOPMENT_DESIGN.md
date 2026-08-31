@@ -343,7 +343,7 @@ TunnelRoute 使用独立 hostname，不使用复杂 path rewrite。Cloudflare Ac
 6. 实现项目创建、Gitea 私有仓库初始化和 Vault 凭据生命周期。
 7. 完成 specs/changes 查询和 validate。
 8. 增加 MCP server 适配层（streamable HTTP + Bearer JWT），验证 Codex/Claude Code 可读写。
-9. 部署 Kubernetes、PVC、ExternalSecret 和 Cloudflare TunnelRoute。
+9. 部署 OpenSpec 核心 Kubernetes 资源；Vault ExternalSecret 和 Cloudflare TunnelRoute 分别由 `../vault/inventory/` 与 `../cloudflare-tunnel/operator/` 管理。
 10. 完成跨用户、跨项目、撤权、并发冲突和恢复测试后再开放公网。
 11. 后续再增加 Gitea Pull Request、异步任务和多副本分布式锁。
 
@@ -364,4 +364,4 @@ TunnelRoute 使用独立 hostname，不使用复杂 path rewrite。Cloudflare Ac
 
 ## 15. 当前实现的部署要求
 
-当前目录已经按本设计实现 project-scoped API、每项目 workspace、Casdoor sub 到 Gitea username 的不可变映射和 Gitea ACL 复核；`k8s/` 使用 `/data/workspaces/{projectId}` 和单副本 PVC。部署前仍必须完成真实 Casdoor 应用、Gitea 组织/受限服务账号、PostgreSQL、Vault ExternalSecret 和 Cloudflare 配置，禁止使用全局管理员 token 或跳过 JWT/ACL 校验。
+当前目录已经按本设计实现 project-scoped API、每项目 workspace、Casdoor sub 到 Gitea username 的不可变映射和 Gitea ACL 复核；`k8s/` 使用 `/data/workspaces/{projectId}` 和单副本 PVC。部署前仍必须完成真实 Casdoor 应用、Gitea 组织/受限服务账号、PostgreSQL、Vault ExternalSecret 和 Cloudflare 配置，禁止使用全局管理员 token 或跳过 JWT/ACL 校验。Vault 和 Cloudflare 的部署资源不放在本目录，分别维护于 `../vault/` 和 `../cloudflare-tunnel/`；Casdoor 配置见本目录的 `CASDOOR_SETUP.md`。

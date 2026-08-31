@@ -11,6 +11,16 @@ DATABASE_URL=postgres://... GITEA_TOKEN=... OIDC_ISSUER=... OIDC_JWKS_URL=... np
 
 服务不调用 LLM。用户自己的 AI 工具通过 REST 或 MCP 提供 proposal/spec/design/tasks 内容；服务负责项目授权、持久化、校验和 Git 审计。
 
+## 集成配置文件位置
+
+OpenSpec 目录只维护 API 自身的核心资源。外部基础设施清单和 Casdoor 配置分别位于：
+
+- Vault：`../vault/inventory/openspec-service-externalsecret.yaml`
+- Cloudflare：`../cloudflare-tunnel/operator/openspec-service-route.yaml`
+- Casdoor/OAuth：`CASDOOR_SETUP.md`
+
+因此 `openspec_service/k8s/` 的 Kustomize 不会创建 ExternalSecret 或 TunnelRoute。
+
 ## Vault 初始化
 
 在可信终端向现有 Vault 写入服务级密钥：
@@ -26,6 +36,8 @@ vault kv put secret/openspec/service \
 
 ## Casdoor 与 Gitea
 
+详细 Casdoor 应用配置见 `CASDOOR_SETUP.md`。
+
 1. 在 Casdoor 创建 `openspec-api` OIDC 应用，audience 为 `openspec-api`。
 2. 确认 discovery 返回的真实 `issuer` 和 `jwks_uri`，更新 `k8s/core.yaml`。
 3. 在 Gitea 配置 Casdoor OAuth/OIDC，使 Casdoor `preferred_username` 映射为 Gitea 用户名。
@@ -33,12 +45,18 @@ vault kv put secret/openspec/service \
 
 ## 构建与部署
 
+从 `armbianbegin` 仓库根目录执行：
+
 ```bash
-docker build --platform linux/arm64 -t arm-cluster-master:5000/openspec-service:0.1.0 .
+docker build --platform linux/arm64 -t arm-cluster-master:5000/openspec-service:0.1.0 openspec_service
 docker push arm-cluster-master:5000/openspec-service:0.1.0
-kubectl apply -k k8s/
+kubectl apply -k openspec_service/k8s/
+kubectl apply -f vault/inventory/openspec-service-externalsecret.yaml
+kubectl apply -f cloudflare-tunnel/operator/openspec-service-route.yaml
 kubectl -n openspec get pods,pvc,externalsecret,svc
 ```
+
+建议先应用 OpenSpec 核心资源，确认 `openspec` namespace 已创建后，再应用 Vault ExternalSecret；TunnelRoute 可在 OpenSpec Service 的 ClusterIP Service 创建后应用。
 
 集群现有 Registry 使用 HTTPS；在执行 build/push 和节点拉取前，先按集群 CA 配置 Docker/containerd 信任，不能把 `5000` 当作明文 HTTP Registry。
 

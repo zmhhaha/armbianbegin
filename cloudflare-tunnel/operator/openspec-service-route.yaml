@@ -1,0 +1,11 @@
+# OpenSpec Service public route.
+# Requires the Cloudflare Tunnel Operator CRD and the existing "main" Tunnel.
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: openspec-service
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: openspec.panghuer.top
+  backend: openspec-service.openspec.svc.cluster.local:8080

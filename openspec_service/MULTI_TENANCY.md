@@ -92,4 +92,4 @@ JWT 至少验证 issuer、audience、签名、过期时间和 `sub`。Casdoor or
 
 ## 实施门槛
 
-代码已经完成 PostgreSQL 项目映射、JWT/Gitea ACL、按项目 Git workspace 和 revision 防覆盖。真实部署前仍必须创建 PostgreSQL 数据库/用户、Vault `secret/openspec/service`、受限 Gitea service account、Casdoor 应用，并确认 `k8s/` 中的 issuer/JWKS、镜像地址和 bootstrap subject 已替换占位值；未完成这些配置时禁止把 TunnelRoute 暴露到公网。
+代码已经完成 PostgreSQL 项目映射、JWT/Gitea ACL、按项目 Git workspace 和 revision 防覆盖。真实部署前仍必须创建 PostgreSQL 数据库/用户、Vault `secret/openspec/service`、受限 Gitea service account、Casdoor 应用，并确认 `k8s/` 中的 issuer/JWKS、镜像地址和 bootstrap subject 已替换占位值；Vault ExternalSecret 请使用 `../vault/inventory/openspec-service-externalsecret.yaml`，Cloudflare TunnelRoute 请使用 `../cloudflare-tunnel/operator/openspec-service-route.yaml`，未完成这些配置时禁止把 TunnelRoute 暴露到公网。

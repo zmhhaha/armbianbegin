@@ -103,16 +103,23 @@ armbianbegin/openspec_service/
 ├── test/                      # 本地 workspace/OpenSpec 回归测试
 ├── Dockerfile / .dockerignore
 ├── package.json / pnpm-lock.yaml
-├── k8s/                       # namespace、Deployment、Service、PVC、ExternalSecret、TunnelRoute
+├── k8s/                       # namespace、Deployment、Service、PVC、ConfigMap 和迁移文件
 └── scripts/bootstrap-gitea-project.sh
+```
+
+外部集成资源不放在 `openspec_service/`：
+
+```text
+vault/inventory/openspec-service-externalsecret.yaml
+cloudflare-tunnel/operator/openspec-service-route.yaml
 ```
 
 ## 7. 部署步骤
 
-1. 在 Casdoor 创建 `openspec-api` 应用，确认 issuer、audience 和 JWKS；在 Gitea 创建 `openspec` 组织并准备受限服务账号。
-2. 创建 PostgreSQL 数据库/用户，在 Vault 写入 `secret/openspec/service`，确认 ExternalSecret 能同步 `openspec-service-secrets`。
+1. 在 `openspec_service/CASDOOR_SETUP.md` 的指引下创建 Casdoor `openspec-api` 应用，确认 issuer、audience 和 JWKS；在 Gitea 创建 `openspec` 组织并准备受限服务账号。
+2. 创建 PostgreSQL 数据库/用户，在 Vault 写入 `secret/openspec/service`，应用 `vault/inventory/openspec-service-externalsecret.yaml` 并确认能同步 `openspec-service-secrets`。
 3. 构建 ARM64 镜像并推送私有 Registry。
-4. 应用 `k8s/`，创建 namespace、PVC、ExternalSecret、Deployment、ClusterIP Service 和 Cloudflare TunnelRoute。
+4. 应用 `openspec_service/k8s/` 创建 namespace、PVC、Deployment 和 ClusterIP Service；ExternalSecret 使用 `vault/inventory/openspec-service-externalsecret.yaml`，Cloudflare 路由使用 `cloudflare-tunnel/operator/openspec-service-route.yaml`。
 5. 通过 `POST /v1/projects` 创建首个项目，服务会在 Gitea 创建私有仓库、初始化目录并授权创建者。
 6. 从内网和公网分别执行 smoke test：健康检查、JWT、Gitea ACL、读取 revision、创建 change、校验、apply、archive、Git commit 和冲突。
 7. 配置备份：PVC 快照或定时将 Git 工作区推送到 Gitea；保留应用日志和审计日志。

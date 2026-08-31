@@ -54,11 +54,11 @@
 
 ### 3. 认证和授权
 
-- [ ] 在 Casdoor 创建 OpenSpec API 应用
+- [ ] 在 Casdoor 创建 OpenSpec API 应用（配置说明见 `CASDOOR_SETUP.md`）
 - [ ] 确认 OIDC issuer、client ID、audience 和回调/受众配置
 - [x] API 校验 JWT 的签名、issuer、audience、过期时间
 - [x] 定义 Gitea 仓库 ACL（Read/Write/Admin）到 OpenSpec 能力（viewer/editor/owner）的角色映射
-- [x] 配置服务专用 ExternalSecret 清单
+- [x] 配置服务专用 ExternalSecret 清单（归档于 `../vault/inventory/openspec-service-externalsecret.yaml`）
 - [x] API 默认拒绝匿名请求，只有健康检查允许最小匿名响应
 - [x] 提供首个租户/项目的 bootstrap 流程（Gitea 创建仓库并授权服务账号、登记 projectId 映射）
 
@@ -77,7 +77,7 @@
 ### 5. 对外访问
 
 - [x] 确认对外域名 `openspec.panghuer.top`
-- [x] 增加 Cloudflare TunnelRoute，后端指向 `openspec-service.openspec.svc.cluster.local:8080`
+- [x] 增加 Cloudflare TunnelRoute，后端指向 `openspec-service.openspec.svc.cluster.local:8080`（归档于 `../cloudflare-tunnel/operator/openspec-service-route.yaml`）
 - [x] 不使用复杂 path rewrite，采用独立 hostname
 - [ ] 配置 Cloudflare Access 或等价的边界策略
 - [ ] 进行公网 HTTPS、DNS、JWT 和 CORS 验证
@@ -125,7 +125,7 @@
 
 - [ ] Ceph 当前为 `HEALTH_WARN`：1 台主机 cephadm 检查失败、3 个 stray daemons、部分 monitor 节点空间偏低
 - [ ] 私有 Registry 端口 `5000` 使用 HTTPS；必须为构建节点和 Kubernetes 节点配置正确 CA/Registry 信任，不能按 HTTP 使用
-- [ ] OpenSpec Kubernetes 清单尚未在集群 apply；需部署并验证 TunnelRoute、Deployment、Service、PVC 和 ExternalSecret
+- [ ] OpenSpec 核心 Kubernetes 清单尚未在集群 apply；需分别部署并验证核心资源、Vault ExternalSecret 和 Cloudflare TunnelRoute
 - [ ] 当前尚未在真实环境创建 OpenSpec API 对应 Casdoor 应用、JWT scope 和 Vault 密钥
 - [ ] 当前没有明确 OpenSpec store 的 Gitea 仓库地址、分支策略和备份策略
 
@@ -133,7 +133,7 @@
 
 1. 处理或接受 Ceph/Registry 风险，确认镜像能在 ARM64 集群拉取。
 2. 在 Casdoor、Gitea、PostgreSQL 和 Vault 完成真实配置。
-3. 构建并推送 ARM64 镜像，部署 namespace、ExternalSecret、Deployment、Service、PVC 和 TunnelRoute。
+3. 构建并推送 ARM64 镜像，部署 OpenSpec 核心资源，再分别应用 Vault ExternalSecret 和 Cloudflare TunnelRoute。
 4. 完成内网 smoke test：JWT、Gitea ACL、创建 change、validate、apply、archive 和 revision 冲突。
 5. 完成公网 HTTPS、Cloudflare 路由和 MCP 客户端 smoke test。
 6. 补齐 Metrics Server、集中日志、备份恢复和撤权演练。
