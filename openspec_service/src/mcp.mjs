@@ -121,20 +121,22 @@ export async function mcpHandler(req,res){
       const name=body.params?.name; const args=body.params?.arguments||{};
       if(typeof name!=='string') throw new ServiceError(400,'invalid_params','Tool name is required');
       const requiresWriteHeaders=['create_proposal','update_proposal','apply_specs','archive_change'].includes(name);
-      if(requiresWriteHeaders){
-        if(!req.headers['idempotency-key']||req.headers['idempotency-key'].length>200) throw badRequest('Idempotency-Key header is required');
-        if(!args.expectedRevision) throw badRequest('expectedRevision is required');
-      }
+      if(requiresWriteHeaders&&!args.expectedRevision) throw badRequest('expectedRevision is required');
       let idempotency;
+      let idempotencyKey;
       if(requiresWriteHeaders){
-        const key=req.headers['idempotency-key'];
-        idempotency=await db.beginIdempotency(sub,args.projectId,key,crypto.createHash('sha256').update(JSON.stringify({name,args})).digest('hex'));
+        // 优先用客户端提供的 Idempotency-Key 头；不传时按 用户+项目+工具+参数 派生确定性键，
+        // 使标准 MCP 客户端（固定请求头）也能安全重试，且不同调用互不冲突。
+        idempotencyKey=(req.headers['idempotency-key']&&req.headers['idempotency-key'].length<=200)
+          ? req.headers['idempotency-key']
+          : crypto.createHash('sha256').update([sub,args.projectId,name,JSON.stringify(args)].join(':')).digest('hex');
+        idempotency=await db.beginIdempotency(sub,args.projectId,idempotencyKey,crypto.createHash('sha256').update(JSON.stringify({name,args})).digest('hex'));
         if(idempotency.replay) return response(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(idempotency.response)}],structuredContent:idempotency.response}},sessionId,requestId);
       }
       let value;
       try{value=await callTool(name,args,claims,requestId);}
-      catch(error){if(idempotency) await db.abandonIdempotency(sub,args.projectId,req.headers['idempotency-key']);throw error;}
-      if(idempotency) await db.completeIdempotency(sub,args.projectId,req.headers['idempotency-key'],200,value);
+      catch(error){if(idempotency) await db.abandonIdempotency(sub,args.projectId,idempotencyKey);throw error;}
+      if(idempotency) await db.completeIdempotency(sub,args.projectId,idempotencyKey,200,value);
       return response(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(value)}],structuredContent:value}},sessionId,requestId);
     }
     throw new ServiceError(404,'method_not_found','Unsupported MCP method: '+body.method);
