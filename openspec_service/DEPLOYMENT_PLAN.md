@@ -104,7 +104,7 @@ armbianbegin/openspec_service/
 ├── Dockerfile / .dockerignore
 ├── package.json / pnpm-lock.yaml
 ├── k8s/                       # namespace、Deployment、Service、PVC、ConfigMap 和迁移文件
-└── scripts/bootstrap-gitea-project.sh
+└── scripts/                    # build、deploy、bootstrap 和 smoke test
 ```
 
 外部集成资源不放在 `openspec_service/`：

@@ -48,13 +48,11 @@ kubectl exec -n vault vault-0 -- vault kv put secret/openspec/service \
 从 `armbianbegin` 仓库根目录执行：
 
 ```bash
-docker build --platform linux/arm64 -t arm-cluster-master:5000/openspec-service:0.1.0 openspec_service
-docker push arm-cluster-master:5000/openspec-service:0.1.0
-kubectl apply -k openspec_service/k8s/
-kubectl apply -f vault/inventory/openspec-service-externalsecret.yaml
-kubectl apply -f cloudflare-tunnel/operator/openspec-service-route.yaml
-kubectl -n openspec get pods,pvc,externalsecret,svc
+bash openspec_service/scripts/build.sh
+bash openspec_service/scripts/deploy.sh --wait
 ```
+
+`build.sh` 默认构建并推送 `linux/arm64` 镜像；只构建不推送时使用 `bash openspec_service/scripts/build.sh --no-push`。`deploy.sh` 会先应用 OpenSpec 核心资源，再应用 Vault ExternalSecret 和 Cloudflare TunnelRoute。需要分阶段部署时可使用 `--core-only`、`--skip-vault` 或 `--skip-cloudflare`。
 
 建议先应用 OpenSpec 核心资源，确认 `openspec` namespace 已创建后，再应用 Vault ExternalSecret；TunnelRoute 可在 OpenSpec Service 的 ClusterIP Service 创建后应用。
 
