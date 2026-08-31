@@ -41,6 +41,7 @@ else
   echo "== 使用已有项目 ${PROJECT_ID} =="
 fi
 B="${BASE_URL}/v1/projects/${PROJECT_ID}"
+CHANGE_ID="login-$(date +%s)"
 
 echo "== 1. list specs =="
 curl -fsS -H "${H_AUTH}" "${B}/specs"; echo
@@ -49,33 +50,33 @@ echo "   revision=${REV}"
 
 BODY="{\"files\":{\"proposal.md\":\"# 登录功能\n\",\"specs/auth/spec.md\":$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$SPEC_ADD_LOGIN")}}"
 
-echo "== 2. create/update change add-login =="
+echo "== 2. create/update change ${CHANGE_ID} =="
 resp="$(curl -s -X POST -H "${H_AUTH}" -H "Idempotency-Key: $(key)" -H "If-Match: ${REV}" -H "${H_JSON}" \
-  "${B}/changes/add-login" -d "${BODY}" || true)"
+  "${B}/changes/${CHANGE_ID}" -d "${BODY}" || true)"
 if printf '%s' "${resp}" | grep -q "already exists"; then
   echo "   (已存在，改用 PUT 更新)"
   curl -fsS -X PUT -H "${H_AUTH}" -H "Idempotency-Key: $(key)" -H "If-Match: ${REV}" -H "${H_JSON}" \
-    "${B}/changes/add-login" -d "${BODY}"; echo
+    "${B}/changes/${CHANGE_ID}" -d "${BODY}"; echo
 else
   printf '%s\n' "${resp}"
 fi
 
 echo "== 3. validate =="
-curl -fsS -X POST -H "${H_AUTH}" "${B}/changes/add-login/validate"; echo
+curl -fsS -X POST -H "${H_AUTH}" "${B}/changes/${CHANGE_ID}/validate"; echo
 
 REV2="$(curl -fsS -H "${H_AUTH}" "${B}/changes" | json "d['revision']")"
 echo "   revision=${REV2}"
 
 echo "== 4. apply-specs =="
 curl -fsS -X POST -H "${H_AUTH}" -H "Idempotency-Key: $(key)" -H "If-Match: ${REV2}" \
-  "${B}/changes/add-login/apply-specs"; echo
+  "${B}/changes/${CHANGE_ID}/apply-specs"; echo
 
 REV3="$(curl -fsS -H "${H_AUTH}" "${B}/changes" | json "d['revision']")"
 echo "   revision=${REV3}"
 
 echo "== 5. archive =="
 curl -fsS -X POST -H "${H_AUTH}" -H "Idempotency-Key: $(key)" -H "If-Match: ${REV3}" \
-  "${B}/changes/add-login/archive"; echo
+  "${B}/changes/${CHANGE_ID}/archive"; echo
 
 echo "== 6. final specs =="
 curl -fsS -H "${H_AUTH}" "${B}/specs"; echo

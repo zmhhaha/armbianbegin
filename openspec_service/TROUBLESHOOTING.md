@@ -172,15 +172,19 @@ Deployment/PVC/PostgreSQL。
   - **THEN** access is granted
   ```
 
-### 4.2 已知问题：validate 响应泄露内部路径
-- `validate` 返回的 `result.root.path` 会把 `/data/workspaces/{uuid}` 暴露给客户端；
-  `archive` 已对该字段脱敏，validate 未脱敏。待修：在 `src/workspace.mjs` 的
-  `validateChange` 里删除 `root.path` 后再返回。
+### 4.2 内部路径泄露（已修复）
+- 早期 `validate` / `archive` 会把 OpenSpec 输出的 `root.path`（`/data/workspaces/{uuid}`）暴露给客户端。
+- 已修复：`src/workspace.mjs` 的 `redactOpenSpecOutput()` 在**成功与失败路径**都删除 `root`
+  和 `archive.path`，与 `archive` 的脱敏一致。
 
 ### 4.3 变更不存在时的行为
 - `POST .../changes/{id}` 幂等语义：同 key 重放返回原响应；`PUT` 用于更新已有 change；
   `validate` 不要求 `If-Match`（不改工作区）；`apply-specs` / `archive` 要求
   `Idempotency-Key` + `If-Match`。
+- **archive 失败的重试陷阱**：`archive` 成功后 change 会移入 `openspec/changes/archive/YYYY-MM-DD-{changeId}`。
+  若 archive 失败，change 保持 active；此时若 `archive/YYYY-MM-DD-{changeId}` 已存在
+  （例如上次已归档过），重试会返回 422 `archive_target_exists`。冒烟脚本因此使用
+  **每次唯一的 change id**（`login-$(date +%s)`）。当前无删除 change 的 API。
 
 ---
 
@@ -219,7 +223,6 @@ curl -s -H "Authorization: token <GITEA_TOKEN>" http://<gitea-ip>:3000/api/v1/us
 
 ## 7. 待办/已知问题清单
 
-- [ ] validate 响应脱敏（`result.root.path`）。
 - [ ] 跨副本部署：进程锁与 MCP session 目前都在单进程内存，多副本需 PostgreSQL advisory lock / 分布式 session。
 - [ ] 本地测试环境需 node（当前 Windows 开发机 node 不在 PATH，测试在 master/CI 上跑）。
 - [ ] Cloudflare Access 边界策略、监控、备份（见 DEVELOPMENT_BACKLOG.md P1/P2）。

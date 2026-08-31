@@ -16,6 +16,17 @@ const windowsOpenSpecScript=process.platform==='win32'&&/\.(?:cmd|bat)$/i.test(c
   ? path.join(path.dirname(openspecEntry),'..','bin','openspec.js')
   : null;
 const safe=x=>typeof x==='string'&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,100}$/.test(x);
+// 从 OpenSpec 输出中抹掉本地路径等信息，避免泄露给客户端（成功与失败路径都调用）。
+function redactOpenSpecOutput(text){
+  try{
+    const obj=JSON.parse(String(text));
+    if(obj&&typeof obj==='object'){
+      if(obj.root)delete obj.root;
+      if(obj.archive&&typeof obj.archive==='object'&&'path' in obj.archive)delete obj.archive.path;
+    }
+    return JSON.stringify(obj);
+  }catch{return String(text);}
+}
 const kebab=x=>typeof x==='string'&&/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(x)&&x.length<=100;
 const validChange=x=>safe(x)&&x.toLowerCase()!=='archive';
 export const validChangeId=validChange;
@@ -101,7 +112,7 @@ export async function validateChange(projectRecord,changeId){
     const parsed=JSON.parse(result.stdout);
     if(parsed&&typeof parsed==='object'&&parsed.root)delete parsed.root; // 不向客户端泄露本地 workspace 路径（与 archive 一致）
     return parsed;
-  }catch(error){throw Object.assign(new Error(error.stdout||error.stderr||error.message),{status:422,code:'validation_failed'});}
+  }catch(error){throw Object.assign(new Error(redactOpenSpecOutput(error.stdout||error.stderr||error.message)),{status:422,code:'validation_failed'});}
 }
 
 export async function applySpecs(projectRecord,changeId,actor,expected){
@@ -158,7 +169,7 @@ export async function archiveChange(projectRecord,changeId,actor,expected){
       return{before,after,report};
     }catch(error){
       if(error.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER') throw unavailable('OpenSpec archive output exceeded the limit');
-      const detail=error.stdout||error.stderr||error.message;
+      const detail=redactOpenSpecOutput(error.stdout||error.stderr||error.message);
       throw Object.assign(new Error(detail),{status:422,code:'archive_failed'});
     }
   });
