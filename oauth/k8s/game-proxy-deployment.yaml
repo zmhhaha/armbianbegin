@@ -6,6 +6,37 @@
 #    sed "s/__TARGET_NAME__/school-of-one/g" game-proxy-deployment.yaml | kubectl apply -f -
 # ============================================================
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth2-proxy-error-template
+  namespace: oauth
+data:
+  error.html: |
+    <!doctype html>
+    <html lang="zh-CN">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>登录状态已失效</title>
+      <style>
+        :root { color-scheme: light; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; color: #263238; background: #f5f6f7; }
+        main { width: min(420px, calc(100% - 40px)); padding: 32px; text-align: center; background: #fff; border: 1px solid #e1e5e8; border-radius: 8px; box-shadow: 0 8px 24px rgb(38 50 56 / 8%); }
+        h1 { margin: 0 0 12px; font-size: 24px; }
+        p { margin: 0 0 24px; color: #60717a; line-height: 1.6; }
+        a { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; padding: 0 20px; color: #fff; background: #d64b4b; border-radius: 5px; text-decoration: none; font-weight: 650; }
+      </style>
+    </head>
+    <body>
+      <main>
+        <h1>登录状态已失效</h1>
+        <p>本次登录回调已过期或缺少必要的浏览器状态，请重新登录。</p>
+        <a href="/oauth2/start?rd=/">重新登录</a>
+      </main>
+    </body>
+    </html>
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -33,6 +64,10 @@ spec:
           - "--cookie-domain=.panghuer.top"
           - "--cookie-secure=true"
           - "--cookie-samesite=lax"
+          # 每次登录请求使用独立的 CSRF Cookie，避免多个子域/标签页互相覆盖。
+          - "--cookie-csrf-per-request=true"
+          - "--cookie-csrf-expire=5m"
+          - "--custom-templates-dir=/etc/oauth2-proxy/templates"
           - "--cookie-expire=720h"
           - "--cookie-refresh=24h"
           - "--cookie-name=_oauth2_proxy"
@@ -58,6 +93,9 @@ spec:
         - name: config
           mountPath: /etc/oauth2-proxy
           readOnly: true
+        - name: error-template
+          mountPath: /etc/oauth2-proxy/templates
+          readOnly: true
         resources:
           requests: {cpu: 10m, memory: 32Mi}
           limits: {cpu: 200m, memory: 256Mi}
@@ -73,6 +111,9 @@ spec:
       - name: config
         configMap:
           name: oauth2-proxy-config-__TARGET_NAME__
+      - name: error-template
+        configMap:
+          name: oauth2-proxy-error-template
 ---
 apiVersion: v1
 kind: Service

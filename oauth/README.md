@@ -62,6 +62,12 @@ bash deploy-hublog-proxy.sh
 
 公网链路为 `hublog.panghuer.top` → Cloudflare Tunnel → `oauth2-proxy-hublog` → `hublog-api`。代理向业务服务注入稳定的 `X-Auth-Request-Sub`，Hublog 使用该值绑定本地用户。不要把 `hublog-api` 直接暴露为 NodePort、LoadBalancer 或 TunnelRoute。
 
+### 回调 403 与 CSRF Cookie
+
+`/oauth2/callback` 是一次性的 OAuth 回调地址，必须和同一次 `/oauth2/start` 设置的 CSRF Cookie 一起使用。不要收藏、复制或重复打开回调 URL；用户应从业务域名根路径重新开始登录。
+
+所有代理模板启用 `--cookie-csrf-per-request=true` 和 `--cookie-csrf-expire=5m`，让并发登录请求使用独立的 CSRF Cookie，并限制旧回调的有效时间。代理同时提供统一的回调失效页，用户可以从该页面重新发起登录。若浏览器仍显示 `CSRF cookie not found`，清除 `.panghuer.top` Cookie 后重新访问业务首页。不要通过关闭 CSRF 校验来规避该错误。
+
 ## Casdoor（可选）
 
 如需接入微信、支付宝等非标准 OAuth 提供商，可以基于 `base` 镜像 + Casdoor 官方 ARM64 二进制自行构建。Dockerfile 模板见本目录。
