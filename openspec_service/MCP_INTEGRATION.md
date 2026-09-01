@@ -17,6 +17,16 @@ AI 工具只需"加一个远程 MCP"即可，不需要在本地装任何 OpenSpe
 
 ## 2. 获取 JWT
 
+### 2.1 网页版（推荐，给其他用户用）
+
+打开 **`https://openspec.panghuer.top/token`** → 用 Casdoor 登录（GitHub / 邮箱）→ 页面直接
+显示你的 JWT 和"复制"按钮，并给出 Codex / Claude Code 的配置命令。**无需装任何工具。**
+
+前置：管理员已在 `panghu-suite` 白名单加入 `https://openspec.panghuer.top/token`，且服务
+已配置 `CASDOOR_CLIENT_SECRET`（见 DEPLOY.md）。
+
+### 2.2 脚本版（管理员 / 命令行环境）
+
 用仓库里的脚本（浏览器授权码流，无需 Casdoor 密码；GitHub 注册用户也可用）：
 
 ```bash

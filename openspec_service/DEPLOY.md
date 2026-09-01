@@ -40,6 +40,17 @@ GITEA_TOKEN='<受限 Gitea token>' GITEA_USERNAME='zmh_haha' \
   bash openspec_service/scripts/provision-gitea.sh
 ```
 
+**网页版领取 JWT（可选，推荐）**：`https://openspec.panghuer.top/token` 页面让任意用户
+用浏览器登录 Casdoor 后直接复制自己的 JWT。需要两步准备：
+
+1. Casdoor 管理员在 `panghu-suite` 的 Redirect URLs 增加 `https://openspec.panghuer.top/token`。
+2. 把 client secret 写入 Vault（用 `kv patch`，不覆盖已有键）：
+   ```bash
+   kubectl -n vault exec vault-0 -- vault kv patch secret/openspec/service \
+     casdoor_client_secret='<panghu-suite client secret>'
+   ```
+3. 应用 ExternalSecret 并重启（`scripts/deploy.sh --wait` 或手动 force-sync + restart）。
+
 `gitea_provision_token` 只用于创建/初始化 OpenSpec 私有仓库、查询 Gitea 用户邮箱和查询 collaborator 权限，不得使用 Gitea 全局管理员 token。创建 Token 时至少授予 `read:user` 以及仓库创建/内容写入/协作者管理所需的最小权限。`gitea_username` 必须是该 token 所属的 Gitea 登录名，用于 Git HTTP Basic 认证；它不是组织名。你的组织名 `openspec-service` 配置在 `k8s/core.yaml` 的 `GITEA_OWNER`。
 
 Casdoor 用户名不需要与 Gitea 用户名相同。服务首次看到某个 Casdoor `sub` 时，会用 JWT 的 `email` claim 调用 Gitea 用户搜索接口，要求邮箱精确匹配且只对应一个 Gitea 用户，然后保存实际 Gitea login；后续请求使用这个不可变绑定。Casdoor 应用需要启用 `email` scope，并确保每个 JWT 带有可信邮箱。

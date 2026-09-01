@@ -188,6 +188,16 @@ Deployment/PVC/PostgreSQL。
 
 ---
 
+### 4.4 Codex 报 `streamable HTTP session expired with 404 Not Found`
+- **现象**：Codex 连 `https://openspec.panghuer.top/mcp` 报
+  `streamable HTTP session expired with 404 Not Found`，工具调用失败。
+- **原因**：MCP 服务对**未知方法**（Codex 定时发的 `ping`、能力探测 `resources/list` 等）返回了
+  **HTTP 404**。Codex 的 RMCP 客户端把 404 判定为 session 失效且不会自动重连
+  （openai/codex issue #13969）。
+- **解决**：按 MCP 规范修正 `src/mcp.mjs`——未知方法返回 **HTTP 200 + JSON-RPC
+  `-32601 Method not found`**；只有 session 失效才返回 **404**（让客户端重连）；补了
+  `ping` 与 `notifications/cancelled` 处理；所有响应带 `mcp-session-id`。
+
 ## 5. Drone（未启用，仅记录）
 
 - `.drone.yml` 是 **Drone 监听/触发构建的流水线文件**，不是部署清单。它必须放在

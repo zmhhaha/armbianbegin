@@ -19,7 +19,7 @@ set -Eeuo pipefail
 # ============================================================
 
 CLIENT_ID="${CLIENT_ID:-ece3f52410b046fe0952}"
-CLIENT_SECRET="${CLIENT_SECRET:-a385527117e4bae31022b5e729061cfd2328af27}"
+CLIENT_SECRET="${CLIENT_SECRET:-${CASDOOR_CLIENT_SECRET:-''}}"
 REDIRECT_URI="${REDIRECT_URI:-https://openspec.panghuer.top/mcp}"
 CASDOOR_URL="${CASDOOR_URL:-https://auth.panghuer.top}"
 OUT="${OUT:-/tmp/casdoor.jwt}"

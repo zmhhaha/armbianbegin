@@ -12,6 +12,8 @@ data:
   OIDC_ISSUER: "https://auth.panghuer.top"
   OIDC_AUDIENCE: "ece3f52410b046fe0952"
   OIDC_JWKS_URL: "https://auth.panghuer.top/.well-known/jwks"
+  PUBLIC_BASE_URL: "https://openspec.panghuer.top"
+  CASDOOR_CLIENT_ID: "ece3f52410b046fe0952"
   GITEA_URL: "http://gitea.gitops.svc.cluster.local:3000"
   GITEA_OWNER: "openspec-service"
   WORKSPACE_ROOT: "/data/workspaces"

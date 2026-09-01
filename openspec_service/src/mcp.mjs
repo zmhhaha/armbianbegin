@@ -81,8 +81,8 @@ function response(res,status,body,sessionId,requestId){
   res.end(JSON.stringify(body));
 }
 function rpcError(error){
-  const code=error instanceof ServiceError&&error.status===404?-32004:error instanceof ServiceError&&error.status===401?-32001:-32000;
-  return{code,message:error.status===404?'Not found':error.message};
+  const code=error instanceof ServiceError&&error.code==='invalid_session'?-32002:error instanceof ServiceError&&error.status===404?-32004:error instanceof ServiceError&&error.status===401?-32001:-32000;
+  return{code,message:error instanceof ServiceError&&error.code==='invalid_session'?error.message:error.status===404?'Not found':error.message};
 }
 
 export async function mcpHandler(req,res){
@@ -93,7 +93,7 @@ export async function mcpHandler(req,res){
     await bindClaims(claims);
     if(req.method==='GET'){
       sessionId=sessionId||crypto.randomUUID();
-      if(sessions.has(sessionId)&&!sessionMatches(sessionId,sub)) throw new ServiceError(401,'invalid_session','MCP session does not belong to this identity');
+      if(sessions.has(sessionId)&&!sessionMatches(sessionId,sub)) throw new ServiceError(404,'invalid_session','MCP session expired or does not belong to this identity');
       rememberSession(sessionId,sub);
       res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive','mcp-session-id':sessionId,'x-request-id':requestId});
       res.write('event: endpoint\ndata: /mcp\n\n');
@@ -107,15 +107,16 @@ export async function mcpHandler(req,res){
     if(body.jsonrpc!=='2.0'||typeof body.method!=='string') throw new ServiceError(400,'invalid_request','Invalid JSON-RPC request');
     if(body.method==='initialize'){
       sessionId=sessionId||crypto.randomUUID();
-      if(sessions.has(sessionId)&&!sessionMatches(sessionId,sub)) throw new ServiceError(401,'invalid_session','MCP session does not belong to this identity');
+      if(sessions.has(sessionId)&&!sessionMatches(sessionId,sub)) throw new ServiceError(404,'invalid_session','MCP session expired or does not belong to this identity');
       rememberSession(sessionId,sub);
       return response(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'openspec-service',version:'latest'}}},sessionId,requestId);
     }
-    if(body.method==='notifications/initialized'){
-      if(sessionId&&!sessionMatches(sessionId,sub)) throw new ServiceError(401,'invalid_session','MCP session does not belong to this identity');
-      res.writeHead(202,{'x-request-id':requestId});return res.end();
+    if(body.method==='notifications/initialized'||body.method==='notifications/cancelled'){
+      if(sessionId&&!sessionMatches(sessionId,sub)) throw new ServiceError(404,'invalid_session','MCP session expired or does not belong to this identity');
+      res.writeHead(202,{'mcp-session-id':sessionId||crypto.randomUUID(),'x-request-id':requestId});return res.end();
     }
-    if(sessionId&&!sessionMatches(sessionId,sub)) throw new ServiceError(401,'invalid_session','MCP session does not belong to this identity');
+    if(body.method==='ping') return response(res,200,{jsonrpc:'2.0',id,result:{}},sessionId,requestId);
+    if(sessionId&&!sessionMatches(sessionId,sub)) throw new ServiceError(404,'invalid_session','MCP session expired or does not belong to this identity');
     if(body.method==='tools/list') return response(res,200,{jsonrpc:'2.0',id,result:{tools}},sessionId,requestId);
     if(body.method==='tools/call'){
       const name=body.params?.name; const args=body.params?.arguments||{};
@@ -139,9 +140,11 @@ export async function mcpHandler(req,res){
       if(idempotency) await db.completeIdempotency(sub,args.projectId,idempotencyKey,200,value);
       return response(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(value)}],structuredContent:value}},sessionId,requestId);
     }
-    throw new ServiceError(404,'method_not_found','Unsupported MCP method: '+body.method);
+    // 未知方法必须返回 HTTP 200 + JSON-RPC 错误，绝不能返回 HTTP 404：
+    // Codex/RMCP 会把 404 误判为 session 失效（见 openai/codex#13969）。
+    return response(res,200,{jsonrpc:'2.0',id,error:{code:-32601,message:'Method not found: '+body.method}},sessionId,requestId);
   }catch(error){
-    const status=error.status===401?401:error.status===404?404:400;
+    const status=error.code==='invalid_session'?404:error.status===401?401:200;
     return response(res,status,{jsonrpc:'2.0',id,error:rpcError(error)},sessionId,requestId);
   }
 }
