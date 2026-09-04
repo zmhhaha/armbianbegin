@@ -10,7 +10,16 @@ kubectl -n oauth get secret oauth2-proxy-secret >/dev/null
 kubectl -n hublog get service hublog-api >/dev/null
 
 kubectl apply -f "${SCRIPT_DIR}/hublog-proxy-configmap.yaml"
-sed "s/__TARGET_NAME__/hublog/g" "${SCRIPT_DIR}/proxy-deployment.yaml" | kubectl apply -f -
+# Hublog only: anonymous read access is limited to UUID share pages and the
+# corresponding read-only APIs. The generic agent template stays protected.
+sed \
+  -e 's/__TARGET_NAME__/hublog/g' \
+  -e '/--ssl-insecure-skip-verify=true/a\
+          - "--skip-auth-route=^/share/[0-9a-fA-F-]{36}/?$"\
+          - "--skip-auth-route=^/api/v1/shares/[0-9a-fA-F-]{36}(/comments)?([?].*)?$"\
+          - "--skip-auth-route=^/assets/share[.](css|js)([?].*)?$"\
+          - "--skip-auth-route=^/assets/hublog-mark-v10-cat-mouth-no-whiskers[.]svg([?].*)?$"' \
+  "${SCRIPT_DIR}/proxy-deployment.yaml" | kubectl apply -f -
 kubectl rollout restart deployment/oauth2-proxy-hublog -n oauth
 kubectl rollout status deployment/oauth2-proxy-hublog -n oauth --timeout=180s
 
