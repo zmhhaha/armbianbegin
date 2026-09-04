@@ -5,13 +5,16 @@ set -Eeuo pipefail
 # OpenSpec 端到端冒烟：建/改 change -> validate -> apply-specs -> archive
 # 用法：
 #   PROJECT_ID=<project-id> bash openspec_service/scripts/smoke-test-e2e.sh
-# 或省略 PROJECT_ID，脚本会先创建一个临时项目 smoke-<ts>。
+# 或先执行 register-project.sh，脚本会读取仓库根目录的
+# .openspec-project.json。只有显式设置 CREATE_PROJECT=1 才创建临时项目。
 # JWT 来源：CASDOOR_JWT 环境变量，或 /tmp/casdoor.jwt
 # ============================================================
 
 CASDOOR_JWT="${CASDOOR_JWT:-$(cat /tmp/casdoor.jwt 2>/dev/null || true)}"
 BASE_URL="${BASE_URL:-https://openspec.panghuer.top}"
 PROJECT_ID="${PROJECT_ID:-}"
+PROJECT_FILE="${PROJECT_FILE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/.openspec-project.json}"
+CREATE_PROJECT="${CREATE_PROJECT:-0}"
 
 [[ -n "${CASDOOR_JWT}" ]] || { echo "ERROR: 需要 CASDOOR_JWT 或 /tmp/casdoor.jwt" >&2; exit 1; }
 H_AUTH="Authorization: Bearer ${CASDOOR_JWT}"
@@ -30,13 +33,27 @@ The system SHALL accept a login.
 - **THEN** access is granted
 '
 
-if [[ -z "${PROJECT_ID}" ]]; then
+if [[ -z "${PROJECT_ID}" && -f "${PROJECT_FILE}" ]]; then
+  PROJECT_ID="$(python3 - "${PROJECT_FILE}" <<'PY'
+import json,sys
+data=json.load(open(sys.argv[1],encoding='utf-8'))
+print(data.get('projectId',''))
+PY
+  )"
+  [[ -n "${PROJECT_ID}" ]] || { echo "ERROR: ${PROJECT_FILE} 没有 projectId" >&2; exit 1; }
+  echo "== 使用项目映射 ${PROJECT_FILE} (${PROJECT_ID}) =="
+fi
+
+if [[ -z "${PROJECT_ID}" && "${CREATE_PROJECT}" == "1" ]]; then
   slug="smoke-$(date +%s)"
   echo "== 创建临时项目 ${slug} =="
   resp="$(curl -fsS -X POST "${BASE_URL}/v1/projects" \
     -H "${H_AUTH}" -H "Idempotency-Key: $(key)" -H "${H_JSON}" -d "{\"slug\":\"${slug}\"}")"
   PROJECT_ID="$(printf '%s' "${resp}" | json "d['id']")"
   echo "  project id: ${PROJECT_ID}"
+elif [[ -z "${PROJECT_ID}" ]]; then
+  echo "ERROR: 未提供 PROJECT_ID，也找不到 ${PROJECT_FILE}。先执行 register-project.sh，或显式设置 CREATE_PROJECT=1。" >&2
+  exit 1
 else
   echo "== 使用已有项目 ${PROJECT_ID} =="
 fi

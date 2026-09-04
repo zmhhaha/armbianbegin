@@ -38,6 +38,17 @@ export CASDOOR_JWT="$(cat /tmp/casdoor.jwt)"
 
 ## 3. 配置客户端
 
+### 3.0 选择项目
+
+OpenSpec Service 不会根据当前本地目录自动推断项目。`armbianbegin` 使用专用 Gitea OpenSpec store；首次登记请执行：
+
+```bash
+export CASDOOR_JWT='<Casdoor access_token>'
+bash openspec_service/scripts/register-project.sh
+```
+
+脚本会在仓库根目录写入 `.openspec-project.json`，其中只包含 `baseUrl`、`owner`、`repository` 和 UUID `projectId`，不包含任何凭据。每次任务先读取该文件，或调用 `list_projects`，再把 `projectId` 传给 MCP 工具。源码仍可在 GitHub，OpenSpec store 是独立的 Gitea 私有仓库。
+
 ### Claude Code
 ```bash
 claude mcp add --transport http openspec \

@@ -198,18 +198,22 @@ Deployment/PVC/PostgreSQL。
   `-32601 Method not found`**；只有 session 失效才返回 **404**（让客户端重连）；补了
   `ping` 与 `notifications/cancelled` 处理；所有响应带 `mcp-session-id`。
 
-## 5. Drone（未启用，仅记录）
+## 5. armbianbegin OpenSpec 项目注册
+
+- 登记前：`armbianbegin` 源码在 GitHub，不在 Gitea；Gitea 里只有 `openspec-service/project-a-specs`。登记后，Gitea 中应出现独立的 `openspec-service/armbianbegin` OpenSpec store，源码仓库仍可保留在 GitHub。
+- 处理：执行 `bash openspec_service/scripts/register-project.sh`，将返回的 UUID 写入 `.openspec-project.json`；后续 Codex/Claude Code 任务必须使用该 `projectId`，不能继续使用 `project-a-specs`。
+
+## 6. Drone（未启用，仅记录）
 
 - `.drone.yml` 是 **Drone 监听/触发构建的流水线文件**，不是部署清单。它必须放在
   **Drone 激活的那个 Gitea 仓库根目录**。
-- 现状：`armbianbegin` 源码在 GitHub，不在 Gitea；Gitea 里只有 `openspec-service/project-a-specs`。
   要让 Drone 构建，需要把源码推到 Gitea 仓库并激活，且集群 runner 是
   `drone-runner-kube`（**不是 docker runner**），`type: docker` + docker.sock 的写法不适用，
   需改用 DinD/kaniko。当前不作为部署阻塞，暂缓。
 
 ---
 
-## 6. 运维速查
+## 7. 运维速查
 
 ```bash
 # 重新构建 + 推送 + 部署（master 上）
@@ -231,7 +235,7 @@ kubectl -n vault exec vault-0 -- vault kv get secret/openspec/service
 curl -s -H "Authorization: token <GITEA_TOKEN>" http://<gitea-ip>:3000/api/v1/user
 ```
 
-## 7. 待办/已知问题清单
+## 8. 待办/已知问题清单
 
 - [ ] 跨副本部署：进程锁与 MCP session 目前都在单进程内存，多副本需 PostgreSQL advisory lock / 分布式 session。
 - [ ] 本地测试环境需 node（当前 Windows 开发机 node 不在 PATH，测试在 master/CI 上跑）。
