@@ -21,6 +21,10 @@ OpenSpec 目录只维护 API 自身的核心资源。外部基础设施清单和
 
 因此 `openspec_service/k8s/` 的 Kustomize 不会创建 ExternalSecret 或 TunnelRoute。
 
+Gitea Issue 审批自动创建项目的配置和 Webhook 初始化见
+[`PROJECT_REQUEST_APPROVAL.md`](PROJECT_REQUEST_APPROVAL.md)。该流程需要额外的
+`gitea_webhook_secret` Vault 字段；在写入该字段前不要应用更新后的 ExternalSecret。
+
 ## Vault 初始化
 
 `deploy.sh` 会按照 Hublog 的部署流程，使用现有 PostgreSQL 管理账号自动创建或更新

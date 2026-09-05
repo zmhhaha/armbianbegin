@@ -211,12 +211,10 @@ export async function createChange(projectRecord,id,actor,expected,body={}){
       createdTarget=true;
       await fs.writeFile(path.join(target,'.openspec.yaml'),'schema: spec-driven\n',{flag:'wx'});
       for(const [relative,content] of artifacts){const file=artifactPath(target,relative);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,content,{flag:'wx'});}
-      await git(directory,['add',relativeTarget]);
-      const identity=gitIdentity(actor);
-      await git(directory,['-c','user.name='+identity.name,'-c','user.email='+identity.email,'commit','-m','chore: create change '+id,'--','openspec']);
+      const after=await commit(directory,'chore: create change '+id,actor);
       committed=true;
       await push(directory,projectRecord);
-      return{before,after:await currentRevision(directory)};
+      return{before,after};
     }catch(error){
       if(createdTarget&&!committed){await git(directory,['reset','--',relativeTarget]).catch(()=>undefined);await fs.rm(target,{recursive:true,force:true}).catch(()=>undefined);}
       if(error.code==='EEXIST') throw conflict('change already exists');
@@ -250,12 +248,10 @@ export async function updateChange(projectRecord,id,actor,expected,body={}){
     }
     try{
       for(const [relative,content] of artifacts)await fs.writeFile(artifactPath(target,relative),content);
-      await git(directory,['add',relativeTarget]);
-      const identity=gitIdentity(actor);
-      await git(directory,['-c','user.name='+identity.name,'-c','user.email='+identity.email,'commit','-m','chore: update change '+id,'--','openspec']);
+      const after=await commit(directory,'chore: update change '+id,actor);
       committed=true;
       await push(directory,projectRecord);
-      return{before,after:await currentRevision(directory)};
+      return{before,after};
     }catch(error){
       if(!committed){
         await git(directory,['reset','--',relativeTarget]).catch(()=>undefined);

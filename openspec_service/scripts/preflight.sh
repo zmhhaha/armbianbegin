@@ -150,7 +150,7 @@ sealed="$("${KUBECTL}" -n vault exec vault-0 -- vault status -format=json 2>/dev
   || bad "Vault sealed 或不可达（sealed=${sealed}）"
 kv="$("${KUBECTL}" -n vault exec vault-0 -- vault kv get -format=json secret/openspec/service 2>/dev/null \
   | python3 -c 'import json,sys; d=json.load(sys.stdin).get("data",{}).get("data",{}); print(" ".join(sorted(d.keys())))' 2>/dev/null || true)"
-for k in gitea_provision_token gitea_username database_url; do
+for k in gitea_provision_token gitea_username gitea_webhook_secret database_url; do
   case " ${kv} " in *" ${k} "*) ok "Vault secret/openspec/service 含 ${k}";; *) bad "Vault secret/openspec/service 缺少 ${k}（当前有: ${kv}）";; esac
 done
 

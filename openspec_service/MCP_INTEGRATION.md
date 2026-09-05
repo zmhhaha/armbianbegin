@@ -40,6 +40,8 @@ export CASDOOR_JWT="$(cat /tmp/casdoor.jwt)"
 
 ### 3.0 选择项目
 
+新项目登记、Gitea 授权和验证流程见 [`PROJECT_REGISTRATION.md`](PROJECT_REGISTRATION.md)。
+
 OpenSpec Service 不会根据当前本地目录自动推断项目。`armbianbegin` 使用专用 Gitea OpenSpec store；首次登记请执行：
 
 ```bash

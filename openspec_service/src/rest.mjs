@@ -5,6 +5,8 @@ import * as db from './db.mjs';
 import * as gitea from './gitea.mjs';
 import * as ws from './workspace.mjs';
 import {bindClaims} from './identity.mjs';
+import {provisionProject} from './project-provisioning.mjs';
+import {handleGiteaWebhook} from './project-webhook.mjs';
 import {ServiceError,badRequest,notFound,forbidden} from './errors.mjs';
 
 const ranks={none:0,read:1,write:2,admin:3,owner:4};
@@ -106,6 +108,7 @@ export async function dispatch(req,res,id=requestId()){
   const url=new URL(req.url,'http://localhost');
   const parts=url.pathname.split('/').filter(Boolean);
   if(req.method==='GET'&&url.pathname==='/healthz') return json(res,200,{status:'ok'},id);
+  if(req.method==='POST'&&url.pathname==='/webhooks/gitea') return handleGiteaWebhook(req,res,id);
   if(req.method==='GET'&&url.pathname==='/readyz'){
     if(!db.pool||!db.migrationReady) throw new ServiceError(503,'not_ready',db.pool?'database migration is not ready':'DATABASE_URL is not configured');
     await db.query('select 1');
@@ -125,24 +128,15 @@ export async function dispatch(req,res,id=requestId()){
     if(!ws.validProjectSlug(body.slug)) throw badRequest('invalid project slug');
     const replay=await db.beginProjectIdempotency(sub,idempotencyKey,requestHash(req.method,url.pathname,body));
     if(replay.replay) return json(res,replay.status,replay.response,id);
-    let owner; let name; let projectPersisted=false;
+    let result;
     try{
-      const repository=await gitea.createPrivateRepo(body.slug);
-      if(!repository) throw new ServiceError(409,'repo_create_failed','Gitea repository was not created');
-      owner=repository.owner?.login||repository.owner?.username||config.giteaOwner;
-      name=repository.name;
-      await gitea.addCollaborator(owner,name,username,'admin');
-      await gitea.initializeRepository(repository,actor(claims,username));
-      const record=(await db.query('insert into openspec_projects(gitea_owner,gitea_repository,default_branch,created_by) values($1,$2,$3,$4) returning *',[owner,name,repository.default_branch||'main',sub])).rows[0];
-      projectPersisted=true;
-      const response={id:record.id,owner:record.gitea_owner,repository:record.gitea_repository,revision:null};
-      await db.completeProjectIdempotency(sub,idempotencyKey,201,response);
-      return json(res,201,response,id);
+      result=await provisionProject({slug:body.slug,username,email:claims.email,createdBy:sub,initialPermission:'admin'});
     }catch(error){
-      if(!projectPersisted&&owner&&name) await gitea.deleteRepo(owner,name).catch(()=>undefined);
-      if(!projectPersisted) await db.abandonProjectIdempotency(sub,idempotencyKey).catch(()=>undefined);
+      await db.abandonProjectIdempotency(sub,idempotencyKey).catch(()=>undefined);
       throw error;
     }
+    await db.completeProjectIdempotency(sub,idempotencyKey,201,result.response);
+    return json(res,201,result.response,id);
   }
 
   if(parts.length<3||!db.uuid(parts[2])) throw notFound();

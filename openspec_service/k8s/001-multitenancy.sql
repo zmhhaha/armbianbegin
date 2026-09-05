@@ -56,3 +56,34 @@ create index if not exists openspec_idempotency_stale_idx
 create index if not exists openspec_project_idempotency_stale_idx
   on openspec_project_idempotency (subject, key, created_at)
   where status = 0;
+
+create table if not exists openspec_project_requests (
+  id uuid primary key default gen_random_uuid(),
+  request_owner text not null,
+  request_repository text not null,
+  issue_number integer not null,
+  requester_username text not null,
+  payload jsonb not null,
+  status text not null default 'pending',
+  approved_by text,
+  project_id uuid references openspec_projects(id),
+  error_message text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(request_owner, request_repository, issue_number)
+);
+
+create index if not exists openspec_project_requests_status_idx
+  on openspec_project_requests (status, updated_at);
+
+create table if not exists openspec_request_audit_events (
+  id uuid primary key default gen_random_uuid(),
+  request_owner text not null,
+  request_repository text not null,
+  issue_number integer,
+  actor text not null,
+  action text not null,
+  request_id uuid not null,
+  details jsonb,
+  created_at timestamptz not null default now()
+);

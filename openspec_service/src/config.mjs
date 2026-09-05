@@ -1,2 +1,26 @@
-export const config={port:Number(process.env.PORT||8080),databaseUrl:process.env.DATABASE_URL,giteaUrl:(process.env.GITEA_URL||'http://gitea.gitops.svc.cluster.local:3000').replace(/\/$/,''),giteaToken:process.env.GITEA_TOKEN,giteaUsername:process.env.GITEA_USERNAME||'openspec-service',giteaOwner:process.env.GITEA_OWNER||'openspec-service',workspaceRoot:process.env.WORKSPACE_ROOT||'/data/workspaces',oidcIssuer:process.env.OIDC_ISSUER,oidcAudience:process.env.OIDC_AUDIENCE||'ece3f52410b046fe0952',oidcJwksUrl:process.env.OIDC_JWKS_URL,bootstrapSubjects:new Set((process.env.BOOTSTRAP_ADMIN_SUBJECTS||'').split(',').map(x=>x.trim()).filter(Boolean)),gitUser:process.env.GIT_USER||'openspec-service',gitEmail:process.env.GIT_EMAIL||'openspec-service@localhost',openspecBin:process.env.OPENSPEC_BIN||'/app/node_modules/.bin/openspec',casdoorClientId:process.env.CASDOOR_CLIENT_ID||'ece3f52410b046fe0952',casdoorClientSecret:process.env.CASDOOR_CLIENT_SECRET,publicBaseUrl:process.env.PUBLIC_BASE_URL||'https://openspec.panghuer.top'};
-
+export const config={
+  port:Number(process.env.PORT||8080),
+  databaseUrl:process.env.DATABASE_URL,
+  giteaUrl:(process.env.GITEA_URL||'http://gitea.gitops.svc.cluster.local:3000').replace(/\/$/,''),
+  giteaPublicUrl:(process.env.GITEA_PUBLIC_URL||'https://gitea.panghuer.top').replace(/\/$/,''),
+  giteaToken:process.env.GITEA_TOKEN,
+  giteaUsername:process.env.GITEA_USERNAME||'openspec-service',
+  giteaOwner:process.env.GITEA_OWNER||'openspec-service',
+  giteaRequestOwner:process.env.GITEA_REQUEST_OWNER||process.env.GITEA_OWNER||'openspec-service',
+  giteaRequestRepository:process.env.GITEA_REQUEST_REPOSITORY||'project-requests',
+  giteaWebhookSecret:process.env.GITEA_WEBHOOK_SECRET,
+  giteaApprovalLabel:process.env.GITEA_APPROVAL_LABEL||'status:approved',
+  giteaFailureLabel:process.env.GITEA_FAILURE_LABEL||'status:failed',
+  scriptProfiles:new Set((process.env.GITEA_SCRIPT_PROFILES||'openspec-bootstrap-v1,openspec-validate-v1').split(',').map(x=>x.trim()).filter(Boolean)),
+  workspaceRoot:process.env.WORKSPACE_ROOT||'/data/workspaces',
+  oidcIssuer:process.env.OIDC_ISSUER,
+  oidcAudience:process.env.OIDC_AUDIENCE||'ece3f52410b046fe0952',
+  oidcJwksUrl:process.env.OIDC_JWKS_URL,
+  bootstrapSubjects:new Set((process.env.BOOTSTRAP_ADMIN_SUBJECTS||'').split(',').map(x=>x.trim()).filter(Boolean)),
+  gitUser:process.env.GIT_USER||'openspec-service',
+  gitEmail:process.env.GIT_EMAIL||'openspec-service@localhost',
+  openspecBin:process.env.OPENSPEC_BIN||'/app/node_modules/.bin/openspec',
+  casdoorClientId:process.env.CASDOOR_CLIENT_ID||'ece3f52410b046fe0952',
+  casdoorClientSecret:process.env.CASDOOR_CLIENT_SECRET,
+  publicBaseUrl:process.env.PUBLIC_BASE_URL||'https://openspec.panghuer.top'
+};
