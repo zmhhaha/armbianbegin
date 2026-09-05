@@ -1,33 +1,45 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 
 const run=promisify(execFile);
-const root=await fs.mkdtemp(path.join(os.tmpdir(),'openspec-service-test-'));
+const root=await fs.mkdtemp(path.join(process.cwd(),'openspec-service-test-'));
 process.env.WORKSPACE_ROOT=root;
 if(process.platform==='win32'){
   process.env.OPENSPEC_BIN=path.resolve('node_modules/.bin/openspec.CMD');
   process.env.PATH=path.dirname(process.execPath)+';'+process.env.PATH;
 }
 const ws=await import('../src/workspace.mjs');
+test.after(async()=>fs.rm(root,{recursive:true,force:true,maxRetries:5,retryDelay:100}));
 
 async function git(directory,args){return run('git',['-C',directory,...args]);}
 let fixtureNumber=0;
 async function fixture(){
   const id='fixture-'+(++fixtureNumber);
   const directory=path.join(root,id);
+  const remote=path.join(root,id+'-remote.git');
   await fs.mkdir(path.join(directory,'openspec','specs'),{recursive:true});
   await fs.mkdir(path.join(directory,'openspec','changes','archive'),{recursive:true});
   await fs.writeFile(path.join(directory,'openspec','config.yaml'),'schema: spec-driven\n');
   await git(directory,['init','-q']);
   await git(directory,['-c','user.name=test','-c','user.email=test@example.com','add','.']);
   await git(directory,['-c','user.name=test','-c','user.email=test@example.com','commit','-qm','init']);
+  await run('git',['init','--bare','-q',remote]);
+  await git(directory,['remote','add','origin',remote]);
+  await git(directory,['push','-q','origin','HEAD:refs/heads/main']);
   const revision=(await git(directory,['rev-parse','HEAD'])).stdout.trim();
-  return{id,directory,project:{id,gitea_owner:'openspec',gitea_repository:'test',default_branch:'main'},revision};
+  return{id,directory,remote,project:{id,gitea_owner:'openspec',gitea_repository:'test',default_branch:'main'},revision};
+}
+
+async function remoteRevision(remote){
+  return (await run('git',['--git-dir',remote,'rev-parse','refs/heads/main'])).stdout.trim();
+}
+
+async function remoteFile(remote,revision,file){
+  return (await run('git',['--git-dir',remote,'show',revision+':'+file])).stdout;
 }
 
 test('validates project and change identifiers',()=>{
@@ -42,6 +54,8 @@ test('creates bounded artifacts and records a Git revision',async()=>{
   const f=await fixture();
   const result=await ws.createChange(f.project,'add-login',{name:'alice',email:'alice@example.com'},f.revision,{files:{'proposal.md':'# Proposal\n','specs/auth/spec.md':'## ADDED Requirements\n'}});
   assert.notEqual(result.after,f.revision);
+  assert.equal(await remoteRevision(f.remote),result.after);
+  assert.equal(await remoteFile(f.remote,result.after,'openspec/changes/add-login/proposal.md'),'# Proposal\n');
   assert.equal(await fs.readFile(path.join(f.directory,'openspec','changes','add-login','proposal.md'),'utf8'),'# Proposal\n');
   assert.equal(await fs.readFile(path.join(f.directory,'openspec','changes','add-login','specs','auth','spec.md'),'utf8'),'## ADDED Requirements\n');
   const commit=(await git(f.directory,['log','-1','--format=%an <%ae>'])).stdout.trim();
@@ -56,6 +70,18 @@ test('rejects traversal and duplicate changes without leaving files',async()=>{
   await assert.rejects(ws.createChange(f.project,'safe-change',{name:'alice'},next,{files:{'proposal.md':'again'}}),error=>error.code==='conflict');
   assert.equal(await fs.stat(path.join(f.directory,'openspec','changes','safe-change','proposal.md')).then(()=>true),true);
   assert.equal(await fs.access(path.join(f.directory,'escape.md')).then(()=>true).catch(()=>false),false);
+});
+
+test('reports a Gitea push failure without claiming success',async()=>{
+  const f=await fixture();
+  await git(f.directory,['remote','set-url','origin',path.join(root,f.id+'-missing.git')]);
+  await assert.rejects(
+    ws.createChange(f.project,'push-failure',{name:'alice'},f.revision,{files:{'proposal.md':'local commit\n'}}),
+    error=>error.code==='dependency_unavailable' && error.status===503
+  );
+  assert.equal(await fs.readFile(path.join(f.directory,'openspec','changes','push-failure','proposal.md'),'utf8'),'local commit\n');
+  assert.notEqual(await git(f.directory,['rev-parse','HEAD']).then(result=>result.stdout.trim()),f.revision);
+  assert.equal(await remoteRevision(f.remote),f.revision);
 });
 
 test('lists nested specs and excludes the archive directory',async()=>{
@@ -91,11 +117,18 @@ test('archives a validated change, updates the main spec, and records the actor'
   assert.deepEqual(change.files.sort(),['.openspec.yaml','proposal.md','specs/identity/spec.md','tasks.md']);
   assert.equal(change.artifacts['proposal.md'],'# Proposal\n');
   assert.deepEqual(change.taskStatus,{total:1,completed:1,remaining:0});
-  const updated=await ws.updateChange(f.project,'add-login',{name:'alice',email:'alice@example.com'},changeRevision,{files:{'design.md':'# Design\n'}});
+  const applied=await ws.applySpecs(f.project,'add-login',{name:'alice',email:'alice@example.com'},changeRevision);
+  assert.equal(await remoteRevision(f.remote),applied.after);
+  assert.equal((await remoteFile(f.remote,applied.after,'openspec/specs/identity/spec.md')).includes('Casdoor login'),true);
+  const updated=await ws.updateChange(f.project,'add-login',{name:'alice',email:'alice@example.com'},applied.after,{files:{'design.md':'# Design\n'}});
   assert.notEqual(updated.after,changeRevision);
+  assert.equal(await remoteRevision(f.remote),updated.after);
+  assert.equal(await remoteFile(f.remote,updated.after,'openspec/changes/add-login/design.md'),'# Design\n');
   assert.equal((await ws.readChange(f.directory,'add-login')).artifacts['design.md'],'# Design\n');
   const result=await ws.archiveChange(f.project,'add-login',{name:'alice',email:'alice@example.com'},updated.after);
   assert.notEqual(result.after,changeRevision);
+  assert.equal(await remoteRevision(f.remote),result.after);
+  assert.equal((await remoteFile(f.remote,result.after,'openspec/specs/identity/spec.md')).includes('Casdoor login'),true);
   assert.equal(result.report.archive.change,'add-login');
   assert.equal('path' in result.report.archive,false);
   assert.match(await fs.readFile(path.join(f.directory,'openspec','specs','identity','spec.md'),'utf8'),/Casdoor login/);

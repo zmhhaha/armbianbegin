@@ -36,9 +36,22 @@ const maxArtifactBytes=512*1024;
 function dir(id){if(!safe(id)) throw badRequest('invalid workspace id');return path.join(config.workspaceRoot,id);}
 function gitEnv(){if(!config.giteaToken)return{};return{GIT_CONFIG_COUNT:'1',GIT_CONFIG_KEY_0:'http.extraHeader',GIT_CONFIG_VALUE_0:'Authorization: Basic '+Buffer.from(config.giteaUsername+':'+config.giteaToken).toString('base64')};}
 function gitIdentity(actor){const name=typeof actor?.name==='string'&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,100}$/.test(actor.name)?actor.name:config.gitUser;const email=typeof actor?.email==='string'&&/^[^\s<>@\r\n]+@[^\s<>@\r\n]+$/.test(actor.email)?actor.email:config.gitEmail;return{name,email};}
-async function git(directory,args){return run('git',['-C',directory,...args],{env:{...process.env,...gitEnv()},timeout:20000});}
+async function git(directory,args,{timeout=20000}={}){return run('git',['-C',directory,...args],{env:{...process.env,...gitEnv()},timeout});}
 async function assertClean(directory,paths){const status=(await git(directory,['status','--porcelain','--',...paths])).stdout.trim();if(status)throw conflict('workspace has uncommitted changes');}
-async function commit(directory,message,actor){const identity=gitIdentity(actor);await git(directory,['-c','user.name='+identity.name,'-c','user.email='+identity.email,'add','-A','--','openspec']);const status=(await git(directory,['status','--porcelain','--','openspec'])).stdout.trim();if(!status)return currentRevision(directory);await git(directory,['-c','user.name='+identity.name,'-c','user.email='+identity.email,'commit','-m',message]);return currentRevision(directory);}
+async function commit(directory,message,actor){const identity=gitIdentity(actor);await git(directory,['-c','user.name='+identity.name,'-c','user.email='+identity.email,'add','-A','--','openspec']);const status=(await git(directory,['status','--porcelain','--','openspec'])).stdout.trim();if(!status)return currentRevision(directory);await git(directory,['-c','user.name='+identity.name,'-c','user.email='+identity.email,'commit','-m',message,'--','openspec']);return currentRevision(directory);}
+function branchRef(projectRecord){
+  const branch=projectRecord.default_branch||'main';
+  if(typeof branch!=='string'||branch.length===0||branch.length>255||!/^[A-Za-z0-9._/-]+$/.test(branch)||branch.startsWith('/')||branch.endsWith('/')||branch.endsWith('.')||branch.includes('..')||branch.includes('@{')||branch.includes('//')) throw badRequest('invalid project default branch');
+  return 'refs/heads/'+branch;
+}
+async function push(directory,projectRecord){
+  try{
+    await git(directory,['push','origin','HEAD:'+branchRef(projectRecord)],{timeout:60000});
+  }catch(error){
+    const detail=String(error.stderr||error.message||'push failed').trim();
+    throw unavailable('Gitea push failed: '+detail);
+  }
+}
 async function runOpenSpec(args,options={}){
   if(windowsOpenSpecScript){
     try{await fs.access(windowsOpenSpecScript);return run(process.execPath,[windowsOpenSpecScript,...args],options);}catch(error){if(error.code!=='ENOENT')throw error;}
@@ -135,15 +148,20 @@ export async function applySpecs(projectRecord,changeId,actor,expected){
       try{snapshots.push({target:item.update.target,content:await fs.readFile(item.update.target,'utf8')});}
       catch(error){if(error.code==='ENOENT')snapshots.push({target:item.update.target});else throw error;}
     }
+    let committed=false;
     try{
       for(const item of built) await specsApply.writeUpdatedSpec(item.update,item.result.rebuilt,item.result.counts,{silent:true});
       const after=await commit(directory,'chore: apply specs from '+changeId,actor);
+      committed=true;
+      await push(directory,projectRecord);
       return{before,after,updates:built.map(item=>({id:item.update.id,counts:item.result.counts,warnings:item.result.warnings}))};
     }catch(error){
-      await git(directory,['reset','--','openspec']).catch(()=>undefined);
-      for(const snapshot of snapshots.slice().reverse()){
-        if(snapshot.content===undefined)await fs.rm(snapshot.target,{force:true}).catch(()=>undefined);
-        else await fs.writeFile(snapshot.target,snapshot.content).catch(()=>undefined);
+      if(!committed){
+        await git(directory,['reset','--','openspec']).catch(()=>undefined);
+        for(const snapshot of snapshots.slice().reverse()){
+          if(snapshot.content===undefined)await fs.rm(snapshot.target,{force:true}).catch(()=>undefined);
+          else await fs.writeFile(snapshot.target,snapshot.content).catch(()=>undefined);
+        }
       }
       throw error;
     }
@@ -160,6 +178,7 @@ export async function archiveChange(projectRecord,changeId,actor,expected){
     try{
       const result=await runOpenSpec(['archive',changeId,'--yes','--json'],{cwd:directory,env:{...process.env,OPENSPEC_TELEMETRY:'0',...gitEnv()},timeout:120000});
       const after=await commit(directory,'chore: archive change '+changeId,actor);
+      await push(directory,projectRecord);
       let report;
       try{report=JSON.parse(result.stdout);}catch{report={archive:result.stdout.trim()};}
       if(report&&typeof report==='object'){
@@ -169,6 +188,7 @@ export async function archiveChange(projectRecord,changeId,actor,expected){
       return{before,after,report};
     }catch(error){
       if(error.code==='ERR_CHILD_PROCESS_STDIO_MAXBUFFER') throw unavailable('OpenSpec archive output exceeded the limit');
+      if(error.status) throw error;
       const detail=redactOpenSpecOutput(error.stdout||error.stderr||error.message);
       throw Object.assign(new Error(detail),{status:422,code:'archive_failed'});
     }
@@ -193,8 +213,9 @@ export async function createChange(projectRecord,id,actor,expected,body={}){
       for(const [relative,content] of artifacts){const file=artifactPath(target,relative);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,content,{flag:'wx'});}
       await git(directory,['add',relativeTarget]);
       const identity=gitIdentity(actor);
-      await git(directory,['-c','user.name='+identity.name,'-c','user.email='+identity.email,'commit','-m','chore: create change '+id]);
+      await git(directory,['-c','user.name='+identity.name,'-c','user.email='+identity.email,'commit','-m','chore: create change '+id,'--','openspec']);
       committed=true;
+      await push(directory,projectRecord);
       return{before,after:await currentRevision(directory)};
     }catch(error){
       if(createdTarget&&!committed){await git(directory,['reset','--',relativeTarget]).catch(()=>undefined);await fs.rm(target,{recursive:true,force:true}).catch(()=>undefined);}
@@ -219,6 +240,7 @@ export async function updateChange(projectRecord,id,actor,expected,body={}){
     await containedDirectory(changesRoot,target);
     await assertClean(directory,['openspec']);
     const snapshots=[];
+    let committed=false;
     for(const [relative] of artifacts){
       const file=artifactPath(target,relative);
       try{await fs.mkdir(path.dirname(file),{recursive:true});const rootReal=await fs.realpath(target);const parentReal=await fs.realpath(path.dirname(file));if(parentReal!==rootReal&&!parentReal.startsWith(rootReal+path.sep))throw badRequest('artifact path is outside the change');}
@@ -230,13 +252,17 @@ export async function updateChange(projectRecord,id,actor,expected,body={}){
       for(const [relative,content] of artifacts)await fs.writeFile(artifactPath(target,relative),content);
       await git(directory,['add',relativeTarget]);
       const identity=gitIdentity(actor);
-      await git(directory,['-c','user.name='+identity.name,'-c','user.email='+identity.email,'commit','-m','chore: update change '+id]);
+      await git(directory,['-c','user.name='+identity.name,'-c','user.email='+identity.email,'commit','-m','chore: update change '+id,'--','openspec']);
+      committed=true;
+      await push(directory,projectRecord);
       return{before,after:await currentRevision(directory)};
     }catch(error){
-      await git(directory,['reset','--',relativeTarget]).catch(()=>undefined);
-      for(const snapshot of snapshots.slice().reverse()){
-        if(snapshot.content===undefined)await fs.rm(snapshot.file,{force:true}).catch(()=>undefined);
-        else await fs.writeFile(snapshot.file,snapshot.content).catch(()=>undefined);
+      if(!committed){
+        await git(directory,['reset','--',relativeTarget]).catch(()=>undefined);
+        for(const snapshot of snapshots.slice().reverse()){
+          if(snapshot.content===undefined)await fs.rm(snapshot.file,{force:true}).catch(()=>undefined);
+          else await fs.writeFile(snapshot.file,snapshot.content).catch(()=>undefined);
+        }
       }
       throw error;
     }
