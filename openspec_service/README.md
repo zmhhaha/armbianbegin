@@ -11,4 +11,6 @@ See `DEPLOY.md` for deployment. Vault 和 Cloudflare 清单分别在 `../vault/i
 
 Gitea 工单审批自动创建项目请参阅 [`PROJECT_REQUEST_APPROVAL.md`](PROJECT_REQUEST_APPROVAL.md)。
 
+项目申请入口：`https://openspec.panghuer.top/project-requests`。
+
 Agent 接入见 `MCP_INTEGRATION.md`；跑通过程遇到的问题与解决见 `TROUBLESHOOTING.md`。

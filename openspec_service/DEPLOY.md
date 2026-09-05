@@ -25,6 +25,43 @@ Gitea Issue 审批自动创建项目的配置和 Webhook 初始化见
 [`PROJECT_REQUEST_APPROVAL.md`](PROJECT_REQUEST_APPROVAL.md)。该流程需要额外的
 `gitea_webhook_secret` Vault 字段；在写入该字段前不要应用更新后的 ExternalSecret。
 
+### Gitea Issue 审批自动创建项目
+
+用户在 `https://openspec.panghuer.top/project-requests` 填写表单，服务自动在
+`openspec-service/project-requests` 创建标准 Issue。管理员检查申请后添加
+`status:approved` 标签。Gitea 通过 Issues Webhook 调用
+`POST /webhooks/gitea`，服务验证 HMAC 签名和审批人的 Admin/Owner 权限后，一次性创建
+Gitea 私有 OpenSpec store、初始化 `openspec/`、授权申请人、评论 `projectId` 并关闭 Issue。
+服务不轮询 Issue；重复 Webhook 使用 Issue 编号幂等处理，不会重复创建项目。
+
+部署顺序如下，必须先写入 Webhook secret：
+
+```bash
+WEBHOOK_SECRET="$(openssl rand -hex 32)"
+kubectl -n vault exec vault-0 -- vault kv patch secret/openspec/service \
+  gitea_webhook_secret="${WEBHOOK_SECRET}"
+
+bash openspec_service/scripts/build.sh
+bash openspec_service/scripts/deploy.sh --wait
+```
+
+然后创建申请仓库、Issue 模板、状态标签和 Gitea Webhook：
+
+```bash
+export GITEA_TOKEN='<受限 Gitea token>'
+export GITEA_WEBHOOK_SECRET='<与 Vault 中相同的 secret>'
+bash openspec_service/scripts/bootstrap-project-requests.sh
+```
+
+默认 Webhook 目标是集群内地址：
+
+```text
+http://openspec-service.openspec.svc.cluster.local:8080/webhooks/gitea
+```
+
+用户权限、Issue 模板、失败重试和安全边界见
+[`PROJECT_REQUEST_APPROVAL.md`](PROJECT_REQUEST_APPROVAL.md)。
+
 ## Vault 初始化
 
 `deploy.sh` 会按照 Hublog 的部署流程，使用现有 PostgreSQL 管理账号自动创建或更新

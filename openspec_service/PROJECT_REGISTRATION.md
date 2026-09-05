@@ -4,10 +4,10 @@
 
 当前版本的“项目”是一个独立的 Gitea 私有 OpenSpec store。应用源码可以继续放在 GitHub 或其他源码仓库中；OpenSpec Service 只管理该项目的 `specs`、`changes`、Git revision 和审计记录。
 
-当前流程由管理员通过脚本完成，尚未提供网页项目登记页面。
-
-如果希望由用户提交申请、管理员审批后自动创建项目，请参阅
+普通用户应通过项目申请表提交申请，管理员审批后由 Webhook 自动创建项目。完整流程请参阅
 [`PROJECT_REQUEST_APPROVAL.md`](PROJECT_REQUEST_APPROVAL.md)。
+
+部署表单入口后，用户直接访问 `https://openspec.panghuer.top/project-requests` 提交申请；服务会自动生成标准 Gitea Issue，用户不需要手动编写 Issue 模板。下面的脚本流程仅用于 bootstrap 管理员在没有表单或需要恢复映射文件时使用。
 
 ## 当前能力边界
 
@@ -247,6 +247,8 @@ bash openspec_service/scripts/register-project.sh \
 
 脚本会先查找已存在且当前用户可见的项目，不会重复创建 Gitea 仓库。
 
-## 与后续项目管理页面的关系
+## 表单与管理员脚本的关系
 
-后续的项目管理页面将把上述登记、Gitea 授权、同步状态和固定脚本运行集中到网页中。页面功能完成前，应继续使用本文档的管理员脚本流程；当前不要向 OpenSpec API 提交 GitHub URL、任意 shell 命令或 GitHub token。
+项目申请和审批使用 [`PROJECT_REQUEST_APPROVAL.md`](PROJECT_REQUEST_APPROVAL.md) 中的表单流程。本文档中的 `register-project.sh` 仅用于 bootstrap 管理员直接创建项目，或在已有项目中恢复 `.openspec-project.json` 映射文件；普通用户不需要执行该脚本，也不需要手动编辑 Gitea Issue。
+
+无论使用表单还是管理员脚本，都不要向 OpenSpec API 提交任意 shell 命令、GitHub token 或其他凭据。

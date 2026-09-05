@@ -5,7 +5,9 @@ OpenSpec Service 支持通过 Gitea Issue 提交项目创建申请。该流程�
 ## 流程
 
 ```text
-用户在 project-requests 创建 Issue
+用户打开 OpenSpec 项目申请表并登录 Casdoor
+        ↓
+服务端校验表单并自动创建标准 Gitea Issue
         ↓
 管理员检查申请并添加 status:approved
         ↓  Gitea Issues Webhook
@@ -19,6 +21,18 @@ OpenSpec Service 验签并确认审批人是仓库 Admin/Owner
 ```
 
 服务不会定时扫描 Gitea，也不会因为普通用户修改 Issue 或添加标签而创建项目。
+
+## 用户提交表单
+
+用户访问：
+
+```text
+https://openspec.panghuer.top/project-requests
+```
+
+登录 Casdoor 后填写项目显示名称、项目 slug、GitHub 公共仓库地址、默认 ref、脚本 profile 和项目说明。服务端会再次校验所有字段，用户不需要编辑 JSON，也不需要手动创建 Gitea Issue。
+
+提交成功后，页面返回 Gitea Issue 地址和 `pending` 状态。该 Issue 是后续审批和审计记录，用户可以打开它查看进度，但不应手动修改结构化字段或添加审批标签。
 
 ## 申请仓库
 
@@ -34,7 +48,7 @@ openspec-service/project-requests
 gitea/project-requests/ISSUE_TEMPLATE/project-request.md
 ```
 
-申请正文包含一个受限 JSON 块：
+表单提交后，服务会在 Issue 正文中写入一个受限 JSON 块：
 
 ```text
 <!-- openspec-project-request:v1
@@ -118,11 +132,11 @@ GITEA_URL='http://gitea.gitops.svc.cluster.local:3000' \
 bash openspec_service/scripts/bootstrap-project-requests.sh
 ```
 
-管理员需要确保申请用户可以在 `project-requests` 仓库创建 Issue，但不能修改仓库 Webhook 或仓库设置。只有该仓库的 Admin/Owner 添加 `status:approved` 才会触发创建。
+管理员需要确保申请用户可以访问 `project-requests`，但不能修改仓库 Webhook 或仓库设置。表单 API 使用用户自己的 Casdoor JWT 创建 Issue；只有该仓库的 Admin/Owner 添加 `status:approved` 才会触发创建。
 
 ## 管理员审批
 
-1. 用户使用 Issue 模板提交申请。
+1. 用户在 `https://openspec.panghuer.top/project-requests` 提交表单。
 2. 管理员检查 GitHub URL、slug、ref、脚本 profile 和项目成员。
 3. 管理员添加 `status:approved` 标签。
 4. 服务验证 Webhook HMAC 和审批人的 Gitea 权限。

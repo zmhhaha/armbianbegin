@@ -87,3 +87,17 @@ create table if not exists openspec_request_audit_events (
   details jsonb,
   created_at timestamptz not null default now()
 );
+
+create table if not exists openspec_request_idempotency (
+  subject text not null,
+  key text not null,
+  request_hash text not null,
+  status integer not null,
+  response jsonb,
+  created_at timestamptz not null default now(),
+  primary key (subject, key)
+);
+
+create index if not exists openspec_request_idempotency_stale_idx
+  on openspec_request_idempotency (subject, key, created_at)
+  where status = 0;

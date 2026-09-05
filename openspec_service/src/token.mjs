@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import {config} from './config.mjs';
+import {projectRequestFormHtml} from './project-form.mjs';
 
 // GET /token —— 网页版 JWT 领取器。
 // 用户浏览器打开 -> 302 到 Casdoor 授权 -> 回调带 code -> 服务端换 access_token -> 渲染 JWT 页面。
@@ -7,8 +8,8 @@ import {config} from './config.mjs';
 //       服务持有 CASDOOR_CLIENT_SECRET（从 Vault 注入）。
 
 const pendingStates=new Map();
-function issueState(){const s=crypto.randomUUID();pendingStates.set(s,{exp:Date.now()+10*60*1000});return s;}
-function consumeState(s){if(typeof s!=='string'||s.length===0)return false;const e=pendingStates.get(s);if(!e||e.exp<Date.now())return false;pendingStates.delete(s);return true;}
+function issueState(returnTo){const s=crypto.randomUUID();pendingStates.set(s,{exp:Date.now()+10*60*1000,returnTo});return s;}
+function consumeState(s){if(typeof s!=='string'||s.length===0)return null;const e=pendingStates.get(s);if(!e||e.exp<Date.now())return null;pendingStates.delete(s);return e;}
 
 function decodeExp(token){
   try{
@@ -51,14 +52,16 @@ export async function tokenHandler(req,res){
   const redirectUri=`${config.publicBaseUrl}/token`;
   const send=(status,body)=>{res.writeHead(status,{'content-type':'text/html; charset=utf-8'});return res.end(body);};
   if(!config.casdoorClientSecret) return send(503,'<h1>未配置 CASDOOR_CLIENT_SECRET</h1><p>请联系管理员在 Vault 中配置 casdoor_client_secret 后重启服务。</p>');
+  const returnTo=url.searchParams.get('return')==='/project-requests'?'/project-requests':null;
   if(!url.searchParams.has('code')){
-    const state=issueState();
+    const state=issueState(returnTo);
     const authorize=`${config.oidcIssuer}/login/oauth/authorize?client_id=${encodeURIComponent(config.casdoorClientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=openid%20profile%20email&state=${state}`;
     res.writeHead(302,{location:authorize});
     return res.end();
   }
   const code=url.searchParams.get('code');const state=url.searchParams.get('state');
-  if(!consumeState(state)) return send(400,'<p>state 校验失败，请重新打开 <a href="/token">/token</a>。</p>');
+  const stateInfo=consumeState(state);
+  if(!stateInfo) return send(400,'<p>state 校验失败，请重新打开 <a href="/token">/token</a>。</p>');
   let data;
   try{
     const r=await fetch(`${config.oidcIssuer}/api/login/oauth/access_token`,{
@@ -70,5 +73,6 @@ export async function tokenHandler(req,res){
   }catch(e){return send(502,'<p>连接 Casdoor 失败：'+e.message+'</p>');}
   const token=data?.access_token;
   if(!token) return send(400,'<p>换取 token 失败：'+(data?.error_description||data?.error||'unknown')+'。请重新打开 <a href="/token">/token</a>。</p>');
+  if(stateInfo.returnTo==='/project-requests')return send(200,projectRequestFormHtml(token));
   return send(200,html(token));
 }

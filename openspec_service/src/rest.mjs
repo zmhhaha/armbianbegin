@@ -7,6 +7,7 @@ import * as ws from './workspace.mjs';
 import {bindClaims} from './identity.mjs';
 import {provisionProject} from './project-provisioning.mjs';
 import {handleGiteaWebhook} from './project-webhook.mjs';
+import {buildProjectRequest,projectRequestEntryHtml} from './project-form.mjs';
 import {ServiceError,badRequest,notFound,forbidden} from './errors.mjs';
 
 const ranks={none:0,read:1,write:2,admin:3,owner:4};
@@ -15,6 +16,11 @@ const json=(res,status,body,id)=>{
   if(id) res.setHeader('x-request-id',id);
   res.writeHead(status,{'content-type':'application/json'});
   res.end(JSON.stringify(body));
+};
+const html=(res,status,body,id)=>{
+  if(id)res.setHeader('x-request-id',id);
+  res.writeHead(status,{'content-type':'text/html; charset=utf-8'});
+  res.end(body);
 };
 const requestId=()=>crypto.randomUUID();
 
@@ -108,6 +114,7 @@ export async function dispatch(req,res,id=requestId()){
   const url=new URL(req.url,'http://localhost');
   const parts=url.pathname.split('/').filter(Boolean);
   if(req.method==='GET'&&url.pathname==='/healthz') return json(res,200,{status:'ok'},id);
+  if(req.method==='GET'&&url.pathname==='/project-requests') return html(res,200,projectRequestEntryHtml(),id);
   if(req.method==='POST'&&url.pathname==='/webhooks/gitea') return handleGiteaWebhook(req,res,id);
   if(req.method==='GET'&&url.pathname==='/readyz'){
     if(!db.pool||!db.migrationReady) throw new ServiceError(503,'not_ready',db.pool?'database migration is not ready':'DATABASE_URL is not configured');
@@ -117,6 +124,26 @@ export async function dispatch(req,res,id=requestId()){
   const claims=await authenticate(req);
   const sub=subject(claims);
   const username=await bindClaims(claims);
+  if(req.method==='POST'&&url.pathname==='/v1/project-requests'){
+    const idempotencyKey=req.headers['idempotency-key'];
+    if(!idempotencyKey||idempotencyKey.length>200)throw badRequest('Idempotency-Key header is required');
+    const body=await payload(req);
+    const built=buildProjectRequest(body);
+    const replay=await db.beginRequestIdempotency(sub,idempotencyKey,requestHash(req.method,url.pathname,body));
+    if(replay.replay)return json(res,replay.status,replay.response,id);
+    try{
+      const issue=await gitea.createIssue(config.giteaRequestOwner,config.giteaRequestRepository,{title:built.title,body:built.body});
+      if(!issue?.number)throw new ServiceError(503,'issue_create_failed','Gitea project request Issue was not created');
+      await gitea.addIssueLabels(config.giteaRequestOwner,config.giteaRequestRepository,issue.number,['status:pending']).catch(()=>undefined);
+      const response={status:'pending',issueNumber:issue.number,issueUrl:`${config.giteaPublicUrl}/${config.giteaRequestOwner}/${config.giteaRequestRepository}/issues/${issue.number}`};
+      await db.completeRequestIdempotency(sub,idempotencyKey,201,response);
+      await db.auditRequest({owner:config.giteaRequestOwner,repository:config.giteaRequestRepository,issueNumber:issue.number,actor:username,action:'project_request_submitted',requestId:id,details:{slug:built.request.slug}}).catch(()=>undefined);
+      return json(res,201,response,id);
+    }catch(error){
+      await db.abandonRequestIdempotency(sub,idempotencyKey).catch(()=>undefined);
+      throw error;
+    }
+  }
   if(parts[0]!=='v1'||parts[1]!=='projects') throw notFound();
   if(req.method==='GET'&&parts.length===2) return json(res,200,{items:await db.visibleProjects(sub,gitea)},id);
 
