@@ -11,7 +11,7 @@
 
 ## 0. 快速定位
 
-部署前/排障第一步先跑预检脚本（只读，自动检查本手册里 80% 的项）：
+部署前/排障第一步先跑预检脚本（不修改集群状态或业务数据，自动检查本手册里 80% 的项）：
 
 ```bash
 # master 上，master 的 /tmp/casdoor.jwt 存有已拿到的 JWT 时可带 --jwt 验证 claims
@@ -120,6 +120,20 @@ Deployment/PVC/PostgreSQL。
   实测 `zmhhaha` / `zmh_haha` 均返回 200。
 - 规范上仍建议 `GITEA_USERNAME` 填 token 所属的 **Gitea 登录名**（如 `zmh_haha`），
   便于审计。该值在 Vault `secret/openspec/service` 的 `gitea_username`。
+
+### 2.4 表单提交返回 `Gitea API returned 403`
+- **现象**：项目申请表可以打开，提交后显示 `Gitea API returned 403`。
+- **原因**：表单由 OpenSpec 服务端使用 Vault 中的 `GITEA_TOKEN` 创建 Issue；浏览器登录用户的
+  Gitea Developer/Write 权限不会改变服务 Token 的 scope。Gitea 返回类似：
+  `required=[write:issue], token scope=write:organization,write:repository,read:user`。
+- **解决**：为服务账号重新创建 Gitea Token，至少授予 `read:user`、`read:issue`、`write:issue`、
+  `write:repository`、`write:organization`，然后使用 `vault kv patch` 更新凭据并重启：
+  ```bash
+  GITEA_TOKEN='<new-token>' GITEA_USERNAME='zmh_haha' \
+    bash openspec_service/scripts/provision-gitea.sh
+  bash openspec_service/scripts/preflight.sh
+  ```
+  `provision-gitea.sh` 会保留已有 `database_url` 和 `gitea_webhook_secret`。更新后再重新打开表单提交。
 
 ---
 

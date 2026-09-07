@@ -10,7 +10,15 @@ async function api(p,opt={}) {
   } catch(e) { throw unavailable('Gitea API unavailable: '+(e.name==='AbortError'?'request timed out':e.message)); }
   finally { clearTimeout(timer); }
   if(r.status===404) return null;
-  if(!r.ok) throw unavailable('Gitea API returned '+r.status);
+  if(!r.ok){
+    let detail='';
+    try{
+      const payload=await r.clone().json();
+      detail=typeof payload?.message==='string'?payload.message:'';
+    }catch{ /* Gitea may return a non-JSON error body. */ }
+    detail=detail.replace(/(token|secret|password|authorization)\s*[:=]\s*[^\s,;]+/gi,'$1=[redacted]').slice(0,300);
+    throw unavailable(`Gitea API returned ${r.status}${detail?`: ${detail}`:''}`);
+  }
   return r.status===204?null:r.json();
 }
 const enc=x=>encodeURIComponent(x);

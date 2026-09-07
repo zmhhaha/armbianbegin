@@ -73,6 +73,10 @@ kubectl apply -f service.yaml $K
 # 渲染 deployment 并替换镜像名
 sed "s|cloudflare-tunnel-operator:latest|${IMAGE}|g" deployment.yaml | kubectl apply $K -f -
 
+# Rebuilding the same :latest image does not change the Deployment template.
+kubectl rollout restart deployment/cloudflared -n cloudflare-tunnel $K
+kubectl rollout status deployment/cloudflared -n cloudflare-tunnel $K --timeout=180s
+
 # ============================================================
 # 5. 验证
 # ============================================================

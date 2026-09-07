@@ -2,12 +2,12 @@
 set -Eeuo pipefail
 
 # ============================================================
-# OpenSpec 服务部署/运行前预检（只读，不修改集群状态）
+# OpenSpec 服务部署/运行前预检（不修改集群状态或业务数据；Issue 写权限检查使用不存在的 #0）
 # 在 master（或持有 kubeconfig 的机器）上运行：
 #   bash openspec_service/scripts/preflight.sh [--jwt <casdoor_jwt>]
 # 退出码：0 = 全部通过；1 = 存在 FAIL。
 # 可选环境变量：KUBECTL, KUBECONFIG, CASDOOR_JWT, OIDC_AUDIENCE,
-#   OIDC_ISSUER, GITEA_OWNER, CHECK_USER, NAMESPACE
+#   OIDC_ISSUER, GITEA_OWNER, GITEA_REQUEST_REPOSITORY, CHECK_USER, NAMESPACE
 # ============================================================
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,6 +25,7 @@ CASDOOR_JWT="${CASDOOR_JWT:-}"
 EXPECTED_AUDIENCE="${OIDC_AUDIENCE:-ece3f52410b046fe0952}"   # panghu-suite client_id
 OIDC_ISSUER="${OIDC_ISSUER:-https://auth.panghuer.top}"
 GITEA_OWNER="${GITEA_OWNER:-openspec-service}"
+GITEA_REQUEST_REPOSITORY="${GITEA_REQUEST_REPOSITORY:-project-requests}"
 NAMESPACE="${NAMESPACE:-openspec}"
 CHECK_USER="${CHECK_USER:-zmh_haha}"   # 需要能看到邮箱的 Gitea 用户
 
@@ -130,6 +131,59 @@ else
   org="$(curl -fsS -m 8 -H "Authorization: token ${GITEA_TOKEN}" "${GITEA_URL}/api/v1/orgs/${GITEA_OWNER}" 2>/dev/null || true)"
   [[ -n "${org}" ]] && ok "Gitea 组织 ${GITEA_OWNER} 存在" \
     || bad "Gitea 组织 ${GITEA_OWNER} 不存在或对 token 不可见"
+  request_repo="$(curl -fsS -m 8 -H "Authorization: token ${GITEA_TOKEN}" "${GITEA_URL}/api/v1/repos/${GITEA_OWNER}/${GITEA_REQUEST_REPOSITORY}" 2>/dev/null || true)"
+  if [[ -n "${request_repo}" ]]; then
+    ok "Gitea 申请仓库 ${GITEA_OWNER}/${GITEA_REQUEST_REPOSITORY} 可访问"
+    issue_probe_file="$(mktemp)"
+    issue_probe_code="$(curl -sS -m 8 -o "${issue_probe_file}" -w '%{http_code}' \
+      -H "Authorization: token ${GITEA_TOKEN}" \
+      "${GITEA_URL}/api/v1/repos/${GITEA_OWNER}/${GITEA_REQUEST_REPOSITORY}/issues?state=open&limit=1" || true)"
+    issue_probe_message="$(python3 - "${issue_probe_file}" <<'PY'
+import json,sys
+try:
+    with open(sys.argv[1], encoding='utf-8') as f:
+        value=json.load(f)
+    print(value.get('message','') if isinstance(value,dict) else '')
+except Exception:
+    print('')
+PY
+    )"
+    rm -f "${issue_probe_file}"
+    if [[ "${issue_probe_code}" == 2* ]]; then
+      ok "Gitea token 包含 read:issue（可读取申请 Issue）"
+    elif [[ "${issue_probe_message}" == *"required=[read:issue]"* ]]; then
+      bad "Gitea token 缺少 read:issue；请重新创建 Token 并授予 Issue: Read"
+    else
+      bad "Gitea 申请仓库 Issue API 检查失败（HTTP ${issue_probe_code}）"
+    fi
+
+    # POST to impossible issue #0 is authorization-only and cannot create data.
+    write_probe_file="$(mktemp)"
+    write_probe_code="$(curl -sS -m 8 -o "${write_probe_file}" -w '%{http_code}' -X POST \
+      -H "Authorization: token ${GITEA_TOKEN}" -H 'Content-Type: application/json' \
+      "${GITEA_URL}/api/v1/repos/${GITEA_OWNER}/${GITEA_REQUEST_REPOSITORY}/issues/0/comments" \
+      --data '{"body":"openspec scope probe"}' || true)"
+    write_probe_message="$(python3 - "${write_probe_file}" <<'PY'
+import json,sys
+try:
+    with open(sys.argv[1], encoding='utf-8') as f:
+        value=json.load(f)
+    print(value.get('message','') if isinstance(value,dict) else '')
+except Exception:
+    print('')
+PY
+    )"
+    rm -f "${write_probe_file}"
+    if [[ "${write_probe_code}" == "404" ]]; then
+      ok "Gitea token 包含 write:issue（授权检查通过，Issue #0 不存在）"
+    elif [[ "${write_probe_message}" == *"required=[write:issue]"* ]]; then
+      bad "Gitea token 缺少 write:issue；请重新创建 Token 并授予 Issue: Write"
+    else
+      bad "Gitea Issue 写权限检查失败（HTTP ${write_probe_code}）"
+    fi
+  else
+    bad "Gitea 申请仓库 ${GITEA_OWNER}/${GITEA_REQUEST_REPOSITORY} 不存在或对 token 不可见"
+  fi
   search="$(curl -fsS -m 8 -H "Authorization: token ${GITEA_TOKEN}" "${GITEA_URL}/api/v1/users/search?q=${CHECK_USER}" 2>/dev/null || true)"
   if [[ -n "${search}" ]]; then
     email="$(printf '%s' "${search}" | python3 -c "import json,sys; d=json.load(sys.stdin); u=next((x for x in d.get('data',[]) if x.get('login')=='${CHECK_USER}'),{}); print(u.get('email') or '')")"

@@ -92,7 +92,7 @@ GITEA_TOKEN='<受限 Gitea token>' GITEA_USERNAME='zmh_haha' \
    ```
 3. 应用 ExternalSecret 并重启（`scripts/deploy.sh --wait` 或手动 force-sync + restart）。
 
-`gitea_provision_token` 只用于创建/初始化 OpenSpec 私有仓库、查询 Gitea 用户邮箱和查询 collaborator 权限，不得使用 Gitea 全局管理员 token。创建 Token 时至少授予 `read:user` 以及仓库创建/内容写入/协作者管理所需的最小权限。`gitea_username` 必须是该 token 所属的 Gitea 登录名，用于 Git HTTP Basic 认证；它不是组织名。你的组织名 `openspec-service` 配置在 `k8s/core.yaml` 的 `GITEA_OWNER`。
+`gitea_provision_token` 只用于创建/初始化 OpenSpec 私有仓库、创建申请 Issue、添加标签、评论/关闭 Issue、查询 Gitea 用户邮箱和查询 collaborator 权限，不得使用 Gitea 全局管理员 token。创建 Token 时至少授予以下最小 scope：`read:user`、`read:issue`、`write:issue`、`write:repository`、`write:organization`。其中 `write:issue` 是表单自动创建申请 Issue 所必需的；只有 `write:repository` 会导致表单返回 Gitea 403。`gitea_username` 必须是该 token 所属的 Gitea 登录名，用于 Git HTTP Basic 认证；它不是组织名。你的组织名 `openspec-service` 配置在 `k8s/core.yaml` 的 `GITEA_OWNER`。
 
 Casdoor 用户名不需要与 Gitea 用户名相同。服务首次看到某个 Casdoor `sub` 时，会用 JWT 的 `email` claim 调用 Gitea 用户搜索接口，要求邮箱精确匹配且只对应一个 Gitea 用户，然后保存实际 Gitea login；后续请求使用这个不可变绑定。Casdoor 应用需要启用 `email` scope，并确保每个 JWT 带有可信邮箱。
 

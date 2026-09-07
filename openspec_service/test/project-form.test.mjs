@@ -5,11 +5,12 @@ process.env.GITEA_SCRIPT_PROFILES='openspec-bootstrap-v1,openspec-validate-v1';
 const {buildProjectRequest,projectRequestEntryHtml,projectRequestFormHtml}=await import('../src/project-form.mjs?form-test');
 
 test('builds a canonical Gitea issue body from form data',()=>{
-  const result=buildProjectRequest({displayName:'My app',slug:'my-app',sourceUrl:'https://github.com/example/my-app',ref:'main',scriptProfileId:'openspec-bootstrap-v1',description:'Initial project'});
+  const result=buildProjectRequest({displayName:'My app',slug:'my-app',sourceUrl:'https://github.com/example/my-app',ref:'main',scriptProfileId:'openspec-bootstrap-v1',description:'Initial project'},{requesterUsername:'xmx'});
   assert.equal(result.title,'[project-request] My app');
   assert.match(result.body,/openspec-project-request:v1/);
   assert.match(result.body,/"slug": "my-app"/);
   assert.equal(result.request.initialPermission,'admin');
+  assert.equal(result.request.requesterUsername,'xmx');
 });
 
 test('rejects unsupported form fields and unsafe values',()=>{

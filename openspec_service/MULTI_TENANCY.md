@@ -80,7 +80,7 @@ POST /v1/projects/{projectId}/changes/{changeId}/archive
 
 ## Gitea 与 Vault 生命周期
 
-创建项目由 bootstrap owner 发起，但服务使用受限 Gitea service account 创建私有仓库。注意 Gitea access token 按权限类型作用域（如 `write:repository`），不能按仓库限定；项目级用户权限仍由每个仓库 ACL 决定，服务账号只用于仓库创建、clone 和 ACL 查询。MVP 将该服务级 token 从 `secret/openspec/service` 通过 ExternalSecret 注入 Pod；用户 token 和按项目 Vault 凭据留作后续增强，不能在 MVP 中误当作独立 token。
+创建项目由管理员审批触发，但服务使用受限 Gitea service account 创建申请 Issue 和私有仓库。注意 Gitea access token 按权限类型作用域（如 `write:repository`、`write:issue`），不能按仓库限定；项目级用户权限仍由每个仓库 ACL 决定，服务账号创建申请后必须保留真实提交人的 Casdoor-to-Gitea 身份映射，不能把服务账号误当作项目申请人。MVP 将该服务级 token 从 `secret/openspec/service` 通过 ExternalSecret 注入 Pod；用户 token 和按项目 Vault 凭据留作后续增强，不能在 MVP 中误当作独立 token。
 
 ## Kubernetes 存储
 

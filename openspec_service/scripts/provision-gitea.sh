@@ -10,7 +10,8 @@ set -Eeuo pipefail
 #   GITEA_TOKEN=xxx GITEA_USERNAME=zmh_haha bash openspec_service/scripts/provision-gitea.sh
 # 环境变量：
 #   GITEA_URL      默认 https://gitea.panghuer.top
-#   GITEA_TOKEN    必需（Gitea 用户 token，需 read:user + 仓库创建/内容/collaborator）
+#   GITEA_TOKEN    必需（Gitea 用户 token，需 read:user、read:issue、write:issue，
+#                   以及仓库创建/内容/collaborator 所需权限）
 #   GITEA_USERNAME 必需（token 所属 Gitea 登录名，例如 zmh_haha）
 #   GITEA_OWNER    默认 openspec-service
 #   CHECK_USER     默认 ${GITEA_USERNAME}，用于验证邮箱可见性

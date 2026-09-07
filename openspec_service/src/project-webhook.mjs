@@ -41,8 +41,8 @@ export async function handleGiteaWebhook(req,res,id=crypto.randomUUID()){
   if(!repositoryMatches(payload)||!isApprovalEvent(event,payload))return json(res,202,{status:'ignored'},id);
   const number=issueNumber(payload);
   const approver=payload.sender?.login||payload.sender?.username;
-  const requester=payload.issue?.user?.login||payload.issue?.user?.username;
-  if(!number||!approver||!requester)return json(res,202,{status:'ignored',reason:'missing_issue_actor'},id);
+  const issueAuthor=payload.issue?.user?.login||payload.issue?.user?.username;
+  if(!number||!approver||!issueAuthor)return json(res,202,{status:'ignored',reason:'missing_issue_actor'},id);
   const requestOwner=config.giteaRequestOwner;
   const requestRepository=config.giteaRequestRepository;
   const permission=await gitea.permission(requestOwner,requestRepository,approver);
@@ -57,6 +57,9 @@ export async function handleGiteaWebhook(req,res,id=crypto.randomUUID()){
     await issueMessage(requestOwner,requestRepository,number,`项目申请未通过校验：${safeError(error)}`,{label:config.giteaFailureLabel});
     return json(res,202,{status:'rejected',reason:'invalid_request'},id);
   }
+  // The service account creates the Issue, so use the authenticated submitter
+  // embedded in the canonical request block instead of the Issue author.
+  const requester=request.requesterUsername||issueAuthor;
   const claimed=await db.claimProjectRequest({owner:requestOwner,repository:requestRepository,issueNumber:number,requesterUsername:requester,payload:request,approvedBy:approver});
   if(!claimed.claimed)return json(res,202,{status:claimed.request.status,requestId:claimed.request.id,projectId:claimed.request.project_id||null},id);
   const storedRequest=claimed.request.payload;

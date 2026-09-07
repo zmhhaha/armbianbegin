@@ -55,6 +55,20 @@ kubectl apply $K -f crds.yaml
 kubectl apply $K -f rbac.yaml
 kubectl apply $K -f deployment.yaml
 
+# The operator itself is built with a reusable :latest tag. `apply` does not
+# replace live Pods when the image string is unchanged.
+kubectl rollout restart deployment/cf-tunnel-operator -n cf-tunnel-operator $K
+kubectl rollout status deployment/cf-tunnel-operator -n cf-tunnel-operator $K --timeout=180s
+
+# Tunnel CRs created before this deploy keep their generated cloudflared
+# Deployment template unchanged. Restart them explicitly so their
+# imagePullPolicy: Always pulls the rebuilt cloudflared-k8s:latest image.
+while IFS= read -r deployment; do
+    [ -n "${deployment}" ] || continue
+    kubectl rollout restart "${deployment}" $K
+    kubectl rollout status "${deployment}" $K --timeout=180s
+done < <(kubectl get deployment --all-namespaces -l app=cloudflared -o name $K)
+
 sleep 10
 echo ""
 kubectl get pods -n cf-tunnel-operator $K

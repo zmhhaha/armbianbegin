@@ -2,11 +2,20 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 process.env.GITEA_TOKEN='test-token';
-const {usernameByEmail}=await import('../src/gitea.mjs?identity-test');
+const {createIssue,usernameByEmail}=await import('../src/gitea.mjs?identity-test');
 
 function mockResponse(body,status=200){
-  return {status,ok:status>=200&&status<300,json:async()=>body};
+  return {status,ok:status>=200&&status<300,json:async()=>body,clone(){return this}};
 }
+
+test('includes the Gitea scope detail in dependency errors',async()=>{
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>mockResponse({message:'token does not have at least one of required scope(s), required=[write:issue], token scope=write:repository,read:user'},403);
+  try{
+    await assert.rejects(createIssue('openspec-service','project-requests',{title:'test',body:'test'}),error=>
+      error.code==='dependency_unavailable'&&error.message.includes('required=[write:issue]')&&error.message.includes('token scope=write:repository'));
+  }finally{globalThis.fetch=original;}
+});
 
 test('resolves the unique Gitea login by exact email',async()=>{
   const original=globalThis.fetch;

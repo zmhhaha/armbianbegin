@@ -53,6 +53,10 @@ export async function claimProjectRequest({owner,repository,issueNumber,requeste
   const claimed=await query("update openspec_project_requests set status='provisioning',approved_by=$2,updated_at=now() where id=$1 and (status in ('pending','failed') or (status='provisioning' and updated_at < now() - interval '15 minutes')) returning *",[current.id,approvedBy]);
   return{claimed:Boolean(claimed.rows[0]),request:claimed.rows[0]||current};
 }
+export async function recordProjectRequest({owner,repository,issueNumber,requesterUsername,payload}){
+  const inserted=await query('insert into openspec_project_requests(request_owner,request_repository,issue_number,requester_username,payload) values($1,$2,$3,$4,$5) on conflict(request_owner,request_repository,issue_number) do nothing returning *',[owner,repository,issueNumber,requesterUsername,JSON.stringify(payload)]);
+  return inserted.rows[0]||(await query('select * from openspec_project_requests where request_owner=$1 and request_repository=$2 and issue_number=$3',[owner,repository,issueNumber])).rows[0]||null;
+}
 export async function completeProjectRequest(id,{status,projectId=null,errorMessage=null}){return(await query('update openspec_project_requests set status=$2,project_id=$3,error_message=$4,updated_at=now() where id=$1 returning *',[id,status,projectId,errorMessage])).rows[0];}
 export async function auditRequest({owner,repository,issueNumber=null,actor,action,requestId,details={}}){await query('insert into openspec_request_audit_events(request_owner,request_repository,issue_number,actor,action,request_id,details) values($1,$2,$3,$4,$5,$6,$7)',[owner,repository,issueNumber,actor,action,requestId,JSON.stringify(details)]);}
 export async function visibleProjects(subject,gitea){const username=await identity(subject);if(!username)return[];const rows=(await query('select * from openspec_projects order by created_at desc')).rows;const result=[];for(const p of rows){const permission=await gitea.permission(p.gitea_owner,p.gitea_repository,username);if(permission!=='none')result.push({id:p.id,owner:p.gitea_owner,repository:p.gitea_repository,permission});}return result;}

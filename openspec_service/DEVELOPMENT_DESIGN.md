@@ -87,7 +87,7 @@ Casdoor 用户（用户名 alice-casdoor，邮箱 alice@example.com）
 
 首次请求时，服务使用 JWT 的 `email` claim 调用 Gitea 用户搜索接口，要求精确匹配且只有一个结果，然后把实际 Gitea login 写入 `openspec_identity_map`。映射的主键是 Casdoor `sub`，实际 Gitea login 只在首次绑定时解析；绑定完成后，后续 ACL 查询使用数据库中保存的 login，即使用户修改 Casdoor 邮箱也不会自动切换到另一个 Gitea 账号。没有邮箱、邮箱未精确匹配、匹配多个 Gitea 用户或 Gitea API 不返回可核对邮箱时，服务拒绝绑定。
 
-用于用户搜索的服务账号 Token 必须具备最小的 Gitea `read:user` 能力，以及创建私有仓库、初始化文件和查询 collaborator 权限所需的仓库权限；不使用全局管理员 Token。Casdoor 应用必须申请 `email` scope，并确保 JWT 包含可信的 `email` claim。
+用于用户搜索和项目申请的服务账号 Token 必须具备最小的 Gitea `read:user`、`read:issue`、`write:issue` 能力，以及创建私有仓库、初始化文件、配置 Webhook 和查询 collaborator 权限所需的 `write:repository`、`write:organization` 权限；不使用全局管理员 Token。Casdoor 应用必须申请 `email` scope，并确保 JWT 包含可信的 `email` claim。
 
 ## 5. Gitea 权限模型
 
@@ -127,7 +127,7 @@ projectId -> 项目注册表 -> Gitea owner/repository
   +-- Admin：允许 archive 和管理操作
 ```
 
-服务账号不能使用全局管理员 Token 代替真实用户授权。MVP 使用受限服务账号：只拥有只读的仓库权限查询能力和项目仓库操作能力；以服务账号执行 git push 时，commit author 必须写真实 Casdoor 用户，真实 actor 由审计日志记录。用户绑定的 Gitea OAuth Token（支持以用户身份 push / 开 PR）是二期增强，需处理 refresh token 轮换；用户 token 作用域覆盖其全部仓库，不能视为项目级隔离。
+服务账号不能使用全局管理员 Token 代替真实用户授权。MVP 使用受限服务账号：负责创建申请 Issue 和项目仓库，用户权限仍由 Casdoor JWT 绑定的 Gitea login 及仓库 ACL 决定；申请记录必须保存真实提交人的 Gitea login，不能把服务账号误当作申请人。以服务账号执行 git push 时，commit author 必须写真实 Casdoor 用户，真实 actor 由审计日志记录。用户绑定的 Gitea OAuth Token（支持以用户身份 push / 开 PR）是二期增强，需处理 refresh token 轮换；用户 token 作用域覆盖其全部仓库，不能视为项目级隔离。
 
 ACL 检查依赖 Gitea API 可用性。Gitea API 不可达时无法完成授权，应失败关闭（fail-closed）或采用短 TTL 缓存（如 30-60s，撤权时接受短暂延迟）；这不同于 git remote 不可达——后者只影响 push/clone，不影响已检出工作区的只读查询。
 

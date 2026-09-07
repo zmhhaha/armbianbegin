@@ -125,6 +125,10 @@ bash openspec_service/scripts/bootstrap-project-requests.sh
 - Issue 模板；
 - 只监听 `issues` 事件的 Gitea Webhook。
 
+运行脚本和服务端表单使用的 Gitea Token 必须包含 `read:user`、`read:issue`、`write:issue`、
+`write:repository` 和 `write:organization` scope。特别是缺少 `write:issue` 时，表单会在提交阶段返回
+`Gitea API returned 403`；申请仓库的 Developer 成员权限不能替代服务 Token 的 scope。
+
 如果 Gitea API 从集群内部访问，脚本可以覆盖地址：
 
 ```bash

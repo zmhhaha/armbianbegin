@@ -42,9 +42,13 @@ export function parseProjectRequest(body){
   if(!refPattern.test(ref)||ref.includes('..'))throw badRequest('invalid source ref');
   const scriptProfileId=data.scriptProfileId?text(data.scriptProfileId,'scriptProfileId',100):null;
   if(scriptProfileId&&!config.scriptProfiles.has(scriptProfileId))throw badRequest('script profile is not registered');
+  const requesterUsername=data.requesterUsername===undefined?null:text(data.requesterUsername,'requesterUsername',100);
+  if(requesterUsername&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,100}$/.test(requesterUsername))throw badRequest('invalid requester username');
   const initialPermission=data.initialPermission||'admin';
   if(!permissions.has(initialPermission))throw badRequest('initialPermission must be read, write, or admin');
-  return{version:1,slug,displayName,sourceUrl:sourceUrl(data.sourceUrl),ref,scriptProfileId,initialPermission};
+  const result={version:1,slug,displayName,sourceUrl:sourceUrl(data.sourceUrl),ref,scriptProfileId,initialPermission};
+  if(requesterUsername)result.requesterUsername=requesterUsername;
+  return result;
 }
 
 export function isApprovalEvent(event,payload){

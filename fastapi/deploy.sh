@@ -22,6 +22,11 @@ cd fastapi
 echo "=== Deploying to K8s (namespace: ${AGENT_NAME}) ==="
 sed "s/__AGENT_NAME__/${AGENT_NAME}/g" k8s-deployment.yaml | kubectl apply ${K} -f -
 
+# The generic API image is deliberately reused as :latest. Force replacement
+# after a rebuild because apply alone leaves an unchanged Pod template intact.
+kubectl rollout restart deployment/api -n "${AGENT_NAME}" ${K}
+kubectl rollout status deployment/api -n "${AGENT_NAME}" ${K} --timeout=180s
+
 sleep 15
 kubectl get pods -n "${AGENT_NAME}" ${K}
 echo ""

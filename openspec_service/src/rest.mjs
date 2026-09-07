@@ -128,7 +128,7 @@ export async function dispatch(req,res,id=requestId()){
     const idempotencyKey=req.headers['idempotency-key'];
     if(!idempotencyKey||idempotencyKey.length>200)throw badRequest('Idempotency-Key header is required');
     const body=await payload(req);
-    const built=buildProjectRequest(body);
+    const built=buildProjectRequest(body,{requesterUsername:username});
     const replay=await db.beginRequestIdempotency(sub,idempotencyKey,requestHash(req.method,url.pathname,body));
     if(replay.replay)return json(res,replay.status,replay.response,id);
     try{
@@ -136,6 +136,8 @@ export async function dispatch(req,res,id=requestId()){
       if(!issue?.number)throw new ServiceError(503,'issue_create_failed','Gitea project request Issue was not created');
       await gitea.addIssueLabels(config.giteaRequestOwner,config.giteaRequestRepository,issue.number,['status:pending']).catch(()=>undefined);
       const response={status:'pending',issueNumber:issue.number,issueUrl:`${config.giteaPublicUrl}/${config.giteaRequestOwner}/${config.giteaRequestRepository}/issues/${issue.number}`};
+      const storedRequest=await db.recordProjectRequest({owner:config.giteaRequestOwner,repository:config.giteaRequestRepository,issueNumber:issue.number,requesterUsername:username,payload:built.request});
+      if(!storedRequest)throw new ServiceError(503,'request_record_failed','Project request could not be recorded');
       await db.completeRequestIdempotency(sub,idempotencyKey,201,response);
       await db.auditRequest({owner:config.giteaRequestOwner,repository:config.giteaRequestRepository,issueNumber:issue.number,actor:username,action:'project_request_submitted',requestId:id,details:{slug:built.request.slug}}).catch(()=>undefined);
       return json(res,201,response,id);

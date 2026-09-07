@@ -10,7 +10,7 @@ function required(value,name,max){
   return value.trim();
 }
 
-export function buildProjectRequest(input={}){
+export function buildProjectRequest(input={}, {requesterUsername}={}){
   if(!input||typeof input!=='object'||Array.isArray(input))throw badRequest('JSON object is required');
   for(const key of Object.keys(input))if(!allowedFields.has(key))throw badRequest(`unsupported form field: ${key}`);
   const displayName=required(input.displayName,'displayName',120);
@@ -20,7 +20,10 @@ export function buildProjectRequest(input={}){
   const scriptProfileId=required(input.scriptProfileId||[...config.scriptProfiles][0]||'','scriptProfileId',100);
   const description=input.description===undefined?'':input.description;
   if(typeof description!=='string'||description.length>4000||description.includes('\u0000'))throw badRequest('description must be at most 4000 characters');
-  const data={displayName,slug,sourceUrl,ref,scriptProfileId,initialPermission:'admin'};
+  if(requesterUsername!==undefined&&
+    (typeof requesterUsername!=='string'||!/^[A-Za-z0-9][A-Za-z0-9._-]{0,100}$/.test(requesterUsername)))
+    throw badRequest('requesterUsername is invalid');
+  const data={displayName,slug,sourceUrl,ref,scriptProfileId,initialPermission:'admin',...(requesterUsername?{requesterUsername}: {})};
   const body=`<!-- openspec-project-request:v1\n${JSON.stringify(data,null,2)}\n-->\n\n## 申请说明\n\n${description.trim()||'（未填写）'}`;
   const request=parseProjectRequest(body);
   return{request,body,title:`[project-request] ${displayName}`.slice(0,200)};

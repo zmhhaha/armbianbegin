@@ -19,6 +19,11 @@ docker push "${IMAGE}"
 echo "=== Deploying ==="
 kubectl apply ${K} -f k8s.yaml
 
+# Re-applying the same :latest reference does not change the Pod template.
+# Restart explicitly so imagePullPolicy: Always pulls the image built above.
+kubectl rollout restart deployment/sqlite -n data ${K}
+kubectl rollout status deployment/sqlite -n data ${K} --timeout=180s
+
 sleep 8
 kubectl get pods -n data ${K}
 echo ""
