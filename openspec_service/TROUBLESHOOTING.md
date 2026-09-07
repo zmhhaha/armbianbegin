@@ -195,9 +195,11 @@ Deployment/PVC/PostgreSQL。
      kubectl -n gitops rollout restart statefulset/gitea
      ```
      核对：`kubectl -n gitops exec gitea-0 -- cat /etc/gitea/app.ini | grep -A3 -i webhook`
-  2. **重新同步 hook secret**：`scripts/bootstrap-project-requests.sh` 已改为幂等——即使
-     hook 已存在，也会把其 secret/events 强制刷成当前 `GITEA_WEBHOOK_SECRET`。重跑一次即可消除
-     401（若以后在 Vault 轮换 `gitea_webhook_secret`，重跑该脚本即可，不用手动 PATCH）：
+  2. **重新同步 hook secret**：Gitea 1.23 的 EditHook API **忽略 `config["secret"]`**，
+     PATCH 改不了已存在 hook 的 secret（只能创建时写入）。因此
+     `scripts/bootstrap-project-requests.sh` 采用**删除同 URL 的 hook 再重建**的方式，
+     把当前 `GITEA_WEBHOOK_SECRET` 写进去。重跑一次即可消除 401；以后在 Vault 轮换
+     `gitea_webhook_secret` 后重跑该脚本即可（脚本每次会删除并按当前 secret 重建 webhook）：
      ```bash
      GITEA_TOKEN='<带 write:repository 的 token>' \
      GITEA_WEBHOOK_SECRET='<与 Vault 完全相同的值>' \

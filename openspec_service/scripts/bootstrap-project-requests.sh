@@ -56,8 +56,10 @@ print(json.dumps({'branch':'main','content':sys.argv[1],'message':'chore: add Op
 PY
   )" >/dev/null 2>&1 || true
 
-# Keep the granular issue sub-events enabled: the approval webhook fires as an
-# "issue_label" task whose X-Gitea-Event header is "issues".
+# Gitea 1.23's EditHook API ignores config["secret"]: a PATCH can never change
+# an existing hook's secret. The only reliable way to resync the secret is to
+# delete and recreate the hook. Recreating with our fixed URL is idempotent for
+# this operator script.
 events_json="$(python3 - <<'PY'
 import json,sys
 print(json.dumps(['issues','issue_assign','issue_label','issue_milestone','issue_comment']))
@@ -65,18 +67,7 @@ PY
 )"
 
 list_hooks() { api "${GITEA_URL}/api/v1${repo_path}/hooks?limit=50" 2>/dev/null || true; }
-hook_url_missing() {
-  python3 - "$1" "${WEBHOOK_URL}" <<'PY'
-import json,sys
-try:
-    hooks=json.loads(sys.argv[1])
-    url=sys.argv[2]
-    print('false' if any((h.get('config') or {}).get('url') == url for h in hooks if isinstance(h,dict)) else 'true')
-except Exception:
-    print('true')
-PY
-}
-hook_id() {
+hook_ids() {
   python3 - "$1" "${WEBHOOK_URL}" <<'PY'
 import json,sys
 try:
@@ -84,38 +75,25 @@ try:
     url=sys.argv[2]
     for h in hooks:
         if isinstance(h,dict) and (h.get('config') or {}).get('url')==url:
-            print(h.get('id')); break
+            print(h.get('id'))
 except Exception:
     pass
 PY
 }
-hook_json() {
+hook_create_json() {
   python3 - "${WEBHOOK_URL}" "${GITEA_WEBHOOK_SECRET}" "${events_json}" <<'PY'
-import json,sys
-print(json.dumps({'active':True,'events':json.loads(sys.argv[3]),'config':{'url':sys.argv[1],'content_type':'json','secret':sys.argv[2]}}))
-PY
-}
-
-hooks="$(list_hooks)"
-if [[ "$(hook_url_missing "${hooks}")" == "true" ]]; then
-  api -X POST "${GITEA_URL}/api/v1${repo_path}/hooks" \
-    --data "$(python3 - "${WEBHOOK_URL}" "${GITEA_WEBHOOK_SECRET}" "${events_json}" <<'PY'
 import json,sys
 print(json.dumps({'type':'gitea','active':True,'events':json.loads(sys.argv[3]),'config':{'url':sys.argv[1],'content_type':'json','secret':sys.argv[2]}}))
 PY
-    )" >/dev/null
-  hooks="$(list_hooks)"
-fi
+}
 
-# Idempotently resync an existing hook's secret and events to the current
-# GITEA_WEBHOOK_SECRET. Otherwise, after the secret is rotated in Vault, Gitea
-# keeps signing with the old value and the service rejects every delivery with
-# 401 invalid_webhook_signature. Safe to re-run at any time.
-hook_id="$(hook_id "${hooks}")"
-if [[ -n "${hook_id}" ]]; then
-  api -X PATCH "${GITEA_URL}/api/v1${repo_path}/hooks/${hook_id}" \
-    --data "$(hook_json)" >/dev/null
-fi
+# Remove any hook already pointing at our webhook URL, then recreate it with the
+# current GITEA_WEBHOOK_SECRET so outgoing signatures match the service.
+for id in $(hook_ids "$(list_hooks)"); do
+  api -X DELETE "${GITEA_URL}/api/v1${repo_path}/hooks/${id}" >/dev/null 2>&1 || true
+done
+api -X POST "${GITEA_URL}/api/v1${repo_path}/hooks" \
+  --data "$(hook_create_json)" >/dev/null
 
 echo "Project request repository is ready: ${GITEA_URL}/${GITEA_OWNER}/${REQUEST_REPOSITORY}"
 echo "Webhook target: ${WEBHOOK_URL}"
