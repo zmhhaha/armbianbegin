@@ -172,26 +172,38 @@ Deployment/PVC/PostgreSQL。
      （`issues` + `label_updated`/`update`）一致。
   4. 审批人权限：`GITEA_TOKEN` 归属 Gitea 用户 `zmh_haha`，对
      `openspec-service/project-requests` 是 `owner`，满足 Webhook 里的 admin 检查。
-  5. Webhook 的 secret 在 gitea DB `webhook` 表按 sha256 十六进制（64 位）存储，
-     非空。**与 Vault 当前值的最终比对本次未完成**；若修复白名单后仍出现 401，
-     说明两者不一致，需用 PATCH 把 hook secret 更新为 Vault 当前 `GITEA_WEBHOOK_SECRET`。
-- **修复步骤（2026-09-07 本地源文件已改，集群部署由人工执行，未自动落地）**：
-  1. 已修改 `gitea_base/gitea-config.yaml` 与 `gitea_base/app.ini`：
+  5. 第二阶段（2026-09-08 复测）：修好 `ALLOWED_HOST_LIST` 后，Gitea **能投递了**，但
+     `hook_task`（gitea DB `hook_id=1`）里每条投递的响应都是
+     `{"status":401,...,"body":"...invalid_webhook_signature..."}`、`is_succeed=false`，
+     服务端日志无任何记录（非 2xx 不记 error）。即 Gitea 端 webhook 存的 secret 与
+     openspec-service 当前 `GITEA_WEBHOOK_SECRET`（Vault）**不一致**。
+- **完整根因（两段）**：
+  1. `[webhook] ALLOWED_HOST_LIST` 只放行外网域名 → 内部 webhook 被拒发（见上）。
+  2. 放行后，hook secret 与 Vault 不一致 → 每次投递被服务端 401 拒绝。事件头/action、
+     审批人权限均无误，属 secret 失配。
+- **修复步骤（本地源文件已改，集群部署由人工执行）**：
+  1. `gitea_base/gitea-config.yaml` 与 `gitea_base/app.ini`：
      ```ini
      [webhook]
      ALLOWED_HOST_LIST = drone.panghuer.top,private
      ```
      Gitea 的 hostmatcher 会同时匹配"主机名 或 解析后的 IP"，`private` 即可放行集群内网
      ClusterIP；也可改成精确追加内网域名 `...,openspec-service.openspec.svc.cluster.local`。
-  2. 手动部署：应用并重启（init 容器会重新渲染 app.ini，重启后才生效）：
+     手动部署并重启：
      ```bash
      kubectl apply -f gitea_base/gitea-config.yaml -n gitops
      kubectl -n gitops rollout restart statefulset/gitea
      ```
-     （或直接 `bash gitea_base/deploy-gitea.sh`，注意它还会 apply 命名空间/ExternalSecret/路由等。）
-  3. 部署后核对：`kubectl -n gitops exec gitea-0 -- cat /etc/gitea/app.ini | grep -A3 -i webhook`
-     应显示 `ALLOWED_HOST_LIST = drone.panghuer.top,private`。
-  4. 重新触发审批：`status:approved` 已存在时**重加不会触发事件**，需先在 Gitea 里把该标签
+     核对：`kubectl -n gitops exec gitea-0 -- cat /etc/gitea/app.ini | grep -A3 -i webhook`
+  2. **重新同步 hook secret**：`scripts/bootstrap-project-requests.sh` 已改为幂等——即使
+     hook 已存在，也会把其 secret/events 强制刷成当前 `GITEA_WEBHOOK_SECRET`。重跑一次即可消除
+     401（若以后在 Vault 轮换 `gitea_webhook_secret`，重跑该脚本即可，不用手动 PATCH）：
+     ```bash
+     GITEA_TOKEN='<带 write:repository 的 token>' \
+     GITEA_WEBHOOK_SECRET='<与 Vault 完全相同的值>' \
+       bash openspec_service/scripts/bootstrap-project-requests.sh
+     ```
+  3. 重新触发审批：`status:approved` 已存在时**重加不会触发事件**，需先在 Gitea 里把该标签
      移除再重新添加（`label_updated` 事件才会重新投递）。服务随后会自动创建
      `openspec-service/<slug>` 私有 store、初始化 `openspec/`、把 `projectId` 评论到工单并关闭 Issue。
 - **排障速查**：
