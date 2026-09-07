@@ -135,6 +135,78 @@ Deployment/PVC/PostgreSQL。
   ```
   `provision-gitea.sh` 会保留已有 `database_url` 和 `gitea_webhook_secret`。更新后再重新打开表单提交。
 
+### 2.5 审批后项目创建不了：Gitea 拒发内部 Webhook（`ALLOWED_HOST_LIST`）
+
+- **场景**：通过 `https://openspec.panghuer.top/project-requests` 提交申请后，管理员在
+  Gitea 工单（`openspec-service/project-requests`）上给 Issue 添加 `status:approved` 标签，
+  但项目始终没被创建。
+- **现象**：
+  - 数据库 `openspec_project_requests` 状态一直 `pending`，`openspec_request_audit_events`
+    只有 `project_request_submitted`，没有任何审批相关记录（没有 denied、没有 provisioned）。
+  - openspec-service Pod 日志无请求记录（服务本身不打请求日志），表象是"什么都没发生"。
+  - Gitea Pod 日志能看到投递失败（这是关键证据）：
+    ```
+    ...webhook/webhook.go:97 [E] Unable to deliver webhook task[N]: ... in
+    http://openspec-service.openspec.svc.cluster.local:8080/webhooks/gitea due to error in
+    http client: Post "...": webhook can only call allowed HTTP servers
+    (check your webhook.ALLOWED_HOST_LIST setting), deny
+    'openspec-service.openspec.svc.cluster.local(10.110.186.230:8080)'
+    ```
+- **根因**：Gitea `app.ini` 的 `[webhook] ALLOWED_HOST_LIST = drone.panghuer.top`
+  只放行了一个**外部域名**。一旦显式设置该值，就覆盖了 Gitea 默认"允许私网目标"的行为，
+  集群内部的 Webhook 目标（`openspec-service.openspec.svc.cluster.local`，解析为私网
+  ClusterIP `10.110.x.x`）全部被拒发，所以审批标签事件从未到达 openspec-service。
+  - 配置来源：`gitea_base/gitea-config.yaml` 与 `gitea_base/app.ini`，经
+    `gitea_base/deploy-gitea.sh` `kubectl apply` 到 `gitops` 命名空间；由 init 容器渲染到
+    `/etc/gitea/app.ini`。
+- **排查时确认过的其他环节（均正常，不必再查）**：
+  1. Webhook 存在、`active=true`，events 含 `issues/issue_assign/issue_label/issue_milestone/issue_comment`，
+     URL = 内网 `http://openspec-service.openspec.svc.cluster.local:8080/webhooks/gitea`。
+  2. openspec-service 端点与验签链路正常：用 Vault 当前 `GITEA_WEBHOOK_SECRET` 手动签一个
+     "注定被忽略"的 payload 打 `/webhooks/gitea` → `202 {"status":"ignored"}`
+     （若 secret 未配置返回 503，验签失败返回 401）。
+  3. 事件语义匹配：Gitea 1.23.8 在 Issue 加/改标签时发送 `X-Gitea-Event: issues` +
+     `payload.action = label_updated`（`modules/structs/hook.go` 的 `HookIssueLabelUpdated`；
+     `modules/webhook/type.go` 把 `issue_label/issue_assign/issue_milestone` 统一映射为
+     `issues` 头）。与 `src/project-request.mjs` 的 `isApprovalEvent`
+     （`issues` + `label_updated`/`update`）一致。
+  4. 审批人权限：`GITEA_TOKEN` 归属 Gitea 用户 `zmh_haha`，对
+     `openspec-service/project-requests` 是 `owner`，满足 Webhook 里的 admin 检查。
+  5. Webhook 的 secret 在 gitea DB `webhook` 表按 sha256 十六进制（64 位）存储，
+     非空。**与 Vault 当前值的最终比对本次未完成**；若修复白名单后仍出现 401，
+     说明两者不一致，需用 PATCH 把 hook secret 更新为 Vault 当前 `GITEA_WEBHOOK_SECRET`。
+- **修复步骤（2026-09-07 本地源文件已改，集群部署由人工执行，未自动落地）**：
+  1. 已修改 `gitea_base/gitea-config.yaml` 与 `gitea_base/app.ini`：
+     ```ini
+     [webhook]
+     ALLOWED_HOST_LIST = drone.panghuer.top,private
+     ```
+     Gitea 的 hostmatcher 会同时匹配"主机名 或 解析后的 IP"，`private` 即可放行集群内网
+     ClusterIP；也可改成精确追加内网域名 `...,openspec-service.openspec.svc.cluster.local`。
+  2. 手动部署：应用并重启（init 容器会重新渲染 app.ini，重启后才生效）：
+     ```bash
+     kubectl apply -f gitea_base/gitea-config.yaml -n gitops
+     kubectl -n gitops rollout restart statefulset/gitea
+     ```
+     （或直接 `bash gitea_base/deploy-gitea.sh`，注意它还会 apply 命名空间/ExternalSecret/路由等。）
+  3. 部署后核对：`kubectl -n gitops exec gitea-0 -- cat /etc/gitea/app.ini | grep -A3 -i webhook`
+     应显示 `ALLOWED_HOST_LIST = drone.panghuer.top,private`。
+  4. 重新触发审批：`status:approved` 已存在时**重加不会触发事件**，需先在 Gitea 里把该标签
+     移除再重新添加（`label_updated` 事件才会重新投递）。服务随后会自动创建
+     `openspec-service/<slug>` 私有 store、初始化 `openspec/`、把 `projectId` 评论到工单并关闭 Issue。
+- **排障速查**：
+  ```bash
+  # Gitea 日志（webhook 投递是否被拒/错误）
+  kubectl -n gitops logs gitea-0 --tail=100000 | grep -iE "webhook|deliver"
+  # 生效 app.ini（容器内）
+  kubectl -n gitops exec gitea-0 -- cat /etc/gitea/app.ini | grep -A3 -i webhook
+  # ConfigMap 源
+  kubectl -n gitops get cm gitea-config -o yaml | grep -A3 -i webhook
+  # 申请状态（postgres: data/postgres-0 的 openspec_service 库）
+  SELECT id,issue_number,requester_username,status,error_message FROM openspec_project_requests ORDER BY created_at DESC;
+  SELECT issue_number,actor,action FROM openspec_request_audit_events ORDER BY created_at DESC;
+  ```
+
 ---
 
 ## 3. 镜像与构建

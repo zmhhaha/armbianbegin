@@ -25,7 +25,7 @@ data:
     [app]
     APP_DATA_PATH = /var/lib/gitea/data
     [webhook]
-    ALLOWED_HOST_LIST = drone.panghuer.top
+    ALLOWED_HOST_LIST = drone.panghuer.top,private
     [oauth2]
     ENABLED = true
     [service]
