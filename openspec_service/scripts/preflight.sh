@@ -178,6 +178,8 @@ PY
       ok "Gitea token 包含 write:issue（授权检查通过，Issue #0 不存在）"
     elif [[ "${write_probe_message}" == *"required=[write:issue]"* ]]; then
       bad "Gitea token 缺少 write:issue；请重新创建 Token 并授予 Issue: Write"
+    elif [[ "${write_probe_code}" == "500" ]]; then
+      warn "Gitea 对不存在的 Issue #0 返回 HTTP 500，无法用非法编号确认 write:issue；请通过一次真实表单提交验证"
     else
       bad "Gitea Issue 写权限检查失败（HTTP ${write_probe_code}）"
     fi
