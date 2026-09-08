@@ -140,6 +140,7 @@ kubectl get tunnelroute
   https://zhenzhuzhida-agent.panghuer.top/oauth2/callback
   https://zhougongjiemeng-agent.panghuer.top/oauth2/callback
   https://xiaotanrenjian-agent.panghuer.top/oauth2/callback
+  https://bingbichunqiu-agent.panghuer.top/oauth2/callback
   https://txt2img.panghuer.top/oauth2/callback
   ```
 - 保存后获取 `Client ID` 和 `Client Secret`

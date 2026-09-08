@@ -65,7 +65,7 @@ deploy_k8s() {
 deploy_proxy() {
     echo ""
     echo "=== 部署 oauth2-proxy 实例（research-agent + scientific-agent + daofaziran-agent + fofawubian-agent + zhongkuifumo-agent + yimaneili-agent + zhenzhuzhida-agent + zhougongjiemeng-agent + xiaotanrenjian-agent + txt2img）==="
-    for target in research-agent scientific-agent daofaziran-agent fofawubian-agent zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent zhougongjiemeng-agent xiaotanrenjian-agent; do
+    for target in research-agent scientific-agent daofaziran-agent fofawubian-agent zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent zhougongjiemeng-agent xiaotanrenjian-agent bingbichunqiu-agent; do
         echo "  ── 部署 ${target} ──"
         sed "s/__TARGET_NAME__/${target}/g" k8s/proxy-configmap.yaml | kubectl apply ${K} -f -
         sed "s/__TARGET_NAME__/${target}/g" k8s/proxy-deployment.yaml | kubectl apply ${K} -f -
@@ -127,6 +127,7 @@ case "${1:-}" in
         echo "                https://zhenzhuzhida-agent.panghuer.top/oauth2/callback"
         echo "                https://zhougongjiemeng-agent.panghuer.top/oauth2/callback"
         echo "                https://xiaotanrenjian-agent.panghuer.top/oauth2/callback"
+        echo "                https://bingbichunqiu-agent.panghuer.top/oauth2/callback"
         echo "                https://txt2img.panghuer.top/oauth2/callback"
         echo "    3. 更新 secret.yaml 中 OIDC_CLIENT_ID/SECRET"
         echo "    4. 确保 tunnel-routes.yaml 已更新指向 oauth2-proxy"

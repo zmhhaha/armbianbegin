@@ -12,6 +12,7 @@
 #   bash deploy-agent-proxy.sh zhongkuifumo-agent
 #   bash deploy-agent-proxy.sh zhougongjiemeng-agent
 #   bash deploy-agent-proxy.sh xiaotanrenjian-agent
+#   bash deploy-agent-proxy.sh bingbichunqiu-agent
 #
 # 不传参数时默认重新部署 research-agent。
 set -euo pipefail
