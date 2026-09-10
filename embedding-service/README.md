@@ -4,14 +4,22 @@
 
 ## 构建和部署
 
-模型不进入 Git；构建时从 spike 验证过的 GCS 地址下载，并强制校验 MODEL_SHA256。请从可信制品记录独立确认模型摘要。ES 的 IK 摘要现在由其构建脚本自动计算，也支持手动固定。
+模型不进入 Git；构建时从国内可达的镜像（默认 `hf-mirror.com`）下载 `model_optimized.onnx` 和 `tokenizer.json`，pip 依赖也走国内源（默认清华 TUNA）。**摘要无需手动配置**；如需固定版本，可显式传入 `MODEL_SHA256` / `TOKENIZER_SHA256` 做校验。
 
 ```bash
-MODEL_SHA256=<已确认的模型压缩包摘要> bash build.sh --push
+bash build.sh --push
 bash deploy.sh
 ```
 
 默认镜像为 arm-cluster-master:5000/embedding-service:latest。部署强制拉取并重启。模型随镜像发布，运行时无需外网或 PVC。更新模型后仍必须重建对应 ES 索引，模型身份和索引版本独立于镜像标签管理。
+
+默认源可在环境变量中覆盖：
+
+```bash
+PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+MODEL_BASE_URL=https://hf-mirror.com/Qdrant/bge-small-zh-v1.5/resolve/main \
+bash build.sh --push
+```
 
 部署要求已有 data namespace；默认调度 orangepi5-max-server1。NetworkPolicy 只允许带 embedding-client: "true" 标签的集群 Pod 访问，需要 CNI 支持 NetworkPolicy。
 
@@ -28,8 +36,8 @@ POST /v1/embeddings 返回 data[].embedding、index 和 model。input_type 默�
 ## 本地运行与验证
 
 ```bash
-pip install -r requirements.txt
-python prepare_model.py --sha256 <摘要> --destination models/fast-bge-small-zh-v1.5
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+python prepare_model.py --destination models/fast-bge-small-zh-v1.5
 MODEL_DIR=models/fast-bge-small-zh-v1.5 uvicorn app:app --host 127.0.0.1 --port 8080
 python -m unittest discover -s tests
 ```
