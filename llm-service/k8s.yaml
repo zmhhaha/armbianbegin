@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-service-config
+  namespace: llm
+data:
+  # 只放非敏感路由：provider、上游 base URL、模型别名、默认参数、超时、重试。
+  # 凭据一律通过 api_key_env 引用，实际值来自 llm-service-secret（Vault 注入）。
+  LLM_ALIASES: |
+    {
+      "aliases": {
+        "chat-default": {
+          "provider": "deepseek",
+          "base_url": "https://api.deepseek.com/v1",
+          "model": "deepseek-chat",
+          "api_key_env": "DEEPSEEK_API_KEY",
+          "timeout_seconds": 60,
+          "max_retries": 2,
+          "fallback": ["chat-backup"],
+          "defaults": {"temperature": 0.7, "max_tokens": 2048}
+        },
+        "chat-backup": {
+          "provider": "openai",
+          "base_url": "https://api.openai.com/v1",
+          "model": "gpt-4o-mini",
+          "api_key_env": "OPENAI_API_KEY",
+          "timeout_seconds": 60,
+          "max_retries": 1
+        }
+      },
+      "limits": {"requests_per_minute_per_caller": 120}
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-service
+  namespace: llm
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: llm-service}}
+  template:
+    metadata: {labels: {app: llm-service}}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: orangepi5-max-server1
+        kubernetes.io/arch: arm64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10002
+        runAsGroup: 10002
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: llm-service
+          image: arm-cluster-master:5000/llm-service:latest
+          imagePullPolicy: Always
+          ports: [{name: http, containerPort: 8000}]
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+          envFrom:
+            - configMapRef: {name: llm-service-config}
+            - secretRef: {name: llm-service-secret, optional: true}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          startupProbe:
+            httpGet: {path: /health/live, port: http}
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: {path: /health/live, port: http}
+            periodSeconds: 20
+            failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-service
+  namespace: llm
+spec:
+  # 仅集群内可达：不建 Ingress / NodePort / LoadBalancer / Tunnel / 公网 DNS
+  type: ClusterIP
+  selector: {app: llm-service}
+  ports: [{name: http, port: 80, targetPort: http}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: llm-service
+  namespace: llm
+spec:
+  podSelector: {matchLabels: {app: llm-service}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # 只有显式打上 llm-client: "true" 的 Pod 能调用
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels: {llm-client: "true"}
+      ports: [{protocol: TCP, port: 8000}]
+  egress:
+    # 出站只放行 DNS 与 HTTPS（上游 provider）；凭据已由 Vault 注入，无需访问 Vault
+    - ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - ports:
+        - {protocol: TCP, port: 443}
