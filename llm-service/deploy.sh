@@ -12,6 +12,10 @@ if [[ "${1:-}" != "--skip-build" ]]; then
     REGISTRY="${REGISTRY}" bash "${SCRIPT_DIR}/build.sh" --push
 fi
 
+echo "=== Ensuring namespace ==="
+# ExternalSecret 先于 k8s.yaml 应用，命名空间必须先存在
+kubectl create namespace llm --dry-run=client -o yaml | kubectl apply -f -
+
 echo "=== Applying Vault ExternalSecret ==="
 kubectl apply -f "${VAULT_MANIFEST}"
 if kubectl -n vault exec vault-0 -- vault kv get -field=LLM_SERVICE_TOKEN secret/llm-service/auth >/dev/null 2>&1; then
