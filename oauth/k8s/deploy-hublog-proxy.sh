@@ -15,6 +15,7 @@ kubectl apply -f "${SCRIPT_DIR}/hublog-proxy-configmap.yaml"
 sed \
   -e 's/__TARGET_NAME__/hublog/g' \
   -e '/--ssl-insecure-skip-verify=true/a\
+          - "--skip-auth-route=^/signed-out([?].*)?$"\
           - "--skip-auth-route=^/share/[0-9a-fA-F-]{36}/?$"\
           - "--skip-auth-route=^/api/v1/shares/[0-9a-fA-F-]{36}(/comments)?([?].*)?$"\
           - "--skip-auth-route=^/assets/share[.](css|js)([?].*)?$"\
