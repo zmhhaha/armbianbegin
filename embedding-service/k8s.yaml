@@ -31,7 +31,8 @@ spec:
         seccompProfile: {type: RuntimeDefault}
       containers:
         - name: embedding-service
-          image: arm-cluster-master:5000/embedding-service:bge-small-zh-v1.5-v1
+          image: arm-cluster-master:5000/embedding-service:latest
+          imagePullPolicy: Always
           ports: [{containerPort: 8080}]
           env: [{name: ORT_INTRA_OP_THREADS, value: "4"}]
           resources:

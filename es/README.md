@@ -7,7 +7,7 @@
 | 项目 | 默认值 |
 | --- | --- |
 | Elasticsearch | 8.15.3 |
-| 镜像 | `arm-cluster-master:5000/elasticsearch:8.15.3` |
+| 镜像 | `arm-cluster-master:5000/elasticsearch:latest` |
 | K8s 命名空间 | `data` |
 | 节点 | `orangepi5-max-server1` |
 | 内存 | 2Gi JVM Heap，容器上限 4Gi |
@@ -59,7 +59,7 @@ Vault 相关清单统一存放在 `vault` 目录。完整的创建、同步和�
 
 ## 构建镜像
 
-当前构建为带 IK 的 8.15.3-ik-v1 镜像。先独立确认对应 IK 发布压缩包的 SHA256，再设置 IK_SHA256 执行下述构建命令；插件版本跟随 ES_VERSION。每个 ES 节点必须使用相同插件和词典。ARM64 构建需要 ARM64 Docker 主机或已配置的交叉构建环境。
+构建发布 elasticsearch:latest。脚本自动从 HTTPS 发布地址下载 IK、计算 SHA256 并传入 Docker 构建，构建内再次下载并校验一致性；这不等同于独立验证发布方签名。也可设置 IK_SHA256 固定可信摘要。插件版本跟随 ES_VERSION，上游 ES 基础镜像仍固定版本以保证兼容性。ARM64 构建需要 ARM64 Docker 主机或交叉构建环境。
 
 在可以访问外网 Registry 的 ARM64 节点上执行：
 
@@ -76,6 +76,68 @@ ES_VERSION=8.15.3 REGISTRY=arm-cluster-master:5000 bash build.sh --push
 
 ## 部署
 
+### 部署前检查 Vault
+
+Elasticsearch 的密码由 Vault 管理。如果 Vault 处于 sealed 状态，ExternalSecret 会显示 `ClusterSecretStore vault-backend is not ready`，部署脚本会在等待密码阶段失败。
+
+先检查 Vault：
+
+```bash
+kubectl exec -n vault vault-0 -- vault status
+```
+
+如果 `Sealed` 为 `true`，使用初始化时保存的不同 unseal key 解封。根据 Vault 初始化时的 quorum，通常需要执行多次：
+
+```bash
+kubectl exec -it -n vault vault-0 -- vault operator unseal
+kubectl exec -it -n vault vault-0 -- vault operator unseal
+kubectl exec -it -n vault vault-0 -- vault operator unseal
+```
+
+再次确认：
+
+```bash
+kubectl exec -n vault vault-0 -- vault status
+```
+
+只有看到 `Sealed false` 后，才能写入 Elasticsearch 密码：
+
+```bash
+export ELASTIC_PASSWORD="$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9_@#%+=' | head -c 24)"
+
+kubectl exec -n vault vault-0 -- \
+  vault kv put secret/elasticsearch/app \
+  ELASTIC_PASSWORD="$ELASTIC_PASSWORD"
+
+unset ELASTIC_PASSWORD
+```
+
+确认 Vault 中存在该字段：
+
+```bash
+kubectl exec -n vault vault-0 -- \
+  vault kv get secret/elasticsearch/app
+```
+
+然后刷新 ExternalSecret 并等待同步：
+
+```bash
+kubectl annotate externalsecret/elasticsearch-secret \
+  -n data force-sync="$(date +%s)" --overwrite
+
+kubectl wait --for=condition=Ready \
+  externalsecret/elasticsearch-secret \
+  -n data --timeout=120s
+```
+
+确认 `elasticsearch-secret` 已生成后，再执行部署：
+
+```bash
+bash deploy.sh
+```
+
+如果没有保存 unseal key，不要尝试重置 Vault。应先检查 Vault 的自动解封配置、初始化备份或原有密钥托管位置；重新初始化可能导致现有 Vault 数据丢失。
+
 ```bash
 cd /root/armbianbegin/es
 bash deploy.sh
@@ -89,10 +151,10 @@ bash deploy.sh
 4. 等待 Pod 就绪。
 5. 使用 `elastic` Basic Auth 做集群健康检查。
 
-可使用自定义镜像：
+可使用自定义 Registry；部署始终使用 latest，并强制重新拉取和重启：
 
 ```bash
-ES_IMAGE=arm-cluster-master:5000/elasticsearch:8.15.3 bash deploy.sh
+REGISTRY=arm-cluster-master:5000 bash deploy.sh
 ```
 
 ## 访问和验证
@@ -129,7 +191,7 @@ kubectl logs -n data elasticsearch-0 --tail=100
 
 ### RAG 中文索引
 
-版本化词典位于 analysis/domain-v1.dic，镜像通过 IKAnalyzer.cfg.xml 加载。词典或 analyzer 变更需发布新镜像标签并重建受影响索引，旧索引不会自动重新分词。单节点 ES 重启期间会短暂不可用。
+版本化词典位于 analysis/domain-v1.dic，镜像通过 IKAnalyzer.cfg.xml 加载。词典或 analyzer 变更需重新构建推送 latest、部署并重建受影响索引，旧索引不会自动重新分词。单节点 ES 重启期间会短暂不可用。
 
 rag-index-template.json 仅匹配 rag-agent-*-v*，不会修改虎博已有索引。用已有安全认证方式向 PUT /_index_template/rag-agent-v1 提交该文件，然后创建如 rag-agent-bingbichunqiu-v1 的索引。正文使用 ik_max_word / ik_smart，过滤字段使用 keyword，向量为 512 维。去重使用 checksum，不索引整篇正文为 keyword。
 
@@ -157,11 +219,11 @@ ES 只作为可重建搜索索引，不作为动态和文章主库。发布、�
 
 ## 升级和恢复
 
-升级时先构建并推送新镜像，再设置 `ES_VERSION`/`ES_IMAGE` 执行部署。单节点升级会有短暂不可用窗口：
+升级时用 ES_VERSION 构建并推送 latest，再执行部署。单节点升级会有短暂不可用窗口：
 
 ```bash
 ES_VERSION=8.16.0 bash build.sh --push
-ES_IMAGE=arm-cluster-master:5000/elasticsearch:8.16.0 bash deploy.sh
+bash deploy.sh
 ```
 
 当前没有自动快照策略。正式使用前应补充：

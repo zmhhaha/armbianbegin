@@ -4,14 +4,14 @@
 
 ## 构建和部署
 
-模型不进入 Git；构建时从 spike 验证过的 GCS 地址下载，并强制校验 MODEL_SHA256。请从可信制品记录独立确认摘要，不能随下载自动信任摘要。IK 同样要求 IK_SHA256。
+模型不进入 Git；构建时从 spike 验证过的 GCS 地址下载，并强制校验 MODEL_SHA256。请从可信制品记录独立确认模型摘要。ES 的 IK 摘要现在由其构建脚本自动计算，也支持手动固定。
 
 ```bash
 MODEL_SHA256=<已确认的模型压缩包摘要> bash build.sh --push
 bash deploy.sh
 ```
 
-默认镜像为 arm-cluster-master:5000/embedding-service:bge-small-zh-v1.5-v1。模型随镜像发布，运行时无需外网或 PVC。更新模型必须使用新镜像标签并重建对应 ES 索引。
+默认镜像为 arm-cluster-master:5000/embedding-service:latest。部署强制拉取并重启。模型随镜像发布，运行时无需外网或 PVC。更新模型后仍必须重建对应 ES 索引，模型身份和索引版本独立于镜像标签管理。
 
 部署要求已有 data namespace；默认调度 orangepi5-max-server1。NetworkPolicy 只允许带 embedding-client: "true" 标签的集群 Pod 访问，需要 CNI 支持 NetworkPolicy。
 

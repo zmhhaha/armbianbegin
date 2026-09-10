@@ -9,7 +9,7 @@ fi
 
 REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
 ES_VERSION="${ES_VERSION:-8.15.3}"
-ES_IMAGE="${ES_IMAGE:-${REGISTRY}/elasticsearch:${ES_VERSION}-ik-v1}"
+ES_IMAGE="${REGISTRY}/elasticsearch:latest"
 KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
 K="--kubeconfig=${KUBECONFIG}"
 
@@ -46,6 +46,7 @@ kubectl "${K}" set image statefulset/elasticsearch \
     elasticsearch="${ES_IMAGE}" -n data
 
 printf '%s\n' '=== Waiting for Elasticsearch ==='
+kubectl "${K}" rollout restart statefulset/elasticsearch -n data
 kubectl "${K}" rollout status statefulset/elasticsearch -n data --timeout=600s
 
 printf '%s\n' '=== Elasticsearch status ==='
