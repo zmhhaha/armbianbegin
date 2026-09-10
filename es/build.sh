@@ -10,7 +10,7 @@ fi
 REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
 ES_VERSION="${ES_VERSION:-8.15.3}"
 SOURCE_IMAGE="docker.elastic.co/elasticsearch/elasticsearch:${ES_VERSION}"
-TARGET_IMAGE="${REGISTRY}/elasticsearch:${ES_VERSION}"
+TARGET_IMAGE="${REGISTRY}/elasticsearch:${ES_VERSION}-ik-v1"
 
 usage() {
     cat <<'EOF'
@@ -28,7 +28,9 @@ case "${1:-}" in
     --push)
         echo "Pulling ARM64 image: ${SOURCE_IMAGE}"
         docker pull --platform linux/arm64 "${SOURCE_IMAGE}"
-        docker tag "${SOURCE_IMAGE}" "${TARGET_IMAGE}"
+        : "${IK_SHA256:?Set IK_SHA256 to the independently verified plugin archive SHA256}"
+        docker build --platform linux/arm64 --build-arg ES_VERSION="${ES_VERSION}" \
+            --build-arg IK_SHA256="${IK_SHA256}" -t "${TARGET_IMAGE}" "${SCRIPT_DIR}"
         echo "Pushing image: ${TARGET_IMAGE}"
         docker push "${TARGET_IMAGE}"
         echo "Image ready: ${TARGET_IMAGE}"

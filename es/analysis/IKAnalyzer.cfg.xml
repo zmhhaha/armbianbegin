@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+  <comment>Versioned RAG domain dictionary</comment>
+  <entry key="ext_dict">domain-v1.dic</entry>
+</properties>

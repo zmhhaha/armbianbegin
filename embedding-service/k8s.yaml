@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: embedding-service
+  namespace: data
+spec:
+  type: ClusterIP
+  selector: {app: embedding-service}
+  ports: [{name: http, port: 8080, targetPort: 8080}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: embedding-service
+  namespace: data
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: embedding-service}}
+  template:
+    metadata: {labels: {app: embedding-service}}
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: orangepi5-max-server1
+        kubernetes.io/arch: arm64
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: embedding-service
+          image: arm-cluster-master:5000/embedding-service:bge-small-zh-v1.5-v1
+          ports: [{containerPort: 8080}]
+          env: [{name: ORT_INTRA_OP_THREADS, value: "4"}]
+          resources:
+            requests: {cpu: "1", memory: 512Mi}
+            limits: {cpu: "4", memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          startupProbe:
+            httpGet: {path: /health/ready, port: 8080}
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /health/ready, port: 8080}
+          livenessProbe:
+            httpGet: {path: /health/live, port: 8080}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: embedding-service
+  namespace: data
+spec:
+  podSelector: {matchLabels: {app: embedding-service}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels: {embedding-client: "true"}
+      ports: [{protocol: TCP, port: 8080}]
+  egress: []

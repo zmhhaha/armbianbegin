@@ -42,7 +42,7 @@ spec:
             - sysctl -w vm.max_map_count=262144
       containers:
         - name: elasticsearch
-          image: arm-cluster-master:5000/elasticsearch:8.15.3
+          image: arm-cluster-master:5000/elasticsearch:8.15.3-ik-v1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

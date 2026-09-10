@@ -1,0 +1,58 @@
+{
+  "index_patterns": [
+    "rag-agent-*-v*"
+  ],
+  "priority": 100,
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 0
+    },
+    "mappings": {
+      "properties": {
+        "content": {
+          "type": "text",
+          "analyzer": "ik_max_word",
+          "search_analyzer": "ik_smart"
+        },
+        "content_vector": {
+          "type": "dense_vector",
+          "dims": 512,
+          "index": true,
+          "similarity": "cosine"
+        },
+        "collection": {
+          "type": "keyword"
+        },
+        "agent": {
+          "type": "keyword"
+        },
+        "source_id": {
+          "type": "keyword"
+        },
+        "checksum": {
+          "type": "keyword"
+        },
+        "work": {
+          "type": "keyword"
+        },
+        "topic": {
+          "type": "keyword"
+        },
+        "source_type": {
+          "type": "keyword"
+        },
+        "provenance": {
+          "type": "keyword"
+        },
+        "index_version": {
+          "type": "keyword"
+        }
+      }
+    }
+  },
+  "_meta": {
+    "analysis_version": "ik-domain-v1",
+    "embedding_model": "bge-small-zh-v1.5"
+  }
+}

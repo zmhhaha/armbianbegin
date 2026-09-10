@@ -59,6 +59,8 @@ Vault 相关清单统一存放在 `vault` 目录。完整的创建、同步和�
 
 ## 构建镜像
 
+当前构建为带 IK 的 8.15.3-ik-v1 镜像。先独立确认对应 IK 发布压缩包的 SHA256，再设置 IK_SHA256 执行下述构建命令；插件版本跟随 ES_VERSION。每个 ES 节点必须使用相同插件和词典。ARM64 构建需要 ARM64 Docker 主机或已配置的交叉构建环境。
+
 在可以访问外网 Registry 的 ARM64 节点上执行：
 
 ```bash
@@ -124,6 +126,14 @@ kubectl logs -n data elasticsearch-0 --tail=100
 ```
 
 ## 配置说明
+
+### RAG 中文索引
+
+版本化词典位于 analysis/domain-v1.dic，镜像通过 IKAnalyzer.cfg.xml 加载。词典或 analyzer 变更需发布新镜像标签并重建受影响索引，旧索引不会自动重新分词。单节点 ES 重启期间会短暂不可用。
+
+rag-index-template.json 仅匹配 rag-agent-*-v*，不会修改虎博已有索引。用已有安全认证方式向 PUT /_index_template/rag-agent-v1 提交该文件，然后创建如 rag-agent-bingbichunqiu-v1 的索引。正文使用 ik_max_word / ik_smart，过滤字段使用 keyword，向量为 512 维。去重使用 checksum，不索引整篇正文为 keyword。
+
+上线前用 POST /_analyze 验证 ik_max_word 和 ik_smart 对词典专名的输出。BM25 与向量查询都必须先执行授权 collection 过滤，再合并候选，不能只在排序后过滤。
 
 - Elasticsearch 开启 Basic Auth，密码只从 Vault/ExternalSecret 注入。
 - HTTP TLS 在集群内部关闭，9200 只通过 ClusterIP 暴露；公网不开放 Elasticsearch。

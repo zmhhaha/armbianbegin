@@ -9,7 +9,7 @@ fi
 
 REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
 ES_VERSION="${ES_VERSION:-8.15.3}"
-ES_IMAGE="${ES_IMAGE:-${REGISTRY}/elasticsearch:${ES_VERSION}}"
+ES_IMAGE="${ES_IMAGE:-${REGISTRY}/elasticsearch:${ES_VERSION}-ik-v1}"
 KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
 K="--kubeconfig=${KUBECONFIG}"
 
