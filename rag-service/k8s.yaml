@@ -47,6 +47,11 @@ spec:
                   name: rag-config
                   key: LLM_URL
                   optional: true
+            - name: LLM_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: rag-config
+                  key: LLM_MODEL
           resources:
             requests: {cpu: 100m, memory: 256Mi}
             limits: {cpu: "1", memory: 1Gi}
