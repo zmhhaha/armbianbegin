@@ -58,7 +58,7 @@ ConfigMap `llm-service-config`：
     "chat-default": {
       "provider": "deepseek",
       "base_url": "https://api.deepseek.com/v1",
-      "model": "deepseek-chat",
+      "model": "deepseek-v4-flash",
       "api_key_env": "DEEPSEEK_API_KEY",
       "timeout_seconds": 60,
       "max_retries": 2,
@@ -101,7 +101,7 @@ bash deploy.sh           # 应用 Vault ExternalSecret + k8s，重启并等待�
 ```bash
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 LLM_SERVICE_TOKEN=dev \
-LLM_ALIASES='{"aliases":{"chat-default":{"provider":"deepseek","base_url":"https://api.deepseek.com/v1","model":"deepseek-chat","api_key_env":"DEEPSEEK_API_KEY"}}}' \
+LLM_ALIASES='{"aliases":{"chat-default":{"provider":"deepseek","base_url":"https://api.deepseek.com/v1","model":"deepseek-v4-flash","api_key_env":"DEEPSEEK_API_KEY"}}}' \
 DEEPSEEK_API_KEY=... uvicorn app:app --port 8000
 
 python -m unittest discover -s tests

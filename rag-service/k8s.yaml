@@ -52,6 +52,8 @@ spec:
                 configMapKeyRef:
                   name: rag-config
                   key: LLM_MODEL
+            - name: LLM_TIMEOUT
+              value: "120"
           resources:
             requests: {cpu: 100m, memory: 256Mi}
             limits: {cpu: "1", memory: 1Gi}
@@ -67,4 +69,4 @@ metadata:
   namespace: data
 data:
   LLM_URL: ""
-  LLM_MODEL: deepseek-chat
+  LLM_MODEL: deepseek-v4-flash
