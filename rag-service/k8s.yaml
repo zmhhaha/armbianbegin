@@ -19,7 +19,10 @@ spec:
     matchLabels: {app: rag-service}
   template:
     metadata:
-      labels: {app: rag-service}
+      labels:
+        app: rag-service
+        # llm-service 的 NetworkPolicy 只放行带此标签的 Pod
+        llm-client: "true"
     spec:
       automountServiceAccountToken: false
       nodeSelector:
@@ -54,6 +57,12 @@ spec:
                   key: LLM_MODEL
             - name: LLM_TIMEOUT
               value: "120"
+            - name: LLM_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: rag-llm-secret
+                  key: LLM_SERVICE_TOKEN
+                  optional: true
           resources:
             requests: {cpu: 100m, memory: 256Mi}
             limits: {cpu: "1", memory: 1Gi}
@@ -68,5 +77,7 @@ metadata:
   name: rag-config
   namespace: data
 data:
-  LLM_URL: ""
-  LLM_MODEL: deepseek-v4-flash
+  # 指向集群内统一入口 llm-service；LLM_MODEL 是 llm-service 注册的“模型别名”，不是上游模型名。
+  # provider 凭据由 llm-service 持有，这里不再保存任何 provider API Key。
+  LLM_URL: http://llm-service.llm.svc.cluster.local/v1/chat/completions
+  LLM_MODEL: chat-default
