@@ -3,7 +3,8 @@ import os
 from typing import Any
 import httpx
 from elasticsearch import Elasticsearch, helpers
-from fastapi import FastAPI, HTTPException
+import auth
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 from chunking import split_chunks
 
@@ -16,14 +17,30 @@ LLM_URL = os.getenv("LLM_URL", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-v4-flash")
 LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "120"))
 LLM_TOKEN = os.getenv("LLM_SERVICE_TOKEN", "")
-ALLOWED = {x.strip() for x in os.getenv("ALLOWED_AGENTS", "zhougongjiemeng,zhongkuifumo,daofaziran,fofawubian,zhenzhuzhida,yimaneili,xiaotanrenjian,bingbichunqiu").split(",") if x.strip()}
 es = Elasticsearch(ES_URL, basic_auth=(ES_USER, ES_PASSWORD) if ES_PASSWORD else None)
 app = FastAPI(title="rag-service", version="1.0.0")
 
-def collection(agent: str) -> str:
-    if agent not in ALLOWED:
-        raise HTTPException(404, "agent collection not found")
-    return f"agent-{agent}"
+
+def identify(authorization: str | None) -> auth.Identity:
+    """身份只从凭据推导；凭据无效或缺失一律 401。"""
+    token = authorization[7:].strip() if authorization and authorization.lower().startswith("bearer ") else ""
+    identity = auth.resolve(token)
+    if identity is None:
+        raise HTTPException(401, "invalid or missing credential")
+    return identity
+
+
+def target_collection(identity: auth.Identity, kind: str, requested: str | None) -> str:
+    """请求里的 agent 只是收窄提示：不在授权范围内就按不存在处理，绝不扩大范围。"""
+    if requested:
+        name = requested if requested.startswith("agent-") else f"agent-{requested}"
+        if not identity.allowed(kind, name):
+            raise HTTPException(404, "collection not found")
+        return name
+    concrete = [item for item in identity.collections(kind) if item != "*"]
+    if len(concrete) == 1:
+        return concrete[0]
+    raise HTTPException(400, "collection is required for this caller")
 
 def index_name(name: str) -> str:
     return f"rag-{name}-v1"
@@ -44,14 +61,14 @@ def source_hits(index: str, source_id: str) -> list[dict]:
 
 
 class IngestRequest(BaseModel):
-    agent: str
+    agent: str | None = None  # 仅作收窄提示；身份由凭据决定
     source_id: str = Field(min_length=1, max_length=512)
     checksum: str | None = None
     content: str = Field(min_length=1, max_length=2_000_000)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 class QueryRequest(BaseModel):
-    agent: str
+    agent: str | None = None  # 仅作收窄提示；身份由凭据决定
     question: str = Field(min_length=1, max_length=20000)
     top_k: int = Field(default=5, ge=1, le=20)
 
@@ -67,8 +84,9 @@ def ready():
         raise HTTPException(503, str(exc)) from exc
 
 @app.post("/v1/ingest")
-async def ingest(req: IngestRequest):
-    col = collection(req.agent)
+async def ingest(req: IngestRequest, authorization: str | None = Header(default=None)):
+    identity = identify(authorization)
+    col = target_collection(identity, "write", req.agent)
     checksum = req.checksum or "sha256:" + hashlib.sha256(req.content.encode()).hexdigest()
     idx = index_name(col)
     ensure_index(idx)
@@ -85,7 +103,7 @@ async def ingest(req: IngestRequest):
     if es.indices.exists(index=new_index):
         es.indices.delete(index=new_index)
     ensure_index(new_index)
-    actions = ({"_index": new_index, "_id": f"{doc_id}::{n}", "_source": {**req.metadata, "agent": req.agent, "collection": col, "source_id": doc_id, "checksum": checksum, "content": chunk, "content_vector": vectors[n]["embedding"], "chunk_seq": n, "chunk_count": len(chunks), "index_version": "v1"}} for n, chunk in enumerate(chunks))
+    actions = ({"_index": new_index, "_id": f"{doc_id}::{n}", "_source": {**req.metadata, "agent": identity.caller, "collection": col, "source_id": doc_id, "checksum": checksum, "content": chunk, "content_vector": vectors[n]["embedding"], "chunk_seq": n, "chunk_count": len(chunks), "index_version": "v1"}} for n, chunk in enumerate(chunks))
     helpers.bulk(es, actions, refresh="wait_for")
     old_hits = source_hits(idx, doc_id)
     for hit in old_hits:
@@ -97,8 +115,9 @@ async def ingest(req: IngestRequest):
     return {"document_id": doc_id, "collection": col, "status": "ready", "chunk_count": len(chunks), "index_version": "v1"}
 
 @app.post("/v1/query")
-async def query(req: QueryRequest):
-    col = collection(req.agent)
+async def query(req: QueryRequest, authorization: str | None = Header(default=None)):
+    identity = identify(authorization)
+    col = target_collection(identity, "read", req.agent)
     async with httpx.AsyncClient(timeout=60) as client:
         response = await client.post(f"{EMBEDDING_URL}/v1/embeddings", json={"input": [req.question], "input_type": "query"})
         response.raise_for_status()
