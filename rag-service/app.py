@@ -1,12 +1,12 @@
 import hashlib
 import os
-from typing import Any
+from typing import Any, Literal
 import httpx
 from elasticsearch import Elasticsearch, helpers
 import auth
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
-from chunking import split_chunks
+from chunking import split_chunks, split_knowledge
 
 ES_URL = os.getenv("ELASTICSEARCH_URL", "http://elasticsearch.data.svc.cluster.local:9200")
 ES_USER = os.getenv("ELASTICSEARCH_USERNAME", "elastic")
@@ -66,6 +66,8 @@ class IngestRequest(BaseModel):
     checksum: str | None = None
     content: str = Field(min_length=1, max_length=2_000_000)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    # knowledge：按 H2 小节切分并逐条带 topic/work；text：按长度切分
+    doc_type: Literal["text", "knowledge"] = "text"
 
 class QueryRequest(BaseModel):
     agent: str | None = None  # 仅作收窄提示；身份由凭据决定
@@ -83,6 +85,28 @@ def ready():
     except Exception as exc:
         raise HTTPException(503, str(exc)) from exc
 
+def build_records(req: IngestRequest, identity: auth.Identity) -> list[tuple[str, dict]]:
+    """返回 [(chunk 正文, 该 chunk 的元数据)]。
+
+    `knowledge` 模式下按 H2 小节切分，逐条带上 topic/work/provenance——
+    这样 Agent 只要把整份 knowledge.md POST 过来，转换规则始终只有服务端这一份。
+    """
+    if req.doc_type != "knowledge":
+        return [(piece, dict(req.metadata)) for piece in split_chunks(req.content)]
+    records: list[tuple[str, dict]] = []
+    for topic, work, text in split_knowledge(req.content):
+        metadata = {
+            **req.metadata,
+            "topic": topic,
+            "source_type": "knowledge.md",
+            "provenance": req.metadata.get("provenance") or f"{identity.caller}:knowledge.md#{topic}",
+        }
+        if work:
+            metadata["work"] = work
+        records.extend((piece, metadata) for piece in split_chunks(text))
+    return records or [(req.content, dict(req.metadata))]
+
+
 @app.post("/v1/ingest")
 async def ingest(req: IngestRequest, authorization: str | None = Header(default=None)):
     identity = identify(authorization)
@@ -91,19 +115,19 @@ async def ingest(req: IngestRequest, authorization: str | None = Header(default=
     idx = index_name(col)
     ensure_index(idx)
     doc_id = req.source_id
-    chunks = split_chunks(req.content)
+    records = build_records(req, identity)
     existing = es.search(index=idx, query={"term": {"source_id": doc_id}}, size=1, _source=["checksum", "chunk_count"])
     if existing["hits"]["hits"] and existing["hits"]["hits"][0]["_source"].get("checksum") == checksum:
-        return {"document_id": doc_id, "collection": col, "status": "ready", "chunk_count": existing["hits"]["hits"][0]["_source"].get("chunk_count", len(chunks)), "index_version": "v1"}
+        return {"document_id": doc_id, "collection": col, "status": "ready", "chunk_count": existing["hits"]["hits"][0]["_source"].get("chunk_count", len(records)), "index_version": "v1"}
     async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(f"{EMBEDDING_URL}/v1/embeddings", json={"input": chunks, "input_type": "passage"})
+        response = await client.post(f"{EMBEDDING_URL}/v1/embeddings", json={"input": [text for text, _ in records], "input_type": "passage"})
         response.raise_for_status()
         vectors = response.json()["data"]
     new_index = f"{idx}-build-{checksum.replace(':', '-')[:24]}"
     if es.indices.exists(index=new_index):
         es.indices.delete(index=new_index)
     ensure_index(new_index)
-    actions = ({"_index": new_index, "_id": f"{doc_id}::{n}", "_source": {**req.metadata, "agent": identity.caller, "collection": col, "source_id": doc_id, "checksum": checksum, "content": chunk, "content_vector": vectors[n]["embedding"], "chunk_seq": n, "chunk_count": len(chunks), "index_version": "v1"}} for n, chunk in enumerate(chunks))
+    actions = ({"_index": new_index, "_id": f"{doc_id}::{n}", "_source": {**metadata, "agent": identity.caller, "collection": col, "source_id": doc_id, "checksum": checksum, "content": text, "content_vector": vectors[n]["embedding"], "chunk_seq": n, "chunk_count": len(records), "index_version": "v1"}} for n, (text, metadata) in enumerate(records))
     helpers.bulk(es, actions, refresh="wait_for")
     old_hits = source_hits(idx, doc_id)
     for hit in old_hits:
@@ -112,7 +136,7 @@ async def ingest(req: IngestRequest, authorization: str | None = Header(default=
         es.index(index=idx, id=hit["_id"], document=hit["_source"], refresh=False)
     es.indices.delete(index=new_index)
     es.indices.refresh(index=idx)
-    return {"document_id": doc_id, "collection": col, "status": "ready", "chunk_count": len(chunks), "index_version": "v1"}
+    return {"document_id": doc_id, "collection": col, "status": "ready", "chunk_count": len(records), "index_version": "v1"}
 
 @app.post("/v1/query")
 async def query(req: QueryRequest, authorization: str | None = Header(default=None)):

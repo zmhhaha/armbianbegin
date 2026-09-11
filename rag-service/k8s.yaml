@@ -66,6 +66,12 @@ spec:
                   name: rag-llm-secret
                   key: LLM_SERVICE_TOKEN
                   optional: true
+            - name: CALLER_PERMISSIONS
+              valueFrom:
+                configMapKeyRef:
+                  name: rag-config
+                  key: CALLER_PERMISSIONS
+                  optional: true
           # 调用者令牌：secret 里每个 RAG_TOKEN_<CALLER> 键都会自动注入为同名环境变量
           envFrom:
             - secretRef: {name: rag-callers-secret, optional: true}
