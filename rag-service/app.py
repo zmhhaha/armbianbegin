@@ -24,6 +24,16 @@ def collection(agent: str) -> str:
 def index_name(name: str) -> str:
     return f"rag-{name}-v1"
 
+def ensure_index(index: str) -> None:
+    if es.indices.exists(index=index):
+        return
+    es.indices.create(index=index, settings={"number_of_shards": 1, "number_of_replicas": 0}, mappings={"properties": {
+        "content": {"type": "text", "analyzer": "ik_max_word", "search_analyzer": "ik_smart"},
+        "content_vector": {"type": "dense_vector", "dims": 512, "index": True, "similarity": "cosine"},
+        **{field: {"type": "keyword"} for field in ("collection", "agent", "source_id", "checksum", "work", "topic", "source_type", "provenance", "index_version")},
+        "chunk_seq": {"type": "integer"}, "chunk_count": {"type": "integer"},
+    }})
+
 class IngestRequest(BaseModel):
     agent: str
     source_id: str = Field(min_length=1, max_length=512)
@@ -52,6 +62,7 @@ async def ingest(req: IngestRequest):
     col = collection(req.agent)
     checksum = req.checksum or "sha256:" + hashlib.sha256(req.content.encode()).hexdigest()
     idx = index_name(col)
+    ensure_index(idx)
     doc_id = req.source_id
     existing = es.get(index=idx, id=doc_id, ignore=[404])
     if existing and existing.get("found") and existing["_source"].get("checksum") == checksum:
@@ -71,7 +82,10 @@ async def query(req: QueryRequest):
         response = await client.post(f"{EMBEDDING_URL}/v1/embeddings", json={"input": [req.question], "input_type": "query"})
         response.raise_for_status()
         vector = response.json()["data"][0]["embedding"]
-    result = es.search(index=index_name(col), knn={"field": "content_vector", "query_vector": vector, "k": req.top_k, "num_candidates": max(20, req.top_k * 4), "filter": {"term": {"collection": col}}}, query={"bool": {"filter": [{"term": {"collection": col}}], "should": [{"match": {"content": {"query": req.question}}}]}}, size=req.top_k)
+    idx = index_name(col)
+    ensure_index(idx)
+    scope = {"term": {"collection": col}}
+    result = es.search(index=idx, knn={"field": "content_vector", "query_vector": vector, "k": req.top_k, "num_candidates": max(20, req.top_k * 4), "filter": scope}, query={"bool": {"filter": [scope], "should": [{"match": {"content": {"query": req.question}}}]}}, size=req.top_k)
     sources = [{"content": hit["_source"]["content"], "score": hit["_score"], "source_id": hit["_source"]["source_id"], "work": hit["_source"].get("work"), "topic": hit["_source"].get("topic")} for hit in result["hits"]["hits"]]
     context = "\n\n".join(x["content"] for x in sources)
     answer = context or "索引知识不足，无法根据当前知识库回答。"
