@@ -535,20 +535,18 @@ strict decoding error: unknown field "spec.target.template.kind"
 
 **原因**：当前集群安装的 ESO 版本不支持 `template.kind: ConfigMap` 功能，`kind` 字段未在 CRD schema 中定义。即使通过 `--validate=false` 放行后，因 CRD 底层不存在该字段定义，实际 behavior 是将 `kind: ConfigMap` 忽略并按默认行为生成 Secret。
 
-**结论**：**此版本的 ESO 不支持 template 生成 ConfigMap**。ConfigMap 请手动维护：
+**结论**：**此版本的 ESO 不支持 template 生成 ConfigMap**。ConfigMap 请手动维护（或由各服务的部署脚本 apply）：
 
 ```bash
-kubectl create configmap agent-config -n research-agent \
-  --from-literal=PROVIDER=deepseek \
-  --from-literal=CUSTOM_API_BASE=http://... \
-  --from-literal=CUSTOM_MODEL=deepseek-v4-pro \
-  --dry-run=client -o yaml | kubectl apply -f -
+# 例：literature-downloader 的 agent-config（只放非敏感的检索参数）
+sed "s/__NAMESPACE__/literature-downloader/g" \
+  panghu_agent/literature_downloader/k8s/configmap.yaml | kubectl apply -f -
 ```
 
 **Secret 部分正常工作**，无需特殊处理（直接 `kubectl apply -f` 即可）：
 
 ```bash
-kubectl apply -f inventory/research-agent-externalsecret.yaml
+kubectl apply -f inventory/game-review-agent-externalsecret.yaml
 ```
 
 **安装 CRD（bundle.yaml）时的注意事项**：
