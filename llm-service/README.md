@@ -106,3 +106,23 @@ DEEPSEEK_API_KEY=... uvicorn app:app --port 8000
 
 python -m unittest discover -s tests
 ```
+
+## 已知问题与排查
+
+**1. 依赖安装超时**
+镜像构建走国内 pip 源（`PIP_INDEX_URL`，默认清华）。若退回默认 PyPI，在这套小集群上会以几 KB/s 的速度超时。
+
+**2. 多源 COPY 必须带斜杠**
+`COPY app.py config.py upstream.py .` 会报 `destination must be a directory and end with a /`；
+要写成 `./`。构建脚本改动时容易踩。
+
+**3. `deploy.sh` 的顺序：命名空间必须先于 ExternalSecret**
+ExternalSecret 要落到 `llm` 命名空间，而命名空间定义在 `k8s.yaml` 里、位于后半段——曾因此报
+`namespaces "llm" not found`。脚本已改为先执行 `kubectl create namespace llm`。
+
+**4. Vault 被 seal → 所有 ExternalSecret 同步失败**
+现象：`ClusterSecretStore vault-backend` 显示 `InvalidProviderConfig`，ExternalSecret 全部 `SecretSyncedError`。
+注意：**服务本身仍在跑**（凭据早已注入进程），只是新同步不会发生。排查：
+`kubectl -n vault exec vault-0 -- vault status` 看 `Sealed`，unseal 后
+`kubectl annotate externalsecret <name> -n <ns> force-sync="$(date +%s)" --overwrite` 立即重同步。
+

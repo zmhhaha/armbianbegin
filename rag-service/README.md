@@ -149,3 +149,29 @@ ELASTICSEARCH_PASSWORD=... RAG_TOKEN_DAOFAZIRAN=dev-token \
 
 python -m unittest discover -s tests
 ```
+
+## 已知问题与排查
+
+**1. Agent 要的是"素材"而不是"答案"**
+`/v1/query` 默认 `mode=answer` 会调 llm-service 生成答案；Agent 再基于它生成，就成了**两层 LLM**——
+风格打架、token 翻倍。所以 **Agent 一律用 `mode=context`** 只取素材。新增调用方时先确认 mode 用对了。
+
+**2. 并发灌库撞 embedding 忙限（429）→ ingest 返回 500**
+embedding 服务只有一个推理锁，忙时返回 429。多台 Agent 同时启动时会被打爆，`/v1/ingest` 直接 500，
+**同步静默失败**（探针正常、Pod 正常，只是知识没进库）。
+现在两侧都做了退避重试：RAG 侧 `embed()` 对 429/5xx 重试（1.5s→3s→6s），同步脚本重试 3 次。
+若日志里仍出现 `POST /v1/ingest ... 500`，说明并发仍超限——错峰部署，或给 embedding-service 加副本。
+
+**3. ConfigMap 加了键，Deployment 没引用 → 等于没配**
+`CALLER_PERMISSIONS` 曾只写进 `rag-config`，而 Deployment 的 `env` 是逐个 `configMapKeyRef` 引用的，
+漏引用就完全无效——现象是 operator 通配权限失灵、灌库全 404。
+**改 ConfigMap 后务必确认 Deployment 里有对应 env 引用，并重启 Pod。**
+
+**4. 换摄入模式后要清旧文档**
+pilot 期是"每个 H2 小节一篇"（`source_id=knowledge-01-xxx`），现在是"整份 knowledge.md 一篇"
+（`source_id=knowledge.md`）。两者共存会让检索出现重复内容，迁移时先删旧的：
+
+```bash
+kubectl -n data exec elasticsearch-0 -- bash -c 'curl -s -u elastic:$ELASTIC_PASSWORD -X POST "localhost:9200/rag-agent-*/_delete_by_query?refresh=true&conflicts=proceed" -H "Content-Type: application/json" -d "{\"query\":{\"prefix\":{\"source_id\":\"knowledge-\"}}}"'
+```
+
