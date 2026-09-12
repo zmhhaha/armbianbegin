@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import os
 from typing import Any, Literal
@@ -87,6 +88,28 @@ def ready():
     except Exception as exc:
         raise HTTPException(503, str(exc)) from exc
 
+async def embed(texts: list[str], input_type: str = "passage", attempts: int = 4) -> list:
+    """调用 embedding 服务，繁忙(429)/上游抖动时退避重试。
+
+    多台 Agent 并发灌库会撞到 embedding 的单推理锁（它忙时返回 429），
+    不重试就会让整个 ingest 失败——所以这里必须退避重试。
+    """
+    delay = 1.5
+    for attempt in range(1, attempts + 1):
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                f"{EMBEDDING_URL}/v1/embeddings", json={"input": texts, "input_type": input_type}
+            )
+        if response.status_code == 429 or response.status_code >= 500:
+            if attempt < attempts:
+                await asyncio.sleep(delay)
+                delay *= 2
+                continue
+        response.raise_for_status()
+        return response.json()["data"]
+    raise HTTPException(503, "embedding service unavailable")
+
+
 def build_records(req: IngestRequest, identity: auth.Identity) -> list[tuple[str, dict]]:
     """返回 [(chunk 正文, 该 chunk 的元数据)]。
 
@@ -121,10 +144,7 @@ async def ingest(req: IngestRequest, authorization: str | None = Header(default=
     existing = es.search(index=idx, query={"term": {"source_id": doc_id}}, size=1, _source=["checksum", "chunk_count"])
     if existing["hits"]["hits"] and existing["hits"]["hits"][0]["_source"].get("checksum") == checksum:
         return {"document_id": doc_id, "collection": col, "status": "ready", "chunk_count": existing["hits"]["hits"][0]["_source"].get("chunk_count", len(records)), "index_version": "v1"}
-    async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(f"{EMBEDDING_URL}/v1/embeddings", json={"input": [text for text, _ in records], "input_type": "passage"})
-        response.raise_for_status()
-        vectors = response.json()["data"]
+    vectors = await embed([text for text, _ in records], "passage")
     new_index = f"{idx}-build-{checksum.replace(':', '-')[:24]}"
     if es.indices.exists(index=new_index):
         es.indices.delete(index=new_index)
@@ -144,10 +164,7 @@ async def ingest(req: IngestRequest, authorization: str | None = Header(default=
 async def query(req: QueryRequest, authorization: str | None = Header(default=None)):
     identity = identify(authorization)
     col = target_collection(identity, "read", req.agent)
-    async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(f"{EMBEDDING_URL}/v1/embeddings", json={"input": [req.question], "input_type": "query"})
-        response.raise_for_status()
-        vector = response.json()["data"][0]["embedding"]
+    vector = (await embed([req.question], "query"))[0]["embedding"]
     idx = index_name(col)
     ensure_index(idx)
     scope = {"term": {"collection": col}}
