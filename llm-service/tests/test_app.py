@@ -11,8 +11,12 @@ SERVICE_DIR = Path(__file__).parents[1]
 sys.path.insert(0, str(SERVICE_DIR))
 
 ALIASES = (
-    '{"aliases":{"chat-default":{"provider":"deepseek","base_url":"https://up.invalid/v1",'
-    '"model":"real-model","api_key_env":"TEST_KEY"}},'
+    '{"aliases":{'
+    '"chat-default":{"provider":"deepseek","base_url":"https://up.invalid/v1",'
+    '"model":"real-model","api_key_env":"TEST_KEY","capabilities":{"tools":false}},'
+    '"chat-tools":{"provider":"deepseek","base_url":"https://up.invalid/v1",'
+    '"model":"real-model","api_key_env":"TEST_KEY"}'
+    '},'
     '"limits":{"requests_per_minute_per_caller":2}}'
 )
 
@@ -60,7 +64,7 @@ class LlmServiceTests(unittest.TestCase):
         self.assertEqual(self.client.get("/health/live").status_code, 200)
         self.assertEqual(self.client.get("/health/ready").status_code, 200)
         response = self.client.get("/v1/models", headers=self.headers)
-        self.assertEqual([item["id"] for item in response.json()["data"]], ["chat-default"])
+        self.assertEqual([item["id"] for item in response.json()["data"]], ["chat-default", "chat-tools"])
 
     def test_chat_resolves_alias_and_records_usage(self):
         with self._patch_forward():
@@ -74,6 +78,43 @@ class LlmServiceTests(unittest.TestCase):
         usage = self.client.get("/v1/usage", headers=self.headers).json()["usage"]
         self.assertEqual(usage["requests"], 1)
         self.assertEqual(usage["completion_tokens"], 5)
+
+    def test_forwards_tools_to_upstream(self):
+        """函数调用相关字段（tools/tool_choice）必须透传给上游：CrewAI 的网页工具依赖它。"""
+        captured = {}
+
+        async def recording_forward(aliases, alias_name, messages, params):
+            captured.update(params)
+            return alias_name, FakeResponse()
+
+        with patch.object(self.module, "forward", recording_forward):
+            response = self.client.post(
+                "/v1/chat/completions",
+                headers=self.headers,
+                json={
+                    "model": "chat-tools",
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "tools": [{"type": "function", "function": {"name": "web_search"}}],
+                    "tool_choice": "auto",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(captured.get("tool_choice"), "auto")
+        self.assertEqual(captured["tools"][0]["function"]["name"], "web_search")
+
+    def test_capability_can_forbid_tools(self):
+        """别名可用 capabilities 显式禁止函数调用（纯生成档位）。"""
+        response = self.client.post(
+            "/v1/chat/completions",
+            headers=self.headers,
+            json={
+                "model": "chat-default",
+                "messages": [{"role": "user", "content": "hi"}],
+                "tools": [{"type": "function", "function": {"name": "web_search"}}],
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("does not allow tools", response.json()["detail"])
 
     def test_rejects_unknown_alias(self):
         response = self.client.post(

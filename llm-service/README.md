@@ -7,8 +7,8 @@
 
 ## 边界
 
-- 调用方只能传**允许的模型别名 + 有界的非敏感生成参数**（`temperature`、`top_p`、`max_tokens`、`stop`、`presence_penalty`、`frequency_penalty`）。
-- 请求体里出现 `base_url` / `api_key` / `provider` 之类字段，或使用未知别名，一律拒绝。
+- 调用方只能传**允许的模型别名 + 有界的非敏感生成参数**（`temperature`、`top_p`、`max_tokens`、`stop`、`presence_penalty`、`frequency_penalty`，以及函数调用相关的 `tools` / `tool_choice` / `response_format` / `seed` / `n`）。
+- 请求体里出现 `base_url` / `api_key` / `provider` 之类**改路由**的字段，或使用未知别名，一律拒绝。
 - 凭据只从 Vault 注入进程环境，**绝不回传给调用方**。
 - 非敏感路由（provider、上游 base URL、模型别名、默认参数、超时、重试、fallback）放 ConfigMap。
 
@@ -80,6 +80,28 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/auth \
 ```
 
 `fallback` 指向另一个别名：主别名彻底失败（超时 / 5xx / 429）时按顺序转移。
+
+## 职责边界
+
+**llm-service 是通道 + 策略，不碰业务语义。**
+
+| 它管 | 它不管 |
+|---|---|
+| provider 凭据（Vault） | 说什么内容 |
+| 上游地址、超时重试、失败转移 | 用哪些工具、工具怎么执行 |
+| 限流、用量统计 | 业务提示词与输出解析 |
+| 拒绝**改路由**的字段（`base_url` / `api_key` / `provider` / 未知别名） | 标准 OpenAI 字段的业务含义 |
+| 按**别名的能力档位**放行或收紧能力 | 调用方之间的差异（由各自别名体现） |
+
+标准 OpenAI 兼容字段（含 `tools` / `tool_choice` / `response_format` / `seed` / `n`）**一律透传**；
+是否允许由别名声明——未声明即允许，显式 `false` 才禁止：
+
+```jsonc
+"chat-default": { "...": "...", "capabilities": {"tools": false} },   // 纯生成档位
+"chat-tools":   { "...": "..." }                                       // 未声明 → 允许函数调用
+```
+
+**调用方各用各的档位**：RAG 用 `chat-default`（纯生成），content-llm-service 用 `chat-tools`（CrewAI 需要函数调用）。
 
 ## 构建和部署
 

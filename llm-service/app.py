@@ -50,6 +50,12 @@ class ChatRequest(BaseModel):
     stop: list[str] | None = Field(default=None, max_length=4)
     presence_penalty: float | None = Field(default=None, ge=-2, le=2)
     frequency_penalty: float | None = Field(default=None, ge=-2, le=2)
+    # 函数调用相关：内部受信调用方需要（如 CrewAI 的网页工具），透传给上游
+    tools: list[dict[str, Any]] | None = Field(default=None, max_length=32)
+    tool_choice: str | dict[str, Any] | None = None
+    response_format: dict[str, Any] | None = None
+    seed: int | None = None
+    n: int | None = Field(default=None, ge=1, le=4)
     stream: bool = False
 
 
@@ -114,6 +120,9 @@ async def chat(
         raise HTTPException(400, f"unknown model alias: {request.model}")
     if request.stream:
         raise HTTPException(400, "stream=true is not supported by this service")
+    # 能力档位：网关不管业务语义，只按别名声明放行/收紧
+    if request.tools and not ALIASES[request.model].allows("tools"):
+        raise HTTPException(400, f"model alias '{request.model}' does not allow tools")
     check_rate(caller)
 
     params = {key: getattr(request, key) for key in ALLOWED_PARAMS}

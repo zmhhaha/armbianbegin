@@ -20,8 +20,15 @@ FORBIDDEN_REQUEST_FIELDS = (
     "upstream",
     "headers",
 )
-# 允许透传的有界非敏感生成参数
-ALLOWED_PARAMS = ("temperature", "top_p", "max_tokens", "stop", "presence_penalty", "frequency_penalty")
+# 允许透传的有界非敏感生成参数。
+# 含 tools/tool_choice/response_format：内部受信调用方（如 content-llm-service 的
+# CrewAI 工具调用）需要，属于标准 OpenAI 兼容字段。**改路由**的字段仍然一律拒绝
+# （见 FORBIDDEN_REQUEST_FIELDS）。
+ALLOWED_PARAMS = (
+    "temperature", "top_p", "max_tokens", "stop",
+    "presence_penalty", "frequency_penalty",
+    "tools", "tool_choice", "response_format", "seed", "n",
+)
 
 
 class ConfigError(RuntimeError):
@@ -39,6 +46,12 @@ class Alias:
     max_retries: int = 2
     fallback: tuple[str, ...] = ()
     defaults: dict = field(default_factory=dict)
+    # 能力档位：网关不做业务判断，只按别名放行/收紧标准能力。
+    # 未声明即允许；显式 false 才禁止（如纯生成别名禁 tools）。
+    capabilities: dict = field(default_factory=dict)
+
+    def allows(self, capability: str) -> bool:
+        return bool(self.capabilities.get(capability, True))
 
     @property
     def chat_url(self) -> str:
@@ -64,6 +77,7 @@ def _alias_from(name: str, item: dict) -> Alias:
         max_retries=int(item.get("max_retries", 2)),
         fallback=tuple(item.get("fallback") or ()),
         defaults=dict(item.get("defaults") or {}),
+        capabilities=dict(item.get("capabilities") or {}),
     )
 
 
