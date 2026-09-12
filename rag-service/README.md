@@ -73,10 +73,35 @@ LLM_MODEL: chat-default          # llm-service 注册的"模型别名"，不是�
 LLM_TIMEOUT: "120"
 CALLER_PERMISSIONS: |
   {"rag-operator": {"read": ["*"], "write": ["*"]}}
+INDEX_VERSION: v1                # 索引版本；换 embedding 模型/维度时改它并重建
+RELEVANCE_THRESHOLD: "0.01"      # 融合分低于此值的命中会被丢弃
+CHUNK_SIZE: "1200"               # 单个 chunk 的目标字符数
+CHUNK_OVERLAP: "120"             # 相邻 chunk 的重叠字符数
 ```
 
 `LLM_URL` 留空则 `/v1/query` 只返回检索片段，不调用 LLM。改 ConfigMap 后需
 `kubectl -n data rollout restart deployment/rag-service`（环境变量在 Pod 启动时注入）。
+
+## 写入契约（谁能写什么）
+
+写权限由**服务端映射**决定，调用方无法自称：
+
+| 角色 | 可写范围 |
+|---|---|
+| 各 Agent（`RAG_TOKEN_<AGENT>`） | 只有自己的 `agent-<agent>`；主要用途是启动时同步 `knowledge.md` |
+| `rag-operator`（通配） | 任意 collection，供运维灌库与清理 |
+
+**可复用产出的写入**（报告、文章、整理结果等）：
+
+- **产出成功之后才写**；未完成或失败的产出不得入库。
+- 必须带 provenance：`metadata.source_type`（如 `report` / `article`）与 `metadata.provenance`（来源标识）；
+  有 `topic` / `work` 就一并带上。
+- 幂等：同一 `source_id` + 相同 checksum 重复提交不会产生重复内容。
+
+**两条第一阶段的硬边界**：
+
+- **用户对话不写入经典知识库。** 经典 collection 只收经过整理的参考素材；对话属于用户数据，不进这类库。
+- **research / literature 不自动写入。** 它们的产出接入 RAG 属后续范围，目前**没有任何自动写入路径**。
 
 ## 知识入库（knowledge.md → 条目）
 
@@ -101,6 +126,30 @@ Agent 把**整份 `knowledge.md`** POST 给 `/v1/ingest`，**转换在服务端�
 整份文件是**一个文档**（`source_id` 固定 `knowledge.md`），重新同步即**原子替换**——
 不会残留已删除小节的旧条目。
 
+## 索引版本与重建
+
+检索只认**别名**（`rag-<collection>`），别名背后是**带版本的具体索引**（`rag-<collection>-<INDEX_VERSION>`）。
+换 embedding 模型或改向量维度时必须换索引，否则新旧向量混在一个索引里，检索结果不可信：
+
+```bash
+# 1) 改 rag-config 的 INDEX_VERSION（如 v1 → v2）
+# 2) 重启 rag-service，让新版本生效
+kubectl -n data set env deployment/rag-service INDEX_VERSION=v2   # 或改 ConfigMap 后重启
+kubectl -n data rollout restart deployment/rag-service
+
+# 3) 重新灌库：重启各 Agent，其 rag-sync 会把 knowledge.md 重新摄入到新索引
+#    （写入时 ensure_index 会把别名原子指向新版本）
+for a in bingbichunqiu daofaziran fofawubian xiaotanrenjian zhongkuifumo zhougongjiemeng yimaneili zhenzhuzhida; do
+  kubectl -n ${a}-agent rollout restart deploy/api
+done
+
+# 4) 验证无误后再删旧索引
+kubectl -n data exec elasticsearch-0 -- bash -c 'curl -s -u elastic:$ELASTIC_PASSWORD -X DELETE "localhost:9200/rag-agent-*-v1"'
+```
+
+⚠️ **切换期间检索会短暂为空**——别名已指向新索引，但要等各 Agent 重新同步完成才有数据。
+建议在低峰做，并按集合逐个确认。
+
 ## API
 
 地址：`http://rag-service.data.svc.cluster.local:8080`
@@ -115,6 +164,16 @@ Agent 把**整份 `knowledge.md`** POST 给 `/v1/ingest`，**转换在服务端�
 
 `agent` 可省略（调用者只有一个可写 collection 时）。返回 `document_id` / `chunk_count` / `status`。
 相同 `source_id` + 相同 checksum 幂等；checksum 变化时原子替换（先建临时索引再切换）。
+
+### `GET /v1/ingest/{document_id}`
+
+查询某文档的摄入状态：`queued` / `processing` / `ready` / `failed`（失败含 `error`）。
+状态**持久化在 ES**（`rag-ingest-jobs`），所以服务重启后仍可查；重启时残留的 `queued`/`processing`
+会被标成 `failed`（`interrupted by restart`），重新 POST 同一文档即重试。
+
+### `DELETE /v1/ingest/{document_id}`
+
+删除该文档的全部 chunk 及其摄入记录，返回 `removed_chunks`。用于运维清理误入库/过期语料。
 
 ### `POST /v1/query`
 
@@ -163,9 +222,10 @@ embedding 服务只有一个推理锁，忙时返回 429。多台 Agent 同时�
 若日志里仍出现 `POST /v1/ingest ... 500`，说明并发仍超限——错峰部署，或给 embedding-service 加副本。
 
 **3. ConfigMap 加了键，Deployment 没引用 → 等于没配**
-`CALLER_PERMISSIONS` 曾只写进 `rag-config`，而 Deployment 的 `env` 是逐个 `configMapKeyRef` 引用的，
-漏引用就完全无效——现象是 operator 通配权限失灵、灌库全 404。
-**改 ConfigMap 后务必确认 Deployment 里有对应 env 引用，并重启 Pod。**
+`CALLER_PERMISSIONS` 曾只写进 `rag-config`，而 Deployment 是逐个 `configMapKeyRef` 引用的，漏引用就完全无效——
+现象是 operator 通配权限失灵、灌库全 404。
+**现已改为 `envFrom: configMapRef` 全量注入**：以后往 ConfigMap 加配置项不必再动 Deployment。
+改动 ConfigMap 后仍需重启 Pod 才生效。
 
 **4. 换摄入模式后要清旧文档**
 pilot 期是"每个 H2 小节一篇"（`source_id=knowledge-01-xxx`），现在是"整份 knowledge.md 一篇"

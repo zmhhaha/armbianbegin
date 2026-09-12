@@ -43,3 +43,21 @@ python -m unittest discover -s tests
 ```
 
 单元测试用替代模型验证接口及归一化；真实模型语义效果和 ARM64 镜像需要构建后冒烟验证。
+
+## 已知问题与排查
+
+**1. pip 与模型都必须走国内源**
+pip 走清华源、模型走 hf-mirror。直连 PyPI / hf-hub / GCS 在这套网络上会超时或中断。
+
+**2. 模型下载 403**
+hf-mirror 会按 **User-Agent** 拦截：`curl` 能下、Python `urllib` 的默认 UA 会被 403。
+`prepare_model.py` 已显式设置 `User-Agent`，改下载逻辑时别丢掉这一点。
+
+**3. 摘要不再需要手工配置**
+`build.sh` 原先强制外部传入模型摘要；现在由脚本下载后自动计算。
+需要固定版本时再传 `MODEL_ONNX_SHA256` / `TOKENIZER_SHA256` 即可。
+
+**4. 忙时会返回 429**
+服务是单进程单推理 + 一把锁，**并发请求一律 429**。调用方（如 rag-service）必须自己带退避重试，
+否则并发灌库会把上游打挂。
+

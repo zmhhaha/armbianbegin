@@ -32,6 +32,12 @@ spec:
           image: arm-cluster-master:5000/rag-service:latest
           imagePullPolicy: Always
           ports: [{name: http, containerPort: 8080}]
+          # rag-config 的所有键（LLM_*、CALLER_PERMISSIONS、INDEX_VERSION、CHUNK_*…）统一由 envFrom 注入，
+          # 避免"ConfigMap 加了键、Deployment 忘了引用"这类静默失效。
+          envFrom:
+            - configMapRef: {name: rag-config}
+            # 调用者令牌：每个 RAG_TOKEN_<CALLER> 键自动注入为同名环境变量
+            - secretRef: {name: rag-callers-secret, optional: true}
           env:
             - name: ELASTICSEARCH_URL
               value: http://elasticsearch.data.svc.cluster.local:9200
@@ -44,39 +50,14 @@ spec:
                   key: ELASTIC_PASSWORD
             - name: EMBEDDING_URL
               value: http://embedding-service.data.svc.cluster.local:8080
-            - name: LLM_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: rag-config
-                  key: LLM_URL
-                  optional: true
-            - name: LLM_MODEL
-              valueFrom:
-                configMapKeyRef:
-                  name: rag-config
-                  key: LLM_MODEL
-            - name: LLM_TIMEOUT
-              valueFrom:
-                configMapKeyRef:
-                  name: rag-config
-                  key: LLM_TIMEOUT
             - name: LLM_SERVICE_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: rag-llm-secret
                   key: LLM_SERVICE_TOKEN
                   optional: true
-            - name: CALLER_PERMISSIONS
-              valueFrom:
-                configMapKeyRef:
-                  name: rag-config
-                  key: CALLER_PERMISSIONS
-                  optional: true
-          # 调用者令牌：secret 里每个 RAG_TOKEN_<CALLER> 键都会自动注入为同名环境变量
-          envFrom:
-            - secretRef: {name: rag-callers-secret, optional: true}
           resources:
-            requests: {cpu: 100m, memory: 256Mi}
+            requests: {cpu: 200m, memory: 256Mi}
             limits: {cpu: "1", memory: 1Gi}
           readinessProbe:
             httpGet: {path: /health/ready, port: http}
@@ -100,6 +81,12 @@ data:
   LLM_URL: http://llm-service.llm.svc.cluster.local/v1/chat/completions
   LLM_MODEL: chat-default
   LLM_TIMEOUT: "120"
+  # 索引版本：换 embedding 模型/改向量维度时改它并重建（见 README「索引版本与重建」）
+  INDEX_VERSION: v1
+  # 检索与切分调参
+  RELEVANCE_THRESHOLD: "0.01"
+  CHUNK_SIZE: "1200"
+  CHUNK_OVERLAP: "120"
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

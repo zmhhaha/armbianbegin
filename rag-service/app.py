@@ -1,12 +1,15 @@
 import asyncio
 import hashlib
 import os
+from datetime import datetime, timezone
 from typing import Any, Literal
+
 import httpx
-from elasticsearch import Elasticsearch, helpers
-import auth
+from elasticsearch import Elasticsearch, NotFoundError, helpers
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
+
+import auth
 from chunking import split_chunks, split_knowledge
 
 ES_URL = os.getenv("ELASTICSEARCH_URL", "http://elasticsearch.data.svc.cluster.local:9200")
@@ -18,6 +21,10 @@ LLM_URL = os.getenv("LLM_URL", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-v4-flash")
 LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "120"))
 LLM_TOKEN = os.getenv("LLM_SERVICE_TOKEN", "")
+# 索引版本：换 embedding 模型/维度时改这个值并重建（见 README「索引版本与重建」）
+INDEX_VERSION = os.getenv("INDEX_VERSION", "v1")
+JOBS_INDEX = "rag-ingest-jobs"
+
 es = Elasticsearch(ES_URL, basic_auth=(ES_USER, ES_PASSWORD) if ES_PASSWORD else None)
 app = FastAPI(title="rag-service", version="1.0.0")
 
@@ -43,23 +50,117 @@ def target_collection(identity: auth.Identity, kind: str, requested: str | None)
         return concrete[0]
     raise HTTPException(400, "collection is required for this caller")
 
-def index_name(name: str) -> str:
-    return f"rag-{name}-v1"
 
-def ensure_index(index: str) -> None:
-    if es.indices.exists(index=index):
-        return
-    es.indices.create(index=index, settings={"number_of_shards": 1, "number_of_replicas": 0}, mappings={"properties": {
-        "content": {"type": "text", "analyzer": "ik_max_word", "search_analyzer": "ik_smart"},
-        "content_vector": {"type": "dense_vector", "dims": 512, "index": True, "similarity": "cosine"},
-        **{field: {"type": "keyword"} for field in ("collection", "agent", "source_id", "checksum", "work", "topic", "source_type", "provenance", "index_version")},
-        "chunk_seq": {"type": "integer"}, "chunk_count": {"type": "integer"},
-    }})
+# ---------------------------------------------------------------- 索引与别名
+
+MAPPING_PROPERTIES = {
+    "content": {"type": "text", "analyzer": "ik_max_word", "search_analyzer": "ik_smart"},
+    "content_vector": {"type": "dense_vector", "dims": 512, "index": True, "similarity": "cosine"},
+    **{field: {"type": "keyword"} for field in ("collection", "agent", "source_id", "checksum", "work", "topic", "source_type", "provenance", "index_version")},
+    "chunk_seq": {"type": "integer"},
+    "chunk_count": {"type": "integer"},
+}
+
+
+def index_name(collection: str) -> str:
+    """带版本的具体索引名，如 rag-agent-daofaziran-v1。"""
+    return f"rag-{collection}-{INDEX_VERSION}"
+
+
+def alias_name(collection: str) -> str:
+    """稳定别名，检索只认它；切换版本时原子改指向。"""
+    return f"rag-{collection}"
+
+
+def ensure_index(index: str, alias: str | None = None) -> None:
+    """确保索引存在；给了 alias 就把别名原子地指过来（实现版本切换）。"""
+    if not es.indices.exists(index=index):
+        es.indices.create(
+            index=index,
+            settings={"number_of_shards": 1, "number_of_replicas": 0},
+            mappings={"properties": MAPPING_PROPERTIES},
+        )
+    if alias:
+        actions = []
+        try:
+            for holder in es.indices.get_alias(name=alias):
+                actions.append({"remove": {"index": holder, "alias": alias}})
+        except NotFoundError:
+            pass
+        actions.append({"add": {"index": index, "alias": alias}})
+        es.indices.update_aliases(actions=actions)
+
 
 def source_hits(index: str, source_id: str) -> list[dict]:
     result = es.search(index=index, query={"term": {"source_id": source_id}}, size=10000)
     return result["hits"]["hits"]
 
+
+# ---------------------------------------------------------------- 摄入状态（持久化）
+
+def ensure_jobs_index() -> None:
+    if es.indices.exists(index=JOBS_INDEX):
+        return
+    es.indices.create(
+        index=JOBS_INDEX,
+        settings={"number_of_shards": 1, "number_of_replicas": 0},
+        mappings={"properties": {
+            "document_id": {"type": "keyword"}, "collection": {"type": "keyword"},
+            "caller": {"type": "keyword"}, "checksum": {"type": "keyword"},
+            "status": {"type": "keyword"}, "chunk_count": {"type": "integer"},
+            "index_version": {"type": "keyword"}, "error": {"type": "text"},
+            "updated_at": {"type": "date"},
+        }},
+    )
+
+
+def _job_id(collection: str, document_id: str) -> str:
+    return f"{collection}::{document_id}"
+
+
+def set_job(collection: str, document_id: str, **fields) -> None:
+    """任务状态落盘。ES 持久化，所以重启后仍可查、可看出失败原因。"""
+    try:
+        ensure_jobs_index()
+        es.index(
+            index=JOBS_INDEX,
+            id=_job_id(collection, document_id),
+            document={"document_id": document_id, "collection": collection,
+                      "updated_at": datetime.now(timezone.utc).isoformat(), **fields},
+            refresh=False,
+        )
+    except Exception as exc:  # noqa: BLE001 —— 状态记录失败不能反过来影响摄入
+        print(f"[rag] 写任务状态失败: {type(exc).__name__}: {exc}")
+
+
+def get_job(collection: str, document_id: str) -> dict | None:
+    try:
+        return es.get(index=JOBS_INDEX, id=_job_id(collection, document_id))["_source"]
+    except NotFoundError:
+        return None
+    except Exception:
+        return None
+
+
+def mark_interrupted_jobs() -> None:
+    """启动时把上次进程中断留下的 queued/processing 标成 failed，避免状态永远卡住。"""
+    try:
+        if not es.indices.exists(index=JOBS_INDEX):
+            return
+        es.update_by_query(
+            index=JOBS_INDEX,
+            query={"terms": {"status": ["queued", "processing"]}},
+            script={"source": "ctx._source.status='failed'; ctx._source.error='interrupted by restart'", "lang": "painless"},
+            refresh=True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[rag] 清理中断任务失败: {type(exc).__name__}: {exc}")
+
+
+mark_interrupted_jobs()
+
+
+# ---------------------------------------------------------------- 请求模型
 
 class IngestRequest(BaseModel):
     agent: str | None = None  # 仅作收窄提示；身份由凭据决定
@@ -70,6 +171,7 @@ class IngestRequest(BaseModel):
     # knowledge：按 H2 小节切分并逐条带 topic/work；text：按长度切分
     doc_type: Literal["text", "knowledge"] = "text"
 
+
 class QueryRequest(BaseModel):
     agent: str | None = None  # 仅作收窄提示；身份由凭据决定
     question: str = Field(min_length=1, max_length=20000)
@@ -77,16 +179,25 @@ class QueryRequest(BaseModel):
     # answer：检索 + 由本服务生成答案；context：只回检索素材，由调用方（Agent）按自己的 skill 生成
     mode: Literal["answer", "context"] = "answer"
 
+
+# ---------------------------------------------------------------- 健康
+
 @app.get("/health/live")
-def live(): return {"status": "ok"}
+def live():
+    return {"status": "ok"}
+
 
 @app.get("/health/ready")
 def ready():
     try:
-        if not es.ping(): raise RuntimeError("elasticsearch unavailable")
-        return {"status": "ready"}
+        if not es.ping():
+            raise RuntimeError("elasticsearch unavailable")
+        return {"status": "ready", "index_version": INDEX_VERSION}
     except Exception as exc:
         raise HTTPException(503, str(exc)) from exc
+
+
+# ---------------------------------------------------------------- embedding
 
 async def embed(texts: list[str], input_type: str = "passage", attempts: int = 4) -> list:
     """调用 embedding 服务，繁忙(429)/上游抖动时退避重试。
@@ -132,41 +243,109 @@ def build_records(req: IngestRequest, identity: auth.Identity) -> list[tuple[str
     return records or [(req.content, dict(req.metadata))]
 
 
+# ---------------------------------------------------------------- 摄入
+
+def write_document(index: str, collection: str, document_id: str, checksum: str, caller: str,
+                   records: list[tuple[str, dict]], vectors: list) -> None:
+    """写进临时索引再原子替换：旧版本 chunk 先删、新 chunk 再灌，检索不会读到半成品。"""
+    build_index = f"{index}-build-{checksum.replace(':', '-')[:24]}"
+    if es.indices.exists(index=build_index):
+        es.indices.delete(index=build_index)
+    ensure_index(build_index)
+    actions = ({
+        "_index": build_index,
+        "_id": f"{document_id}::{n}",
+        "_source": {**metadata, "agent": caller, "collection": collection, "source_id": document_id,
+                    "checksum": checksum, "content": text, "content_vector": vectors[n]["embedding"],
+                    "chunk_seq": n, "chunk_count": len(records), "index_version": INDEX_VERSION},
+    } for n, (text, metadata) in enumerate(records))
+    helpers.bulk(es, actions, refresh="wait_for")
+    for hit in source_hits(index, document_id):
+        es.delete(index=index, id=hit["_id"], refresh=False)
+    for hit in es.search(index=build_index, query={"match_all": {}}, size=10000)["hits"]["hits"]:
+        es.index(index=index, id=hit["_id"], document=hit["_source"], refresh=False)
+    es.indices.delete(index=build_index)
+    es.indices.refresh(index=index)
+
+
 @app.post("/v1/ingest")
 async def ingest(req: IngestRequest, authorization: str | None = Header(default=None)):
     identity = identify(authorization)
     col = target_collection(identity, "write", req.agent)
     checksum = req.checksum or "sha256:" + hashlib.sha256(req.content.encode()).hexdigest()
     idx = index_name(col)
-    ensure_index(idx)
+    ensure_index(idx, alias=alias_name(col))
     doc_id = req.source_id
     records = build_records(req, identity)
+
     existing = es.search(index=idx, query={"term": {"source_id": doc_id}}, size=1, _source=["checksum", "chunk_count"])
     if existing["hits"]["hits"] and existing["hits"]["hits"][0]["_source"].get("checksum") == checksum:
-        return {"document_id": doc_id, "collection": col, "status": "ready", "chunk_count": existing["hits"]["hits"][0]["_source"].get("chunk_count", len(records)), "index_version": "v1"}
-    vectors = await embed([text for text, _ in records], "passage")
-    new_index = f"{idx}-build-{checksum.replace(':', '-')[:24]}"
-    if es.indices.exists(index=new_index):
-        es.indices.delete(index=new_index)
-    ensure_index(new_index)
-    actions = ({"_index": new_index, "_id": f"{doc_id}::{n}", "_source": {**metadata, "agent": identity.caller, "collection": col, "source_id": doc_id, "checksum": checksum, "content": text, "content_vector": vectors[n]["embedding"], "chunk_seq": n, "chunk_count": len(records), "index_version": "v1"}} for n, (text, metadata) in enumerate(records))
-    helpers.bulk(es, actions, refresh="wait_for")
-    old_hits = source_hits(idx, doc_id)
-    for hit in old_hits:
-        es.delete(index=idx, id=hit["_id"], refresh=False)
-    for hit in es.search(index=new_index, query={"match_all": {}}, size=10000)["hits"]["hits"]:
-        es.index(index=idx, id=hit["_id"], document=hit["_source"], refresh=False)
-    es.indices.delete(index=new_index)
-    es.indices.refresh(index=idx)
-    return {"document_id": doc_id, "collection": col, "status": "ready", "chunk_count": len(records), "index_version": "v1"}
+        chunk_count = existing["hits"]["hits"][0]["_source"].get("chunk_count", len(records))
+        set_job(col, doc_id, status="ready", checksum=checksum, caller=identity.caller,
+                chunk_count=chunk_count, index_version=INDEX_VERSION, error=None)
+        return {"document_id": doc_id, "collection": col, "status": "ready",
+                "chunk_count": chunk_count, "index_version": INDEX_VERSION}
+
+    set_job(col, doc_id, status="queued", checksum=checksum, caller=identity.caller,
+            chunk_count=0, index_version=INDEX_VERSION, error=None)
+    set_job(col, doc_id, status="processing", checksum=checksum, caller=identity.caller,
+            chunk_count=0, index_version=INDEX_VERSION, error=None)
+    try:
+        vectors = await embed([text for text, _ in records], "passage")
+        write_document(idx, col, doc_id, checksum, identity.caller, records, vectors)
+    except Exception as exc:  # noqa: BLE001 —— 记下失败原因再抛出，便于排查与重试
+        set_job(col, doc_id, status="failed", checksum=checksum, caller=identity.caller,
+                chunk_count=0, index_version=INDEX_VERSION, error=f"{type(exc).__name__}: {exc}")
+        raise
+    set_job(col, doc_id, status="ready", checksum=checksum, caller=identity.caller,
+            chunk_count=len(records), index_version=INDEX_VERSION, error=None)
+    return {"document_id": doc_id, "collection": col, "status": "ready",
+            "chunk_count": len(records), "index_version": INDEX_VERSION}
+
+
+@app.get("/v1/ingest/{document_id}")
+def ingest_status(document_id: str, agent: str | None = None, authorization: str | None = Header(default=None)):
+    """查询某文档的摄入状态：queued / processing / ready / failed（含失败原因）。"""
+    identity = identify(authorization)
+    col = target_collection(identity, "write", agent)
+    job = get_job(col, document_id)
+    if not job:
+        raise HTTPException(404, "no ingestion record for this document")
+    return job
+
+
+@app.delete("/v1/ingest/{document_id}")
+def delete_document(document_id: str, agent: str | None = None, authorization: str | None = Header(default=None)):
+    """删除某文档的全部 chunk（同时清掉它的摄入记录）。
+
+    用途：运维清理误入库/过期的语料，以及集成测试自清理。
+    """
+    identity = identify(authorization)
+    col = target_collection(identity, "write", agent)
+    idx = index_name(col)
+    removed = 0
+    if es.indices.exists(index=idx):
+        for hit in source_hits(idx, document_id):
+            es.delete(index=idx, id=hit["_id"], refresh=False)
+            removed += 1
+        es.indices.refresh(index=idx)
+    try:
+        es.delete(index=JOBS_INDEX, id=_job_id(col, document_id), refresh=True)
+    except Exception:  # noqa: BLE001 —— 没有任务记录也算删除成功
+        pass
+    return {"document_id": document_id, "collection": col, "status": "deleted", "removed_chunks": removed}
+
+
+# ---------------------------------------------------------------- 检索
 
 @app.post("/v1/query")
 async def query(req: QueryRequest, authorization: str | None = Header(default=None)):
     identity = identify(authorization)
     col = target_collection(identity, "read", req.agent)
     vector = (await embed([req.question], "query"))[0]["embedding"]
-    idx = index_name(col)
-    ensure_index(idx)
+    # 走别名：换索引版本时只改别名指向，检索方无感
+    idx = alias_name(col)
+    ensure_index(index_name(col), alias=idx)
     scope = {"term": {"collection": col}}
     lexical = es.search(index=idx, query={"bool": {"filter": [scope], "must": [{"match": {"content": req.question}}]}}, size=max(req.top_k * 4, 20))
     semantic = es.search(index=idx, knn={"field": "content_vector", "query_vector": vector, "k": max(req.top_k * 4, 20), "num_candidates": max(40, req.top_k * 8), "filter": scope}, size=max(req.top_k * 4, 20))
@@ -180,7 +359,7 @@ async def query(req: QueryRequest, authorization: str | None = Header(default=No
     context = "\n\n".join(x["content"] for x in sources)
     if req.mode == "context":
         # Agent 自己按 skill 生成：这里只交素材，不调 LLM（省一层生成、避免风格打架）
-        return {"answer": None, "context": context, "collection": col, "sources": sources, "index_version": "v1"}
+        return {"answer": None, "context": context, "collection": col, "sources": sources, "index_version": INDEX_VERSION}
     answer = context or "索引知识不足，无法根据当前知识库回答。"
     # 走集群内统一入口 llm-service：LLM_MODEL 是它注册的别名，凭据由它持有；
     # 缺少内部令牌时退化为只返回检索上下文，而不是抛错。
@@ -193,4 +372,4 @@ async def query(req: QueryRequest, authorization: str | None = Header(default=No
                 answer = llm.json()["choices"][0]["message"]["content"]
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
             raise HTTPException(502, f"LLM request failed: {type(exc).__name__}") from exc
-    return {"answer": answer, "collection": col, "sources": sources, "index_version": "v1"}
+    return {"answer": answer, "collection": col, "sources": sources, "index_version": INDEX_VERSION}
