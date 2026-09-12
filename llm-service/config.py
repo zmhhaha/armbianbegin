@@ -31,6 +31,32 @@ ALLOWED_PARAMS = (
 )
 
 
+# ---------------------------------------------------------------------------
+# 类别（tier）：策略定义在这里，别名只负责「选类别」。
+#
+# 为什么要分类：有的调用方由**用户写 prompt**（道法自然系列等对话型 Agent），
+# 需要收窄能力面防提示词劫持；有的调用方**不由用户写 prompt**（内容生成、RAG、
+# 内部机器对话），限制它们只会误伤。所以至少两档。
+#
+# 默认 guarded —— 漏配的后果是「更严」而不是「更松」，这是安全默认。
+# ---------------------------------------------------------------------------
+TIERS: dict[str, dict] = {
+    "trusted": {
+        "description": "内部受信调用方（内容生成、RAG、内部机器对话）：标准字段透传",
+        "allow_tools": True,
+        "max_tokens_cap": 8192,
+        "max_messages": 200,
+    },
+    "guarded": {
+        "description": "面向用户、用户可写 prompt 的对话型服务：收窄能力面，防提示词劫持",
+        "allow_tools": False,
+        "max_tokens_cap": 2048,
+        "max_messages": 60,
+    },
+}
+DEFAULT_TIER = "guarded"
+
+
 class ConfigError(RuntimeError):
     """配置缺失或非法。服务应进入 not-ready，而不是用错误配置转发请求。"""
 
@@ -46,12 +72,12 @@ class Alias:
     max_retries: int = 2
     fallback: tuple[str, ...] = ()
     defaults: dict = field(default_factory=dict)
-    # 能力档位：网关不做业务判断，只按别名放行/收紧标准能力。
-    # 未声明即允许；显式 false 才禁止（如纯生成别名禁 tools）。
-    capabilities: dict = field(default_factory=dict)
+    # 类别：策略在 TIERS 里定义，别名只选档位
+    tier: str = DEFAULT_TIER
 
-    def allows(self, capability: str) -> bool:
-        return bool(self.capabilities.get(capability, True))
+    @property
+    def policy(self) -> dict:
+        return TIERS[self.tier]
 
     @property
     def chat_url(self) -> str:
@@ -67,6 +93,9 @@ def _alias_from(name: str, item: dict) -> Alias:
         raise ConfigError(f"别名 {name} 缺少字段: {', '.join(missing)}")
     if any("key" in key.lower() or key.lower().endswith("secret") for key in item if key != "api_key_env"):
         raise ConfigError(f"别名 {name} 不能内嵌凭据，只能通过 api_key_env 引用")
+    tier = str(item.get("tier") or DEFAULT_TIER).strip().lower()
+    if tier not in TIERS:
+        raise ConfigError(f"别名 {name} 的 tier={tier} 未定义，可选值：{', '.join(TIERS)}")
     return Alias(
         name=name,
         provider=item["provider"],
@@ -77,7 +106,7 @@ def _alias_from(name: str, item: dict) -> Alias:
         max_retries=int(item.get("max_retries", 2)),
         fallback=tuple(item.get("fallback") or ()),
         defaults=dict(item.get("defaults") or {}),
-        capabilities=dict(item.get("capabilities") or {}),
+        tier=tier,
     )
 
 

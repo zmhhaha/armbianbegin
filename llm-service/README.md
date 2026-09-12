@@ -30,7 +30,7 @@
 | 头 | 说明 |
 |---|---|
 | `Authorization: Bearer <LLM_SERVICE_TOKEN>` | 必填，内部鉴权 |
-| `X-Caller: <service-name>` | 调用方标识，用于限流与用量统计，**不参与授权判定** |
+| `X-Caller: <service-name>` | 调用方标识，用于限流与用量统计，**不参与授权判定**。可选——litellm/CrewAI 这类客户端不会带，此时用 `/v1/usage` 的 **`by_alias`** 维度区分（设计上每个调用方用自己的别名档位） |
 
 ### `POST /v1/chat/completions`
 
@@ -93,15 +93,28 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/auth \
 | 拒绝**改路由**的字段（`base_url` / `api_key` / `provider` / 未知别名） | 标准 OpenAI 字段的业务含义 |
 | 按**别名的能力档位**放行或收紧能力 | 调用方之间的差异（由各自别名体现） |
 
-标准 OpenAI 兼容字段（含 `tools` / `tool_choice` / `response_format` / `seed` / `n`）**一律透传**；
-是否允许由别名声明——未声明即允许，显式 `false` 才禁止：
+### 两个类别（tier）
 
-```jsonc
-"chat-default": { "...": "...", "capabilities": {"tools": false} },   // 纯生成档位
-"chat-tools":   { "...": "..." }                                       // 未声明 → 允许函数调用
-```
+策略定义在服务端（`config.py` 的 `TIERS`），别名只负责**选类别**：
 
-**调用方各用各的档位**：RAG 用 `chat-default`（纯生成），content-llm-service 用 `chat-tools`（CrewAI 需要函数调用）。
+| 类别 | 给谁用 | 策略 |
+|---|---|---|
+| **`trusted`** | content 生成、RAG、**内部机器对话** | 标准字段透传（含 `tools`）；`max_tokens` ≤ 8192、消息 ≤ 200 |
+| **`guarded`** | **用户会写 prompt** 的对话型 Agent | 禁 `tools` / `response_format`；`max_tokens` ≤ 2048、消息 ≤ 60 |
+
+**默认 `guarded`** —— 漏配的后果是"更严"而不是"更松"，这是安全默认。
+
+现有别名：
+
+| 别名 | 类别 | 用途 |
+|---|---|---|
+| `chat-guarded` | guarded | 道法自然系列等对外 Agent（用户可写 prompt） |
+| `chat-default` | trusted | 纯文本生成（RAG） |
+| `chat-tools` | trusted | 函数调用（content-llm-service 的 CrewAI 网页工具） |
+| `chat-backup` | trusted | 上游失败时的转移目标 |
+
+**同一个服务要两种用法**（对外 + 机内）时用不同别名即可——服务侧按路径选别名。
+phase 2 的劫持防护（system prompt 固化、不可信内容分隔、canary、终端配额）都挂在 `guarded` 这一档上。
 
 ## 构建和部署
 

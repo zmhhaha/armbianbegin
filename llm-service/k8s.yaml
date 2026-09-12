@@ -11,13 +11,16 @@ metadata:
 data:
   # 只放非敏感路由：provider、上游 base URL、模型别名、默认参数、超时、重试。
   # 凭据一律通过 api_key_env 引用，实际值来自 llm-service-secret（Vault 注入）。
-  # 别名 = 能力档位。调用方各用各的档位，职责分明：
-  #   chat-default —— 纯文本生成（RAG 等），显式禁止函数调用
-  #   chat-tools   —— 允许函数调用（content-llm-service 的 CrewAI 网页工具）
+  # 别名 = 类别 + 用途。调用方各取所需：
+  #   chat-guarded —— tier=guarded，给「用户会写 prompt」的对话型 Agent（禁扩权字段、收紧上限）
+  #   chat-default —— tier=trusted，纯文本生成（RAG 等）
+  #   chat-tools   —— tier=trusted，允许函数调用（content-llm-service 的 CrewAI 网页工具）
+  #   chat-backup  —— 上游失败时的转移目标
   LLM_ALIASES: |
     {
       "aliases": {
-        "chat-default": {
+        "chat-guarded": {
+          "tier": "guarded",
           "provider": "deepseek",
           "base_url": "https://api.deepseek.com/v1",
           "model": "deepseek-v4-flash",
@@ -25,10 +28,21 @@ data:
           "timeout_seconds": 60,
           "max_retries": 2,
           "fallback": ["chat-backup"],
-          "defaults": {"temperature": 0.7, "max_tokens": 2048},
-          "capabilities": {"tools": false}
+          "defaults": {"temperature": 0.8}
+        },
+        "chat-default": {
+          "tier": "trusted",
+          "provider": "deepseek",
+          "base_url": "https://api.deepseek.com/v1",
+          "model": "deepseek-v4-flash",
+          "api_key_env": "DEEPSEEK_API_KEY",
+          "timeout_seconds": 60,
+          "max_retries": 2,
+          "fallback": ["chat-backup"],
+          "defaults": {"temperature": 0.7, "max_tokens": 2048}
         },
         "chat-tools": {
+          "tier": "trusted",
           "provider": "deepseek",
           "base_url": "https://api.deepseek.com/v1",
           "model": "deepseek-v4-flash",
@@ -38,6 +52,7 @@ data:
           "defaults": {"temperature": 0.2, "max_tokens": 2048}
         },
         "chat-backup": {
+          "tier": "trusted",
           "provider": "openai",
           "base_url": "https://api.openai.com/v1",
           "model": "gpt-4o-mini",

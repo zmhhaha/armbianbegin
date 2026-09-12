@@ -35,7 +35,17 @@ except ConfigError as error:
     ALIASES, RPM_LIMIT, CONFIG_ERROR = {}, 60.0, str(error)
 
 _usage: dict[str, dict[str, int]] = defaultdict(lambda: {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0})
+# 按别名记账：调用方未必会带 X-Caller（如 litellm 就不带），
+# 但每个调用方用自己的别名档位，所以别名维度足以区分谁在用。
+_alias_usage: dict[str, dict[str, int]] = defaultdict(lambda: {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0})
 _windows: dict[str, deque] = defaultdict(deque)
+
+
+def _record_usage(alias_name: str, caller: str, tokens: dict) -> None:
+    for counter in (_usage[caller], _alias_usage[alias_name]):
+        counter["requests"] += 1
+        counter["prompt_tokens"] += int(tokens.get("prompt_tokens") or 0)
+        counter["completion_tokens"] += int(tokens.get("completion_tokens") or 0)
 
 
 class ChatRequest(BaseModel):
@@ -104,7 +114,13 @@ def models(authorization: str | None = Header(default=None), x_caller: str | Non
 @app.get("/v1/usage")
 def usage(authorization: str | None = Header(default=None), x_caller: str | None = Header(default=None)):
     caller = authorize(authorization, x_caller)
-    return {"caller": caller, "limits": {"requests_per_minute": RPM_LIMIT}, "usage": _usage[caller]}
+    return {
+        "caller": caller,
+        "limits": {"requests_per_minute": RPM_LIMIT},
+        "usage": _usage[caller],
+        # 调用方没带 X-Caller 时（如 litellm），用别名维度区分
+        "by_alias": {name: dict(counter) for name, counter in _alias_usage.items()},
+    }
 
 
 @app.post("/v1/chat/completions")
@@ -120,9 +136,17 @@ async def chat(
         raise HTTPException(400, f"unknown model alias: {request.model}")
     if request.stream:
         raise HTTPException(400, "stream=true is not supported by this service")
-    # 能力档位：网关不管业务语义，只按别名声明放行/收紧
-    if request.tools and not ALIASES[request.model].allows("tools"):
-        raise HTTPException(400, f"model alias '{request.model}' does not allow tools")
+    # 按别名的「类别」施加策略：trusted 透传标准字段；guarded 收窄能力面，防提示词劫持
+    alias = ALIASES[request.model]
+    policy = alias.policy
+    if request.tools and not policy["allow_tools"]:
+        raise HTTPException(400, f"model alias '{request.model}' (tier={alias.tier}) does not allow tools")
+    if request.response_format and not policy["allow_tools"]:
+        raise HTTPException(400, f"model alias '{request.model}' (tier={alias.tier}) does not allow response_format")
+    if request.max_tokens and request.max_tokens > policy["max_tokens_cap"]:
+        raise HTTPException(400, f"max_tokens exceeds the cap ({policy['max_tokens_cap']}) for tier={alias.tier}")
+    if len(request.messages) > policy["max_messages"]:
+        raise HTTPException(400, f"too many messages for tier={alias.tier} (max {policy['max_messages']})")
     check_rate(caller)
 
     params = {key: getattr(request, key) for key in ALLOWED_PARAMS}
@@ -141,10 +165,7 @@ async def chat(
 
     data = response.json()
     tokens = data.get("usage") or {}
-    counter = _usage[caller]
-    counter["requests"] += 1
-    counter["prompt_tokens"] += int(tokens.get("prompt_tokens") or 0)
-    counter["completion_tokens"] += int(tokens.get("completion_tokens") or 0)
+    _record_usage(used_alias, caller, tokens)
     log.info(json.dumps({
         "event": "chat", "caller": caller, "alias": request.model, "upstream_alias": used_alias,
         "model": data.get("model"), "prompt_tokens": tokens.get("prompt_tokens"),

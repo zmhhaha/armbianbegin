@@ -12,9 +12,9 @@ sys.path.insert(0, str(SERVICE_DIR))
 
 ALIASES = (
     '{"aliases":{'
-    '"chat-default":{"provider":"deepseek","base_url":"https://up.invalid/v1",'
-    '"model":"real-model","api_key_env":"TEST_KEY","capabilities":{"tools":false}},'
-    '"chat-tools":{"provider":"deepseek","base_url":"https://up.invalid/v1",'
+    '"chat-guarded":{"tier":"guarded","provider":"deepseek","base_url":"https://up.invalid/v1",'
+    '"model":"real-model","api_key_env":"TEST_KEY"},'
+    '"chat-tools":{"tier":"trusted","provider":"deepseek","base_url":"https://up.invalid/v1",'
     '"model":"real-model","api_key_env":"TEST_KEY"}'
     '},'
     '"limits":{"requests_per_minute_per_caller":2}}'
@@ -64,14 +64,14 @@ class LlmServiceTests(unittest.TestCase):
         self.assertEqual(self.client.get("/health/live").status_code, 200)
         self.assertEqual(self.client.get("/health/ready").status_code, 200)
         response = self.client.get("/v1/models", headers=self.headers)
-        self.assertEqual([item["id"] for item in response.json()["data"]], ["chat-default", "chat-tools"])
+        self.assertEqual([item["id"] for item in response.json()["data"]], ["chat-guarded", "chat-tools"])
 
     def test_chat_resolves_alias_and_records_usage(self):
         with self._patch_forward():
             response = self.client.post(
                 "/v1/chat/completions",
                 headers=self.headers,
-                json={"model": "chat-default", "messages": [{"role": "user", "content": "hi"}], "temperature": 0.5},
+                json={"model": "chat-tools", "messages": [{"role": "user", "content": "hi"}], "temperature": 0.5},
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["model"], "real-model")
@@ -103,12 +103,12 @@ class LlmServiceTests(unittest.TestCase):
         self.assertEqual(captured["tools"][0]["function"]["name"], "web_search")
 
     def test_capability_can_forbid_tools(self):
-        """别名可用 capabilities 显式禁止函数调用（纯生成档位）。"""
+        """guarded 档位（用户可写 prompt 的服务）禁用函数调用与 response_format。"""
         response = self.client.post(
             "/v1/chat/completions",
             headers=self.headers,
             json={
-                "model": "chat-default",
+                "model": "chat-guarded",
                 "messages": [{"role": "user", "content": "hi"}],
                 "tools": [{"type": "function", "function": {"name": "web_search"}}],
             },
@@ -131,7 +131,7 @@ class LlmServiceTests(unittest.TestCase):
             self.assertEqual(response.status_code, 422, extra)
 
     def test_requires_internal_token(self):
-        body = {"model": "chat-default", "messages": [{"role": "user", "content": "hi"}]}
+        body = {"model": "chat-tools", "messages": [{"role": "user", "content": "hi"}]}
         self.assertEqual(self.client.post("/v1/chat/completions", json=body).status_code, 401)
         self.assertEqual(
             self.client.post("/v1/chat/completions", headers={"Authorization": "Bearer wrong"}, json=body).status_code,
@@ -139,7 +139,7 @@ class LlmServiceTests(unittest.TestCase):
         )
 
     def test_rejects_stream_and_rate_limits(self):
-        body = {"model": "chat-default", "messages": [{"role": "user", "content": "hi"}]}
+        body = {"model": "chat-tools", "messages": [{"role": "user", "content": "hi"}]}
         with self._patch_forward():
             self.assertEqual(
                 self.client.post("/v1/chat/completions", headers=self.headers, json={**body, "stream": True}).status_code,
