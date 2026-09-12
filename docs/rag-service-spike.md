@@ -10,7 +10,8 @@
 
 - Elasticsearch 8.15.3 的 `dense_vector` + HNSW + `knn` 工作正常，混合检索（keyword + 向量）端到端跑通，**hybrid 查询 47ms**。
 - `bge-small-zh-v1.5` 在 RK3588 CPU 上跑 onnxruntime，**单条向量化 18.7ms、吞吐 48.7 docs/s、峰值内存约 470MB**。
-- 两个关键约束：**ES 没有中文分词器（无 IK）**，keyword 只能当弱信号、向量必须是主信号；**ES 堆只有 2GB**，向量容量上限约 20～35 万条（pilot 规模绰绰有余）。
+- 中文关键词检索用镜像内置的 **IK**（索引 `ik_max_word` / 查询 `ik_smart`）+ 版本化领域词典；语义召回走向量，两者 RRF 融合。
+- 一个关键约束：**ES 堆只有 2GB**，向量容量上限约 20～35 万条（pilot 规模绰绰有余）。
 
 ## 一、集群现状
 
@@ -28,24 +29,27 @@
 | 项 | 值 |
 |---|---|
 | 版本 | 8.15.3（Lucene 9.11.1） |
-| 集群 | hubo-search，green，单节点，**当前 0 shard（空）** |
+| 集群 | hubo-search，green，单节点（**spike 时为空**，便于做实验） |
 | 资源 | requests 1000m/3Gi，limits 2C/4Gi；JVM `-Xms2g -Xmx2g` |
-| 插件 | **无**（未装 IK 中文分词器） |
+| 插件 | `analysis-ik 8.15.3`（镜像内置）+ 版本化词典 `domain-v1.dic` |
 
-### 2.1 中文分词行为（决定性发现）
+### 2.1 中文分词（IK 已装）
 
-`standard` 分词器把中文**切成单字**（token 类型 `<IDEOGRAPHIC>`）：
+对比一下：ES 自带的 `standard` 分词器会把中文**切成单字**（`<IDEOGRAPHIC>`），
+`match("历史")` 会命中含"历"或"史"的任意文本——**召回高、精度差**。本项目不用它。
+
+镜像内置 `analysis-ik 8.15.3`（与 ES 版本一致），并加载版本化领域词典
+`es/analysis/domain-v1.dic`（由 `IKAnalyzer.cfg.xml` 的 `ext_dict` 引入）：
 
 ```
-"历史学基础" -> [历][史][学][基][础]
+ik_max_word（索引）"历史学基础，史官传统" -> 历史学/历史/史学/基础/史官/传统
+ik_smart（查询）   "历史学基础"          -> 历史学/基础
 ```
 
-后果：`match` 对中文退化成"按字 OR"，`match("历史")` 能命中含"历"或"史"的任意文本——**召回高、精度差，没有词级语义**。因此：
+实测 `match("历史")` 只命中真正含"历史"的文档，不再退化成按字乱命中。
 
-- **向量检索必须是主召回通道**；keyword 只用于元数据精确过滤（`collection`/`work`/`topic` 等 `keyword` 字段）。
-- 若要词级 keyword 召回，两条可选路径（pilot 阶段都**不是必需**）：
-  1. 编译安装 `analysis-ik`（社区插件，需为 ES 8.15.3 编译 ARM64 二进制，无官方现成包）；
-  2. 对文本字段加 `ngram`（bigram）分词器做子串召回（内置、免费，但索引体积变大且仍偏噪）。
+词典覆盖有限，专名（如"四圣谛"当前会被切成 四/圣/谛）需按需往 `domain-v1.dic` 增补；
+**词典或 analyzer 变更需重建镜像并重建受影响索引**——详见 `es/README.md`。
 
 ### 2.2 向量 + 混合检索冒烟
 
@@ -113,7 +117,7 @@ tar -xzf bge.tar.gz   # 解出 fast-bge-small-zh-v1.5/{model_optimized.onnx,toke
 要点：
 - `content_vector` 固定 **512 维**（`bge-small-zh-v1.5` 实际维度，**不是 384**）。换模型/改维度 → 新建索引版本并重灌（spec 已约束）。
 - 过滤字段全部 `keyword`（精确匹配），用于 collection 隔离与元数据过滤。
-- `content` 用 `text`（standard 分词）仅作弱 keyword 信号；主召回靠 `content_vector` 的 `knn`。
+- `content` 用 `text` + IK（索引 `ik_max_word` / 查询 `ik_smart`）做关键词召回；语义召回靠 `content_vector` 的 `knn`，两者 RRF 融合。
 
 ## 五、资源估算
 
@@ -143,9 +147,9 @@ tar -xzf bge.tar.gz   # 解出 fast-bge-small-zh-v1.5/{model_optimized.onnx,toke
 
 ## 六、关键决策与风险
 
-1. **向量为主、keyword 为辅**（无 IK 下的必然选择）；元数据过滤走 `keyword` 精确匹配。
+1. **向量 + IK 关键词双通道**：语义走向量，专名/术语走 `ik_max_word`，RRF 融合；元数据过滤走 `keyword` 精确匹配。
 2. **embedding 线程固定 4**，不要设 8（大小核）。
-3. **模型下载走 GCS 直链**，绕开 hf-hub xet；仓库内应固化下载/校验脚本。
+3. **模型下载**：spike 用 GCS 直链绕开 hf-hub xet；`embedding-service` 已改为国内源 hf-mirror（见该服务 README）。
 4. **维度=512**，schema 与重灌逻辑都以此为准。
 5. ES 单节点无高可用——pilot 可接受，生产前需评估（副本/冷备）。
 6. ES 堆 2GB 是容量天花板，超出 pilot 规模前先解决（扩容或向量外置）。
@@ -153,7 +157,7 @@ tar -xzf bge.tar.gz   # 解出 fast-bge-small-zh-v1.5/{model_optimized.onnx,toke
 ## 七、复现
 
 ```bash
-# 1) 下载模型（GCS 直链）
+# 1) 下载模型（spike 用 GCS 直链；生产见 embedding-service，走 hf-mirror 国内源）
 curl -L -o bge.tar.gz https://storage.googleapis.com/qdrant-fastembed/fast-bge-small-zh-v1.5.tar.gz
 tar -xzf bge.tar.gz
 

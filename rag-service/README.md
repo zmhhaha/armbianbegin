@@ -119,12 +119,16 @@ Agent 把**整份 `knowledge.md`** POST 给 `/v1/ingest`，**转换在服务端�
 ### `POST /v1/query`
 
 ```json
-{"question": "《史记》是什么体例？", "top_k": 5}
+{"question": "《史记》是什么体例？", "top_k": 5, "mode": "answer"}
 ```
 
-返回 `answer`、`collection`、`sources`（含 `content`/`score`/`source_id`/`work`/`topic`）、`index_version`。
-召回采用 BM25 + 向量并做 RRF 融合；低于 `RELEVANCE_THRESHOLD` 时明确回答"索引知识不足"，不编造。
-LLM 超时或返回格式错误时返回 **502**，不伪造生成结果。
+`mode` 两种：
+
+- **`answer`（默认）**：检索 + 由本服务经 `llm-service` 生成答案。返回 `answer`、`collection`、`sources`（含 `content`/`score`/`source_id`/`work`/`topic`）、`index_version`。
+- **`context`**：**只回检索素材**，`answer` 为 `null`，另给 `context`（拼好的参考文本）。**Agent 用这个模式**：自己按 `skill.md` 生成，避免两层 LLM 打架、也省一次生成。
+
+召回采用 IK 关键词 + 向量并做 RRF 融合；低于 `RELEVANCE_THRESHOLD` 时 `sources` 为空
+（`answer` 模式会明确回答"索引知识不足"，不编造）。LLM 超时或返回格式错误时返回 **502**，不伪造生成结果。
 
 ### 健康
 

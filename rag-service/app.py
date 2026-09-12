@@ -73,6 +73,8 @@ class QueryRequest(BaseModel):
     agent: str | None = None  # 仅作收窄提示；身份由凭据决定
     question: str = Field(min_length=1, max_length=20000)
     top_k: int = Field(default=5, ge=1, le=20)
+    # answer：检索 + 由本服务生成答案；context：只回检索素材，由调用方（Agent）按自己的 skill 生成
+    mode: Literal["answer", "context"] = "answer"
 
 @app.get("/health/live")
 def live(): return {"status": "ok"}
@@ -159,6 +161,9 @@ async def query(req: QueryRequest, authorization: str | None = Header(default=No
     selected = sorted(ranked.values(), key=lambda item: item["rrf"], reverse=True)[:req.top_k]
     sources = [{"content": item["hit"]["_source"]["content"], "score": item["rrf"], "source_id": item["hit"]["_source"]["source_id"], "work": item["hit"]["_source"].get("work"), "topic": item["hit"]["_source"].get("topic")} for item in selected if item["rrf"] >= RELEVANCE_THRESHOLD]
     context = "\n\n".join(x["content"] for x in sources)
+    if req.mode == "context":
+        # Agent 自己按 skill 生成：这里只交素材，不调 LLM（省一层生成、避免风格打架）
+        return {"answer": None, "context": context, "collection": col, "sources": sources, "index_version": "v1"}
     answer = context or "索引知识不足，无法根据当前知识库回答。"
     # 走集群内统一入口 llm-service：LLM_MODEL 是它注册的别名，凭据由它持有；
     # 缺少内部令牌时退化为只返回检索上下文，而不是抛错。
