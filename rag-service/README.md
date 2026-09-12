@@ -68,7 +68,7 @@ bash deploy.sh
 ## 配置（ConfigMap `rag-config`）
 
 ```yaml
-LLM_URL: http://llm-service.llm.svc.cluster.local/v1/chat/completions
+LLM_BASE_URL: http://llm-service.llm.svc.cluster.local/v1   # 基址，不含 /chat/completions（路径由代码补齐）
 LLM_MODEL: chat-default          # llm-service 注册的"模型别名"，不是上游模型名
 LLM_TIMEOUT: "120"
 CALLER_PERMISSIONS: |
@@ -79,7 +79,7 @@ CHUNK_SIZE: "1200"               # 单个 chunk 的目标字符数
 CHUNK_OVERLAP: "120"             # 相邻 chunk 的重叠字符数
 ```
 
-`LLM_URL` 留空则 `/v1/query` 只返回检索片段，不调用 LLM。改 ConfigMap 后需
+`LLM_BASE_URL` 留空则 `/v1/query` 只返回检索片段，不调用 LLM。改 ConfigMap 后需
 `kubectl -n data rollout restart deployment/rag-service`（环境变量在 Pod 启动时注入）。
 
 ## 写入契约（谁能写什么）
