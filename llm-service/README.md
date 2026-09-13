@@ -5,6 +5,9 @@
 
 对应 OpenSpec change `add-rag-service` 中的 `llm-service` capability。
 
+> **要把一个新服务接进来？** 看 [INTEGRATION.md](INTEGRATION.md) —— 那是**调用方视角**的步骤清单
+> （选别名 → 申请令牌 → 注入 k8s → 写代码 → 验证）。本文档讲的是**服务自身**的边界与运维。
+
 ## 边界
 
 - 调用方只能传**允许的模型别名 + 有界的非敏感生成参数**（`temperature`、`top_p`、`max_tokens`、`stop`、`presence_penalty`、`frequency_penalty`，以及函数调用相关的 `tools` / `tool_choice` / `response_format` / `seed` / `n`）。
@@ -90,9 +93,12 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 14 个调用方的完整键名见 `vault/inventory/llm-service-externalsecret.yaml` 顶部。
 **不要打印这些令牌的值** —— 核对时只看键名和存在性。
 
-`OPENAI_API_KEY` 是 `openai-trusted` 用的，**现在可以留空** —— 该别名当前没有凭据，
-点名它会得到 503「缺少凭据」，不影响 readiness（`/health/ready` 只在所有别名都无凭据时才 503）。
-哪天买了 OpenAI 的额度，往同一个路径补一个 `OPENAI_API_KEY` 就能用，**代码一行都不用改**。
+`OPENAI_API_KEY` 是 `openai-trusted` 用的。当前 Vault 里放的是一个**占位值**，所以该别名
+「看起来有凭据」（`/health/ready` 会把它算进 `credentialed`），但点名调用会带着这个无效 key
+打到 OpenAI 拿 401。哪天买了额度，往同一个路径换成真 key 就能用，**代码一行都不用改**。
+
+（若想让它在没 key 时给出更清晰的错误，把 Vault 里的 `OPENAI_API_KEY` 清空即可 ——
+那样会返回 502「别名 openai-trusted 缺少凭据」，而不是上游的 401。）
 
 重试只在**同一个别名**上做（超时 / 5xx / 429，最多 `max_retries` 次）。本服务**不做跨上游转移**：
 别名必须唯一对应一个模型，失败就返回错误，绝不静默换成另一个 provider 或另一个模型——否则调用方
@@ -108,10 +114,10 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 | 它管 | 它不管 |
 |---|---|
 | provider 凭据（Vault） | 说什么内容 |
-| 上游地址、超时重试、失败转移 | 用哪些工具、工具怎么执行 |
+| 上游地址、超时与重试 | 用哪些工具、工具怎么执行 |
 | 限流、用量统计 | 业务提示词与输出解析 |
 | 拒绝**改路由**的字段（`base_url` / `api_key` / `provider` / 未知别名） | 标准 OpenAI 字段的业务含义 |
-| 按**别名的能力档位**放行或收紧能力 | 调用方之间的差异（由各自别名体现） |
+| 按**别名的能力档位**放行或收紧能力；按调用方归因用量与限流 | 给调用方分别设策略（同一别名的所有调用方策略相同） |
 
 ### 两个类别（tier）
 
@@ -158,8 +164,11 @@ bash deploy.sh           # 应用 Vault ExternalSecret + k8s，重启并等待�
 
 ## 迁移现有服务
 
-各 Agent、`content-llm-service`、RAG 在各自迭代中把直连 provider 换成
-`http://llm-service.llm.svc.cluster.local`，并**删除自己那份 provider API Key**；对外 API 与业务逻辑不变。
+已完成的迁移：8 家本法 Agent、research / scientific / game_review、literature_downloader、
+`content-llm-service`、RAG —— 它们都删掉了自己那份 provider API Key，模型调用统一走本服务，
+各自持有**专属的 per-caller 令牌**。
+
+**新接入一个服务**照 [INTEGRATION.md](INTEGRATION.md) 做。
 
 ## 本地运行与测试
 
@@ -177,9 +186,11 @@ python -m unittest discover -s tests
 **1. 依赖安装超时**
 镜像构建走国内 pip 源（`PIP_INDEX_URL`，默认清华）。若退回默认 PyPI，在这套小集群上会以几 KB/s 的速度超时。
 
-**2. 多源 COPY 必须带斜杠**
-`COPY app.py config.py upstream.py .` 会报 `destination must be a directory and end with a /`；
-要写成 `./`。构建脚本改动时容易踩。
+**2. 多源 COPY 必须带斜杠，且新增模块要同步加进列表**
+`COPY app.py auth.py config.py upstream.py .`（注意结尾 `./`）—— 结尾不写 `/` 会报
+`destination must be a directory and end with a /`；而**新增 `.py` 模块忘了加进这一行**，
+镜像里就 import 不到，表现是 Pod CrashLoop、rollout 一直等不到可用副本（`auth.py` 就这么踩过一次）。
+单元测试发现不了：测试是从源码目录 import 的，那个模块就在旁边。
 
 **3. `deploy.sh` 的顺序：命名空间必须先于 ExternalSecret**
 ExternalSecret 要落到 `llm` 命名空间，而命名空间定义在 `k8s.yaml` 里、位于后半段——曾因此报
