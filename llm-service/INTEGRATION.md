@@ -11,7 +11,7 @@
 |  | 怎么定 | 影响 |
 |---|---|---|
 | **调用者名**（caller） | 小写、连字符，全集群唯一，通常就是服务名 | 决定 Vault 键名和用量统计里的身份 |
-| **用哪个别名** | 用户会写 prompt → `guarded`；否则 → `trusted` | 决定能力面（见 §1） |
+| **用哪个别名** | 用户会写 prompt → `guarded`；否则 → `trusted` | 决定能力面（见 §1，判错的两种情况见 §1.1） |
 | **要不要 `tools` / `response_format`** | 要 → **必须** `trusted` | `guarded` 会 400 |
 
 ---
@@ -37,6 +37,53 @@
 不要按「用途」造名字（历史教训见 README「别名命名约定」）。加别名不需要改任何代码。
 
 **同一个服务两种用法**（对外的走 guarded、机内的走 trusted）→ 按代码路径选不同别名，不用开两个服务。
+
+### 1.1 「程序生成」不等于「没有玩家文本」
+
+上面那条判据是对的，但有两种情况会让你把它判错。
+
+**① 模型自己的输出会绕回来。** 你看到某段内容来自世界状态、不是玩家打的字，就判它是「程序生成」——
+但那段文字可能是**上一次模型调用写回去的**，而上一次调用里带着玩家输入。链子是：
+
+```
+玩家打字的输入 → 调用 A（guarded）→ 模型输出 → 写进状态 → 调用 B 的输入
+```
+
+- ShaPan：`local_battle` / `unit_autonomy` / `enemy_action` 都不含玩家文本，但后两者的
+  `knownContext.ownState` 是整个 `unitStates[id]`，里面有 `summary`，而 `summary` 是更早的
+  `order_response` 任务（带玩家军令原文）写回的。
+- School of One：`duel-judge` / `combo-judge` 的输入是牌面 `description`，看着就是内容包数据；
+  但自定义牌的 `description` 是玩家输入经 LLM 改写后存下来的（闭关模式的产出）。
+
+判这种链子时，问的不是「这段文字谁生成的」，而是「**沿这条链往回走，能不能走到一个玩家能打字的输入框**」。
+
+**② 一个调用点不等于一种任务。** 同一个 `fetch` 可能按 `jobType` 服务好几种任务，其中只有一种带玩家文本。
+ShaPan 就是这样：一个调用点、四种任务、一个别名。这种情况档位只能就高（`guarded`），
+除非你愿意按任务类型配两个别名分开选 —— 通常不值，见下。
+
+**参考：`panghu_game` 的实际分配**（2026-09 审计，比照 `migrate-game-llm-to-service`）
+
+| 服务 | 调用点 | prompt 里有玩家自由文本吗 |
+|---|---|---|
+| School of One · training-ground | 4 | 有，四处全有（`student_description` + 累积 history） |
+| School of One · duel-judge | 3 | 表面没有 —— 但牌面 description 可能是玩家输入的改写版，见 ① |
+| School of One · combo-judge | 1 | 同上 |
+| TeWu | 2 | 有（`question` + `history`） |
+| QianFu | 4 | 有（`playerText`；`plan.objective/steps/safeguards/abortCondition`；`terms.purpose/abortCondition`） |
+| ShaPan | 1 个调用点 / 4 种任务 | 只有 `order_response` 有；其余见 ① |
+| GuanLiao | 2 | 有（`orderText` / `receivedText`） |
+| TaShuo | 3 | 有（评论、报告） |
+| XuYe | 1 | 有（玩家写入的续写文字，在 user 消息里） |
+
+这张表的用途不是照抄，是**别把档位分配当成顺手选的**：档位就是授予能力的地方。
+哪天某个服务要用 `tools`，回来查这张表 —— 那才是需要认真判一次的时候。
+
+**拿不准就选 `guarded`。** 现在两档在**能力上**几乎没有差别：`panghu_game` 没有任何服务用 `tools`，
+`response_format` 已全部移除，只有 GuanLiao 发 `max_tokens`（1000，在 2048 上限内），消息数都在 3 条以内。
+所以选严的代价只是 prompt 被多包一层、多几十个 token；选松的代价是「用户能借你的服务白嫖任意 LLM 调用」。
+
+> 一个反直觉的细节：`deepseek-trusted` 的 `defaults` 里带 `max_tokens: 2048`，而 `deepseek-guarded` 不设。
+> 所以对**自己不发 `max_tokens`** 的调用方，从 guarded 换到 trusted 反而会**收紧**输出长度。
 
 ---
 
@@ -248,7 +295,7 @@ curl -sS -H "Authorization: Bearer <你的令牌>" http://llm-service.llm.svc.cl
 ## 6. 接入检查清单
 
 - [ ] 调用者名定了，小写连字符
-- [ ] 别名按 §1 选好，确认不会用到 `guarded` 禁的能力
+- [ ] 别名按 §1 选好，确认不会用到 `guarded` 禁的能力；判「有没有玩家文本」时对照 §1.1
 - [ ] Vault `secret/llm-service/callers` 里有 `LLM_TOKEN_<CALLER>`（`kv patch` 加的，没用 `kv put` 覆盖）
 - [ ] ExternalSecret 已 apply，`kubectl get externalsecret llm-token -n <ns>` 是 `SecretSynced=True`
 - [ ] Pod 带 `llm-client: "true"` 标签
