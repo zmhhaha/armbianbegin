@@ -123,9 +123,13 @@ OWASP LLM01:2025 把 Prompt Injection 列为第一大风险，其首选缓解**�
 ### 「用量上限」为什么没做
 
 原本计划按调用方加每小时 token 预算。改成了**每日报告**：把用量、检测命中、
-canary 泄漏汇总成一篇 hublog 文章（生产者 `llm-service/report/`）。
+canary 泄漏汇总成一篇 Hublog 文章。
 
-理由是**先能看见，再谈限制** —— 现在还没有任何真实数据说明"多少算异常"，
+生产者是 content agent（`panghu_agent/content_agents/llm_guard_report_agent/`），
+和别的 bot 走同一套骨架和同一份 Hublog 令牌信封 —— 它需要的是一个 llm-service 调用方身份
+（`llm-report`），用来读 `/v1/guard/report`。
+
+理由是**先能看见，再谈限制** —— 现在还没有任何真实数据说明「多少算异常」，
 先上阈值只会误伤。日报跑一段时间之后再决定要不要加硬上限。
 
 ## 参考

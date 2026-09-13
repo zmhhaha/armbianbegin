@@ -48,7 +48,9 @@
 
 - `GET /v1/guard` —— 调用方看**自己**的计数与当前生效模式
 - `GET /v1/guard/report` —— **全量**汇总，只给 `LLM_GUARD.report_callers` 白名单
-- 每日 hublog 日报 —— 生产者见 [`report/`](report/)
+- 每日 Hublog 日报 —— 生产者是 content agent，见
+  [`panghu_agent/content_agents/llm_guard_report_agent/`](../panghu_agent/content_agents/llm_guard_report_agent/main.py)；
+  它用 `llm-token` ExternalSecret 里的身份 `llm-report` 调 `/v1/guard/report`
 
 ## API
 
