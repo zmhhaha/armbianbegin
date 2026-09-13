@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📐 OpenSpec MCP 接入</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.75}
+.wrap{max-width:860px;margin:0 auto;padding:48px 20px 80px}
+a{color:#a78bfa;text-decoration:none}
+a:hover{text-decoration:underline}
+.back{display:inline-block;margin-bottom:24px;color:#94a3b8;font-size:.9em}
+h1{font-size:2em;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+.sub{color:#94a3b8;margin-bottom:40px}
+h2{font-size:1.25em;margin:44px 0 14px;padding-left:10px;border-left:3px solid #a78bfa;color:#f1f5f9}
+h3{font-size:1.02em;margin:26px 0 8px;color:#cbd5e1}
+p{margin-bottom:12px;color:#cbd5e1}
+ul,ol{margin:0 0 14px 22px;color:#cbd5e1}
+li{margin-bottom:6px}
+code{background:#1e293b;border:1px solid #334155;border-radius:5px;padding:1px 6px;font-size:.88em;color:#f0abfc}
+pre{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px 18px;overflow-x:auto;margin:12px 0 18px}
+pre code{background:none;border:none;padding:0;color:#e2e8f0;font-size:.86em;line-height:1.65}
+table{width:100%;border-collapse:collapse;margin:12px 0 18px;font-size:.9em}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid #334155;vertical-align:top}
+th{color:#94a3b8;font-weight:600;background:#1e293b}
+td code{font-size:.85em}
+.steps{counter-reset:s;list-style:none;margin-left:0}
+.steps>li{counter-increment:s;position:relative;padding:0 0 26px 52px;margin:0}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:34px;height:34px;border-radius:50%;background:rgba(167,139,250,.15);color:#a78bfa;display:flex;align-items:center;justify-content:center;font-weight:700}
+.steps>li>.st{font-weight:600;color:#f1f5f9;display:block;margin-bottom:4px}
+.note{background:rgba(245,158,11,.08);border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0 18px;color:#fcd34d;font-size:.9em}
+.footer{text-align:center;padding:20px;color:#475569;font-size:.85em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← 返回工具</a>
+  <h1>📐 OpenSpec MCP 接入</h1>
+  <p class="sub">让 Codex、Claude Code、Cursor 这类 AI 编程工具直接读写你的 OpenSpec 规格库。不需要在本地装任何 OpenSpec 环境，加一个远程 MCP 就行。</p>
+
+  <h2>四步走完</h2>
+  <ol class="steps">
+    <li>
+      <span class="st">提交项目申请，等管理员审批</span>
+      <p>打开 <a href="https://openspec.panghuer.top/project-requests">openspec.panghuer.top/project-requests</a>，用 Casdoor 登录后填表：显示名称、slug、GitHub 公开仓库地址、默认 ref、脚本 profile、说明。</p>
+      <p>提交后服务端会校验字段并自动建一个 Gitea Issue。管理员检查后加上 <code>status:approved</code> 标签，系统随即创建该项目的<strong>私有 Gitea OpenSpec store</strong>，把申请人加为 Admin，并在 Issue 里评论 projectId 和仓库地址。</p>
+      <div class="note">审批通过之前，下面的步骤拿不到可用的 projectId。Issue 地址就是你的进度条。</div>
+    </li>
+    <li>
+      <span class="st">取一个 JWT</span>
+      <p>打开 <a href="https://openspec.panghuer.top/token">openspec.panghuer.top/token</a>，用 Casdoor 登录（GitHub 或邮箱），页面直接显示你的 JWT 和复制按钮，并给出各客户端的配置命令。</p>
+      <p>这个 JWT 就是你在 MCP 上的身份。权限<strong>完全以该项目的 Gitea 仓库 ACL 为准</strong>：viewer 能读、editor 能写、owner 才能归档。</p>
+    </li>
+    <li>
+      <span class="st">写进你的 Codex / Claude Code</span>
+      <p>把下面的命令里的 <code>$CASDOOR_JWT</code> 换成上一步拿到的 JWT：</p>
+      <h3>Claude Code</h3>
+      <pre><code>claude mcp add --transport http openspec \
+  https://openspec.panghuer.top/mcp \
+  --header "Authorization: Bearer $CASDOOR_JWT"</code></pre>
+      <h3>Codex CLI</h3>
+      <pre><code>codex mcp add openspec --transport streamable-http \
+  https://openspec.panghuer.top/mcp \
+  --header "Authorization: Bearer $CASDOOR_JWT"</code></pre>
+      <h3>Cursor / Windsurf / 其他支持远程 MCP 的工具</h3>
+      <p>设置 → MCP → 添加远程 MCP server：</p>
+      <ul>
+        <li>URL：<code>https://openspec.panghuer.top/mcp</code></li>
+        <li>Header：<code>Authorization: Bearer &lt;JWT&gt;</code></li>
+      </ul>
+      <h3>验证连通性</h3>
+      <pre><code>curl -s -X POST https://openspec.panghuer.top/mcp \
+  -H "Authorization: Bearer $CASDOOR_JWT" -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize",
+       "params":{"protocolVersion":"2025-06-18","capabilities":{},
+                 "clientInfo":{"name":"test","version":"0"}}}'</code></pre>
+    </li>
+    <li>
+      <span class="st">按规范写</span>
+      <p>接进来之后不要直接改代码。规范驱动的顺序是：<strong>先写 change（提案 + spec delta + 任务），校验通过、合并进主 specs，再照着自己写的 spec 实现。</strong></p>
+      <p>把这个顺序明确告诉你的 AI 工具，或者在项目里放一条规则，否则它多半会先写代码。</p>
+    </li>
+  </ol>
+
+  <h2>工具清单</h2>
+  <table>
+    <tr><th>工具</th><th>必填参数</th><th>权限</th><th>说明</th></tr>
+    <tr><td><code>list_projects</code></td><td>—</td><td>任意已认证</td><td>列出你可见的项目</td></tr>
+    <tr><td><code>list_specs</code></td><td>projectId</td><td>Read</td><td>列出主 specs（返回 revision）</td></tr>
+    <tr><td><code>list_changes</code></td><td>projectId</td><td>Read</td><td>列出 active changes（返回 revision）</td></tr>
+    <tr><td><code>get_change</code></td><td>projectId, changeId</td><td>Read</td><td>读 change 工件与 taskStatus</td></tr>
+    <tr><td><code>create_proposal</code></td><td>projectId, changeId, expectedRevision</td><td>Write</td><td>创建 change</td></tr>
+    <tr><td><code>update_proposal</code></td><td>projectId, changeId, expectedRevision, files</td><td>Write</td><td>更新已有 change 工件</td></tr>
+    <tr><td><code>validate_change</code></td><td>projectId, changeId</td><td>Write</td><td>校验 change/spec</td></tr>
+    <tr><td><code>apply_specs</code></td><td>projectId, changeId, expectedRevision</td><td>Write</td><td>delta 合并进主 specs，保留 change</td></tr>
+    <tr><td><code>archive_change</code></td><td>projectId, changeId, expectedRevision</td><td><strong>Admin</strong></td><td>归档 change</td></tr>
+  </table>
+
+  <h2>标准工作流</h2>
+  <pre><code>1. list_projects                → 找到 projectId
+2. list_specs / list_changes    → 取当前 revision（乐观并发基准）
+3. create_proposal              → changeId + expectedRevision +
+                                  files = { "proposal.md": …, "specs/<cap>/spec.md": … }
+4. validate_change              → 确认 valid=true（失败按 message 修内容）
+5. update_proposal              → 需要改时，用最新 revision
+6. apply_specs                  → delta 合入主 specs
+7. archive_change               → 归档（需 owner 权限）</code></pre>
+
+  <h2>几条要守的规矩</h2>
+  <ul>
+    <li><strong>写操作要带 <code>expectedRevision</code></strong>。它来自上一步的读，过期会返回 409，重新读一次再写即可。</li>
+    <li><strong>幂等</strong>：写工具不传 <code>Idempotency-Key</code> 时，服务按「用户 + 项目 + 工具 + 参数」派生确定性键。所以超时重试同一次调用不会重复写入，换个参数就是新调用。</li>
+    <li><strong>先 spec 后码</strong>。字段名别乱起：用 <code>### Requirement</code> + <code>#### Scenario</code>，场景写 <code>WHEN / THEN / AND THEN</code>。</li>
+    <li><strong>归档要 owner</strong>。editor 能写能校验，但归档需要 Gitea 仓库 owner 权限。</li>
+    <li><strong>projectId 是唯一边界</strong>。客户端只传 projectId，服务端按 Gitea 仓库实时查 ACL；无权限一律 404（刻意不区分「不存在」和「无权」）。</li>
+  </ul>
+
+  <h2>常见错误</h2>
+  <table>
+    <tr><th>状态</th><th>含义</th><th>怎么办</th></tr>
+    <tr><td>401</td><td>JWT 无效 / 过期 / aud 不符</td><td>回 <a href="https://openspec.panghuer.top/token">/token</a> 重新取</td></tr>
+    <tr><td>404</td><td>项目不存在，或你无权访问</td><td>查 projectId；确认自己在该 Gitea 仓库里</td></tr>
+    <tr><td>409</td><td>revision 过期，或幂等键与上次内容不一致</td><td>重新读 revision 再写</td></tr>
+    <tr><td>422</td><td>validate/archive 的内容不合法</td><td>按返回的 message 修 spec 内容</td></tr>
+    <tr><td>503</td><td>Gitea / DB / Vault 依赖不可用</td><td>稍后重试</td></tr>
+  </table>
+
+  <div class="note">
+    这个服务<strong>只给所有者和一位朋友使用</strong>，没有自助注册，也不是开放平台。
+    项目登记走上面的申请 + 审批流程，没有别的入口。
+  </div>
+
+  <div class="footer">Powered by ArmbianBegin &copy; 2026</div>
+</div>
+</body>
+</html>

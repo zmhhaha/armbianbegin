@@ -7,10 +7,11 @@
 #    bash deploy.sh game       # 部署 game 门户
 #    bash deploy.sh main       # 部署 main 门户
 #    bash deploy.sh chat       # 部署 Panghu Chat 门户
+#    bash deploy.sh tool       # 部署工具门户（含 OpenSpec MCP 接入文档页）
 #
 #  命名空间约定: {app}-portal（如 agent-portal / game-portal / main-portal / chat-portal）
 #  镜像: portal:latest（各门户共用同一镜像）
-#  index.html 通过 ConfigMap 注入
+#  apps/<app>/ 下的**全部文件**都打进 ConfigMap portal-html（不只是一个 index.html）
 # ============================================================
 set -e
 script_dir="$(cd "$(dirname "$0")" && pwd)"
@@ -30,17 +31,19 @@ docker push arm-cluster-master:5000/portal:latest
 # 创建命名空间
 kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml $K | kubectl apply $K -f -
 
-# ConfigMap（index.html）
-INDEX_B64=$(base64 -w0 apps/${APP}/index.html)
-cat > /tmp/portal-cm.yaml << CMEOF
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: portal-html
-  namespace: ${NAMESPACE}
-binaryData:
-  index.html: ${INDEX_B64}
-CMEOF
+# ConfigMap（apps/<app>/ 下的全部文件）
+{
+  echo "apiVersion: v1"
+  echo "kind: ConfigMap"
+  echo "metadata:"
+  echo "  name: portal-html"
+  echo "  namespace: ${NAMESPACE}"
+  echo "binaryData:"
+  for f in apps/${APP}/*; do
+    [ -f "$f" ] || continue
+    echo "  $(basename "$f"): $(base64 -w0 "$f")"
+  done
+} > /tmp/portal-cm.yaml
 kubectl apply $K -f /tmp/portal-cm.yaml
 
 # k8s 资源
