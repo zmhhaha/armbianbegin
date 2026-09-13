@@ -13,13 +13,15 @@ import logging
 import os
 import time
 from collections import defaultdict, deque
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from auth import resolve, token_map
-from config import ALLOWED_PARAMS, ConfigError, load_config
+from config import ALLOWED_PARAMS, ConfigError, load_config, load_guard_config
+from guard import detect, harden, leaked, new_canary, user_texts
 from upstream import UpstreamError, forward
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -27,16 +29,39 @@ log = logging.getLogger("llm-service")
 
 app = FastAPI(title="llm-service", version="0.1.0")
 
+STARTED_AT = time.time()
+
 try:
     ALIASES, RPM_LIMIT = load_config()
     CONFIG_ERROR: str | None = None
 except ConfigError as error:
     ALIASES, RPM_LIMIT, CONFIG_ERROR = {}, 60.0, str(error)
 
+try:
+    GUARD = load_guard_config()
+except ConfigError as error:
+    # 防护配置写错要让服务 not-ready，而不是静默退化成「不防护」——那是最危险的失败方式
+    GUARD = None
+    CONFIG_ERROR = CONFIG_ERROR or str(error)
+
 _usage: dict[str, dict[str, int]] = defaultdict(lambda: {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0})
 # 按别名记账：它回答的是「哪个模型被用了多少」，与「谁在用」是两个维度，所以两张表都留着。
 _alias_usage: dict[str, dict[str, int]] = defaultdict(lambda: {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0})
 _windows: dict[str, deque] = defaultdict(deque)
+
+# 防护计数（内存态；Pod 重启归零，日报里会带 since 时间戳说明这一点）
+_guard_stats: dict[str, dict] = defaultdict(
+    lambda: {"detection_hits": defaultdict(int), "canary_leaks": 0, "rejected": 0}
+)
+
+
+def _guard_view(caller: str) -> dict:
+    stats = _guard_stats[caller]
+    return {
+        "detection_hits": dict(stats["detection_hits"]),
+        "canary_leaks": stats["canary_leaks"],
+        "rejected": stats["rejected"],
+    }
 
 
 def _record_usage(alias_name: str, caller: str, tokens: dict) -> None:
@@ -136,6 +161,49 @@ def usage(authorization: str | None = Header(default=None)):
     }
 
 
+def _guard_or_503():
+    if GUARD is None:
+        raise HTTPException(503, f"guard config error: {CONFIG_ERROR}")
+    return GUARD
+
+
+@app.get("/v1/guard")
+def guard_self(authorization: str | None = Header(default=None)):
+    """调用方看**自己**的防护计数与当前生效的模式。"""
+    guard = _guard_or_503()
+    caller = authorize(authorization)
+    return {
+        "caller": caller,
+        "since": datetime.fromtimestamp(STARTED_AT, timezone.utc).isoformat(),
+        "counters": _guard_view(caller),
+        "modes": {
+            "spotlight": guard.spotlight,
+            "canary": guard.canary,
+            "canary_action": guard.canary_action,
+            "detection": guard.detection,
+        },
+    }
+
+
+@app.get("/v1/guard/report")
+def guard_report(authorization: str | None = Header(default=None)):
+    """**全量**汇总，只给 LLM_GUARD.report_callers 白名单（日报生产者用）。
+
+    普通调用方只能从 /v1/guard 看自己的；这个端点会暴露所有人的用量，
+    所以必须显式列白名单，不能默认开放。
+    """
+    guard = _guard_or_503()
+    caller = authorize(authorization)
+    if not guard.may_read_report(caller):
+        raise HTTPException(403, "this caller may not read the aggregate guard report")
+    return {
+        "since": datetime.fromtimestamp(STARTED_AT, timezone.utc).isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "callers": {name: {**_usage[name], **_guard_view(name)} for name in sorted(_usage)},
+        "by_alias": {name: dict(counter) for name, counter in sorted(_alias_usage.items())},
+    }
+
+
 @app.post("/v1/chat/completions")
 async def chat(
     request: ChatRequest,
@@ -161,10 +229,30 @@ async def chat(
         raise HTTPException(400, f"too many messages for tier={alias.tier} (max {policy['max_messages']})")
     check_rate(caller)
 
+    # --- 防护：先在**原始** user 文本上扫攻击特征（要在 spotlight 包标记之前，否则扫的是自己加的标记）---
+    hits: list[str] = []
+    for text in user_texts(request.messages):
+        for name in detect(text):
+            if name not in hits:
+                hits.append(name)
+    if hits and GUARD.detection != "off":
+        stats = _guard_stats[caller]
+        for name in hits:
+            stats["detection_hits"][name] += 1
+        log.info(json.dumps({"event": "guard_detection", "caller": caller, "alias": request.model,
+                             "rules": hits}, ensure_ascii=False))
+        if GUARD.detection == "reject":
+            stats["rejected"] += 1
+            raise HTTPException(400, "request blocked by prompt-injection detection")
+
+    # --- 防护：按档位改写发给上游的 messages（包标记 / 埋 canary）---
+    canary = new_canary() if GUARD.canary_for(alias.tier) else None
+    messages = harden(request.messages, spotlight=GUARD.spotlight_for(alias.tier), canary=canary)
+
     params = {key: getattr(request, key) for key in ALLOWED_PARAMS}
     started = time.time()
     try:
-        response = await forward(ALIASES, request.model, request.messages, params)
+        response = await forward(ALIASES, request.model, messages, params)
     except UpstreamError as error:
         log.info(json.dumps({"event": "upstream_error", "caller": caller, "alias": request.model,
                              "status": error.status, "detail": error.message}, ensure_ascii=False))
@@ -188,6 +276,17 @@ async def chat(
         log.info(json.dumps({"event": "upstream_no_choices", "caller": caller, "alias": request.model,
                              "status": response.status_code}, ensure_ascii=False))
         raise HTTPException(502, "upstream error: response contains no choices")
+
+    # --- 防护：响应里出现 canary，说明模型被套话把 system 复述出来了 ---
+    if canary:
+        message = data["choices"][0].get("message") or {}
+        if leaked(message.get("content"), canary):
+            _guard_stats[caller]["canary_leaks"] += 1
+            log.info(json.dumps({"event": "guard_canary_leak", "caller": caller,
+                                 "alias": request.model}, ensure_ascii=False))
+            if GUARD.canary_action == "reject":
+                _guard_stats[caller]["rejected"] += 1
+                raise HTTPException(502, "response withheld: system prompt leakage detected")
 
     tokens = data.get("usage") or {}
     _record_usage(request.model, caller, tokens)

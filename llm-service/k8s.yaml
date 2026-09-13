@@ -56,6 +56,22 @@ data:
       },
       "limits": {"requests_per_minute_per_caller": 120}
     }
+  # 防护配置。默认值刻意保守：上线当天行为不变，只多日志。
+  #   spotlight/canary —— 唯一会改写发给上游 prompt 的两个机制，所以按档位开关；
+  #                      默认只对 guarded 开（用户会写 prompt 的那一档）
+  #   detection        —— 扫已知攻击形态：off | log | reject，默认只记不拦（规则匹配误报不低，
+  #                      先看一段时间再决定要不要 reject）
+  #   canary_action    —— canary 命中后：log | reject，默认只记
+  #   report_callers   —— 谁能读 /v1/guard/report 全量汇总；默认空 = 没人能读。
+  #                      日报生产者（llm-report 命名空间）需要它。
+  LLM_GUARD: |
+    {
+      "spotlight": {"guarded": true, "trusted": false},
+      "canary": {"guarded": true, "trusted": false},
+      "canary_action": "log",
+      "detection": "log",
+      "report_callers": ["llm-report"]
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment

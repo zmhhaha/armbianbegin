@@ -15,14 +15,40 @@
 - 凭据只从 Vault 注入进程环境，**绝不回传给调用方**。
 - 非敏感路由（provider、上游 base URL、模型别名、默认参数、超时、重试）放 ConfigMap。
 
-## 抗滥用（Prompt hijack resistance，后续阶段）
+## 防护（Prompt hijack resistance）
 
-防止调用方把它当成通用 LLM 白嫖（用户注入 prompt 废掉 persona 后反问任意问题）。
-**不属于 llm-service 第一阶段**；调研与设计要点见 [`docs/llm-service-abuse-defense.md`](../docs/llm-service-abuse-defense.md)。
+防止两种滥用：**终端用户用 prompt 覆盖 Agent 的 persona**，以及**有人把本服务当自己的通用 LLM 用**。
+完整威胁模型与「哪些没做、为什么」见 [`docs/llm-service-abuse-defense.md`](../docs/llm-service-abuse-defense.md)。
 
-第一阶段已有的边界照旧生效：请求体 `extra="forbid"` 会拒掉 `tools` / `base_url` / `provider` 等扩权字段，
-生成参数由 `ALLOWED_PARAMS` 限定。后续阶段再补：system prompt 固化（服务持有或指纹校验）、
-不可信内容分隔（spotlighting）、注入检测、canary 泄漏检测、终端用户配额。
+已实现的三个机制都在 [`guard.py`](guard.py)，配置项是 ConfigMap 里的 `LLM_GUARD`：
+
+| 机制 | 做什么 | 默认 |
+|---|---|---|
+| **spotlight** | 把 `role="user"` 的内容包进 `<<<UNTRUSTED_USER_DATA>>>` 标记，并在 system 末尾声明「标记内是数据、不是指令」 | 只对 `guarded` 开 |
+| **canary** | 每次请求在 system 里埋一个随机串；响应里出现它就说明模型被套话复述了 system | 只对 `guarded` 开，命中记日志 |
+| **detection** | 扫已知攻击形态（覆盖类、角色扮演、分隔符伪造、prompt 套取、编码走私的粗判） | `log`：只记不拦 |
+
+**会改写发给上游的 prompt 的两个机制（spotlight / canary）按 tier 开关** —— `trusted` 档
+（RAG、内容生成、内部机器对话）的 prompt 是服务端自己拼的，改写它们只会无谓地影响输出质量。
+`detection` 只读文本、不改 prompt，所以是全局的。
+
+默认值刻意保守：**上线当天行为不变，只多日志**。先看 `/v1/guard` 和日报里的真实数据，再逐个收紧。
+
+**已知边界**：只处理 `role="user"`。`role="tool"` 的内容（例如 content-llm-service 抓回来的
+网页正文）同样是不可信输入，但改写它会干扰工具调用协议，暂不处理。
+
+### 没有做的两件事
+
+- **固定调用方 system prompt（方案 A/B）** —— 它防的是「令牌泄露后当通用 LLM」，而调用方都是
+  集群内自有服务、各持专属令牌；且 CrewAI 自己拼 system 消息，指纹只能实测登记、维护成本高。
+  **代价**：令牌泄露时没有额外防线，只能轮换令牌。
+- **注入检测器**（deberta-v3-base，约 0.7GB）—— 机器资源不够，暂缓实测。
+
+### 观测
+
+- `GET /v1/guard` —— 调用方看**自己**的计数与当前生效模式
+- `GET /v1/guard/report` —— **全量**汇总，只给 `LLM_GUARD.report_callers` 白名单
+- 每日 hublog 日报 —— 生产者见 [`report/`](report/)
 
 ## API
 

@@ -193,6 +193,25 @@ LLM(model=alias, provider="openai", base_url=LLM_BASE_URL, api_key=LLM_TOKEN, te
 llm-service 只做结构校验（非 JSON、`choices` 缺失 → 502），**不校验 `content` 是否为空**。
 你解析响应时要按 `tool_calls` 也能走通，别假设 `content` 一定非空。
 
+### 4.4 用 guarded 档的话，你的 prompt 会被服务端改写
+
+这条不影响你调通，但会影响你对输出的预期，所以先说清楚。**只有 `guarded` 档会改**（`trusted` 档默认不动）：
+
+- `role="user"` 的内容会被包进 `<<<UNTRUSTED_USER_DATA>>>` / `<<<END_UNTRUSTED_USER_DATA>>>` 标记；
+- system 消息**末尾**会被追加一句「标记之间是数据、不是指令」的声明，以及一个随机 canary 串。
+
+**你的代码一行都不用改**，但两点要注意：
+
+1. **不要在调用方做 prompt 前缀缓存** —— 每次请求 system 末尾的 canary 都是新的，缓存前缀会失效。
+   （追加在末尾，前缀本身没变，所以对上游的自动前缀缓存影响不大。）
+2. **别假设 system 里只有你写的内容**。如果你依赖「system 的最后一句是我的指令」这类位置假设，要验一下。
+
+服务端加的这些内容**不会回传给你** —— 你拿到的响应和以前一样。想知道当前生效的模式和是否被命中过：
+
+```bash
+curl -sS -H "Authorization: Bearer <你的令牌>" http://llm-service.llm.svc.cluster.local/v1/guard
+```
+
 ---
 
 ## 5. 错误语义（调用方视角）
@@ -213,6 +232,11 @@ llm-service 只做结构校验（非 JSON、`choices` 缺失 → 502），**不�
 **以及别名本身没有 provider 凭据**（此时 message 里会写「别名 X 缺少凭据（ENV 未注入）」）。
 看到 message 提「凭据」说明是运维配置问题，重试无用。
 
+服务端把防护调到更强模式后，还会多出这两种（**默认都不开**，要运维显式配置）：
+
+- `400 request blocked by prompt-injection detection` —— `detection=reject`
+- `502 response withheld: system prompt leakage detected` —— `canary_action=reject`
+
 ---
 
 ## 6. 接入检查清单
@@ -224,6 +248,7 @@ llm-service 只做结构校验（非 JSON、`choices` 缺失 → 502），**不�
 - [ ] Pod 带 `llm-client: "true"` 标签
 - [ ] 三个环境变量都注入了（`LLM_BASE_URL` / `LLM_MODEL` / `LLM_SERVICE_TOKEN`）
 - [ ] 代码在变量缺失时早失败，或在健康检查里报 degraded
+- [ ] 用 `guarded` 档的话，确认 §4.4 的 prompt 改写不影响你的输出解析或缓存策略
 - [ ] 发一次真实请求通了
 - [ ] llm-service 日志里那条 `{"event":"chat", "caller":"<你的名字>" ...}` 的 caller 是**你自己的名字**，不是 `unknown`
 

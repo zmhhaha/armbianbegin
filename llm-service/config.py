@@ -126,3 +126,100 @@ def load_config() -> tuple[dict[str, Alias], float]:
 
     limits = data.get("limits") or {}
     return aliases, float(limits.get("requests_per_minute_per_caller", 60))
+
+
+# ---------------------------------------------------------------------------
+# 防护配置（LLM_GUARD）
+#
+# 与 LLM_ALIASES 分开：那边是路由，这边是「怎么防滥用」。分开之后改防护不用碰别名表。
+#
+# 默认值刻意保守 —— 上线当天行为不变，只多日志：
+#   spotlight / canary 只对 guarded 开（它们是唯一会改写发给上游 prompt 的机制），
+#   detection 只记日志不拦，report_callers 为空（没人能读全量汇总）。
+# ---------------------------------------------------------------------------
+GUARD_MODES = ("off", "log", "reject")
+# canary 的「注入开关」按档位控制（见下），命中之后怎么办是全局的
+CANARY_ACTIONS = ("log", "reject")
+
+DEFAULT_GUARD: dict = {
+    "spotlight": {"guarded": True, "trusted": False},
+    "canary": {"guarded": True, "trusted": False},
+    "canary_action": "log",
+    "detection": "log",
+    "report_callers": [],
+}
+
+
+@dataclass(frozen=True)
+class GuardConfig:
+    spotlight: dict[str, bool]
+    canary: dict[str, bool]
+    canary_action: str
+    detection: str
+    report_callers: tuple[str, ...]
+
+    def spotlight_for(self, tier: str) -> bool:
+        return bool(self.spotlight.get(tier, False))
+
+    def canary_for(self, tier: str) -> bool:
+        return bool(self.canary.get(tier, False))
+
+    def may_read_report(self, caller: str) -> bool:
+        return caller in self.report_callers
+
+
+def _tier_flag(value: object, name: str) -> dict[str, bool]:
+    """接受 `true`（所有档位）或 `{"guarded": true, "trusted": false}` 两种写法。"""
+    if isinstance(value, bool):
+        return {tier: value for tier in TIERS}
+    if isinstance(value, dict):
+        unknown = [key for key in value if key not in TIERS]
+        if unknown:
+            raise ConfigError(f"LLM_GUARD.{name} 里有未知档位: {', '.join(unknown)}；可选值：{', '.join(TIERS)}")
+        return {tier: bool(value.get(tier, False)) for tier in TIERS}
+    raise ConfigError(f"LLM_GUARD.{name} 必须是布尔值或档位映射，实际是 {type(value).__name__}")
+
+
+def load_guard_config() -> GuardConfig:
+    """读取 LLM_GUARD；没配置就用 DEFAULT_GUARD。
+
+    非法值一律 ConfigError —— 防护配置写错时服务应该 not-ready，
+    而不是静默退化成「不防护」（那正好是最危险的失败方式）。
+    """
+    raw = os.getenv("LLM_GUARD", "").strip()
+    data: dict = {}
+    if raw:
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as error:
+            raise ConfigError(f"LLM_GUARD 不是合法 JSON: {error}") from error
+        if not isinstance(parsed, dict):
+            raise ConfigError("LLM_GUARD 必须是 JSON 对象")
+        data = parsed
+
+    merged = {**DEFAULT_GUARD, **data}
+
+    detection = str(merged["detection"]).strip().lower()
+    if detection not in GUARD_MODES:
+        raise ConfigError(f"LLM_GUARD.detection 必须是 {GUARD_MODES} 之一，实际是 {detection!r}")
+
+    canary_action = str(merged["canary_action"]).strip().lower()
+    if canary_action not in CANARY_ACTIONS:
+        raise ConfigError(f"LLM_GUARD.canary_action 必须是 {CANARY_ACTIONS} 之一，实际是 {canary_action!r}")
+
+    report_callers = merged["report_callers"]
+    if not isinstance(report_callers, (list, tuple)):
+        raise ConfigError("LLM_GUARD.report_callers 必须是调用方名字的数组")
+    normalized: list[str] = []
+    for item in report_callers:
+        caller = str(item).strip().lower().replace("_", "-")
+        if caller and caller not in normalized:
+            normalized.append(caller)
+
+    return GuardConfig(
+        spotlight=_tier_flag(merged["spotlight"], "spotlight"),
+        canary=_tier_flag(merged["canary"], "canary"),
+        canary_action=canary_action,
+        detection=detection,
+        report_callers=tuple(normalized),
+    )

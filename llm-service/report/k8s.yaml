@@ -1,0 +1,107 @@
+# ============================================================
+# llm-service 防护日报 — 每天拉一次汇总，发一篇 hublog 文章
+#
+# 为什么是独立 namespace 而不是 `llm`：
+#   `llm` 那个 NetworkPolicy 的出站只放行 DNS + 443，而 hublog 是集群内 http，
+#   放在那儿出站就被挡。这里用独立 namespace，只加一个 `llm-client: "true"`
+#   标签去满足 llm-service 的入站规则。
+#
+# 前置（都要手工做，见文件末尾「Vault 写入」）：
+#   1. secret/llm-service/callers 里有 LLM_TOKEN_LLM_REPORT
+#   2. secret/hublog/report 里有 HUBLOG_REPORT_TOKEN
+#   3. LLM_GUARD.report_callers 里列上 "llm-report"，否则它读汇总会 403
+# ============================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm-report
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: llm-report-secrets
+  namespace: llm-report
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: llm-report-secrets
+    creationPolicy: Owner
+  data:
+    # 本任务在 llm-service 侧的调用方身份：llm-report
+    - secretKey: LLM_SERVICE_TOKEN
+      remoteRef:
+        key: secret/data/llm-service/callers
+        property: LLM_TOKEN_LLM_REPORT
+    # hublog 机器人令牌（明文那份；hublog 侧只存它的哈希）
+    - secretKey: HUBLOG_REPORT_TOKEN
+      remoteRef:
+        key: secret/data/hublog/report
+        property: HUBLOG_REPORT_TOKEN
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llm-report-config
+  namespace: llm-report
+data:
+  LLM_BASE_URL: http://llm-service.llm.svc.cluster.local/v1
+  HUBLOG_BASE_URL: http://hublog-api.hublog.svc.cluster.local
+  REPORT_TIMEOUT: "60"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: llm-guard-report
+  namespace: llm-report
+spec:
+  # UTC 01:17 = 北京时间 09:17。刻意避开整点，免得和别的定时任务撞在一起。
+  schedule: "17 1 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            # llm-service 的 NetworkPolicy 只放行带这个标签的 Pod
+            llm-client: "true"
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: report
+              # 复用 llm-service 的镜像：report.py 已经 COPY 进去，不必多构建一个镜像
+              image: arm-cluster-master:5000/llm-service:latest
+              command: [python, /app/report.py]
+              envFrom:
+                - configMapRef:
+                    name: llm-report-config
+                - secretRef:
+                    name: llm-report-secrets
+              resources:
+                requests: {cpu: 10m, memory: 64Mi}
+                limits: {cpu: 200m, memory: 256Mi}
+# ============================================================
+# Vault 写入（在你跑过 hublog 的 generate-service-token.sh 之后）
+#
+#   # 1) 给本任务一个 llm-service 调用方身份
+#   kubectl -n vault exec vault-0 -- vault kv patch secret/llm-service/callers \
+#     LLM_TOKEN_LLM_REPORT="$(openssl rand -hex 32)"
+#
+#   # 2) hublog 机器人令牌（脚本打印的明文 token）
+#   kubectl -n vault exec vault-0 -- vault kv put secret/hublog/report \
+#     HUBLOG_REPORT_TOKEN='<脚本打印的 token>'
+#
+#   # 3) 同一个 bot 的 hash-only 条目合并进 hublog 那边（注意是 patch，别覆盖已有 bot）
+#   kubectl -n vault exec vault-0 -- vault kv patch secret/hublog/auth \
+#     HUBLOG_SERVICE_TOKENS='<合并后的 hash-only JSON>'
+#
+# 手工试跑（不发文，只打印报告）：
+#   kubectl -n llm-report create job --from=cronjob/llm-guard-report llm-report-dry \
+#     --dry-run=client -o yaml | sed 's/name: report/name: report-dry/' | kubectl apply -f -
+#   # 或直接给 CronJob 的容器临时加 REPORT_DRY_RUN=1
+# ============================================================
