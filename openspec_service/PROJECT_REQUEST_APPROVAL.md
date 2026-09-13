@@ -123,7 +123,8 @@ bash openspec_service/scripts/bootstrap-project-requests.sh
 - 私有仓库 `openspec-service/project-requests`；
 - `status:pending`、`status:approved` 和 `status:failed` 标签；
 - Issue 模板；
-- 只监听 `issues` 事件的 Gitea Webhook。
+- 监听 `issues`、`issue_assign`、`issue_label`、`issue_milestone` 和 `issue_comment` 五个事件的 Gitea Webhook。
+  只有 `issues` 事件里的 `status:approved` 标签变化会触发开通，其余事件一律按 `ignored` 忽略。
 
 运行脚本和服务端表单使用的 Gitea Token 必须包含 `read:user`、`read:issue`、`write:issue`、
 `write:repository` 和 `write:organization` scope。特别是缺少 `write:issue` 时，表单会在提交阶段返回

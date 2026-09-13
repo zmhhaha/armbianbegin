@@ -6,6 +6,22 @@ AI 工具只需"加一个远程 MCP"即可，不需要在本地装任何 OpenSpe
 
 ---
 
+## 访问范围
+
+这个服务**只给所有者和一位朋友两个人用**，不是开放平台：
+
+- 不提供自助注册，没有公开门户页，也没有面向第三方应用的门户集成。
+- 能登录的就是 Casdoor `panghu-suite` 应用允许的那两个账号；在此之上再用 Gitea 仓库 ACL 收窄到项目级。
+- 项目登记走 `/project-requests` 表单 → Gitea Issue → 管理员加 `status:approved` 审批
+  （见 [PROJECT_REQUEST_APPROVAL.md](PROJECT_REQUEST_APPROVAL.md)），不靠门户自助开通。
+- `/token` 页面的唯一用途是给这些账号签发 JWT，方便在 AI 工具里配 MCP；**它不是门户入口**。
+
+因此原计划里的 `add-project-portal` 变更（同源门户页、OAuth session cookie/PKCE、脚本 Job 运行器）
+**已明确不做**，不再排期。多租户隔离能力仍由服务端强制（见 [MULTI_TENANCY.md](MULTI_TENANCY.md)），
+只是没有对外界面。
+
+---
+
 ## 1. 连接信息
 
 | 项 | 值 |
@@ -17,7 +33,7 @@ AI 工具只需"加一个远程 MCP"即可，不需要在本地装任何 OpenSpe
 
 ## 2. 获取 JWT
 
-### 2.1 网页版（推荐，给其他用户用）
+### 2.1 网页版（推荐，浏览器里取 JWT）
 
 打开 **`https://openspec.panghuer.top/token`** → 用 Casdoor 登录（GitHub / 邮箱）→ 页面直接
 显示你的 JWT 和"复制"按钮，并给出 Codex / Claude Code 的配置命令。**无需装任何工具。**
