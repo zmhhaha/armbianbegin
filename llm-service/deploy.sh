@@ -18,10 +18,12 @@ kubectl create namespace llm --dry-run=client -o yaml | kubectl apply -f -
 
 echo "=== Applying Vault ExternalSecret ==="
 kubectl apply -f "${VAULT_MANIFEST}"
-if kubectl -n vault exec vault-0 -- vault kv get -field=LLM_SERVICE_TOKEN secret/llm-service/auth >/dev/null 2>&1; then
+# 用 metadata get 只检查路径存在，不读取任何令牌值（值不进日志）
+if kubectl -n vault exec vault-0 -- vault kv metadata get secret/llm-service/callers >/dev/null 2>&1; then
     kubectl -n llm wait --for=condition=Ready externalsecret/llm-service-secret --timeout=120s
 else
-    echo "[llm-service] WARNING: Vault secret/llm-service/{providers,auth} 未配置；服务会保持 not-ready 直到注入。" >&2
+    echo "[llm-service] WARNING: Vault secret/llm-service/callers 未配置（调用方令牌）；" >&2
+    echo "             服务会起来但所有调用方都会拿到 401。先按 llm-service-externalsecret.yaml 顶部的说明写入。" >&2
 fi
 
 echo "=== Applying llm-service resources ==="

@@ -10,7 +10,9 @@
 - 模型调用统一走集群内 `llm-service`，provider 凭据只存在于它自己的 Secret
   （`vault/inventory/llm-service-externalsecret.yaml` → `secret/data/llm-service/providers`）。
 - 各 Agent 只需要 `LLM_BASE_URL` / `LLM_MODEL` / `LLM_SERVICE_TOKEN` 三个变量，
-  令牌由 `panghu_agent/k8s/llm-token-externalsecret.yaml` 从 `secret/data/llm-service/auth` 注入。
+  令牌由 `panghu_agent/k8s/llm-token-externalsecret.yaml` 从 `secret/data/llm-service/callers` 里
+  **只取本调用方那一个键**（`LLM_TOKEN_<CALLER>`）注入 —— 每个命名空间拿不到别人的令牌，
+  llm-service 由变量名反推身份。
 - 各 namespace 的 `agent-secret` ExternalSecret 与 `agent-config` 已删除。
   模型凭据分散在各 Agent 的 Vault `secret/<ns>/api` 路径也已清除。
 

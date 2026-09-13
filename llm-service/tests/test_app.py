@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 SERVICE_DIR = Path(__file__).parents[1]
 sys.path.insert(0, str(SERVICE_DIR))
+import auth  # noqa: E402  （必须在 sys.path 插入之后）
 
 ALIASES = (
     '{"aliases":{'
@@ -56,7 +57,8 @@ class FakeResponseNotJson:
 class LlmServiceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        env = {"LLM_SERVICE_TOKEN": "tok", "LLM_ALIASES": ALIASES, "TEST_KEY": "k"}
+        # 身份来自环境变量名：LLM_TOKEN_TEST_AGENT -> 调用者 test-agent
+        env = {"LLM_TOKEN_TEST_AGENT": "tok", "LLM_ALIASES": ALIASES, "TEST_KEY": "k"}
         patcher = patch.dict(os.environ, env)
         patcher.start()
         cls.addClassCleanup(patcher.stop)
@@ -65,7 +67,7 @@ class LlmServiceTests(unittest.TestCase):
         sys.modules["llm_app"] = cls.module  # pydantic 解析注解需要模块已在 sys.modules
         spec.loader.exec_module(cls.module)
         cls.client = TestClient(cls.module.app)
-        cls.headers = {"Authorization": "Bearer tok", "X-Caller": "test-agent"}
+        cls.headers = {"Authorization": "Bearer tok"}
 
     def setUp(self):
         # 每个用例重置限流窗口与用量，避免相互影响
@@ -195,6 +197,47 @@ class LlmServiceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 502)
         self.assertIn("not valid JSON", response.json()["detail"])
         self.assertNotIn("gateway error", response.json()["detail"])
+
+    def test_identity_comes_from_token_not_headers(self):
+        """身份只能来自令牌：客户端自称的 X-Caller 一律不采信。"""
+        headers = {**self.headers, "X-Caller": "someone-else"}
+        with self._patch_forward():
+            response = self.client.post(
+                "/v1/chat/completions",
+                headers=headers,
+                json={"model": "deepseek-trusted", "messages": [{"role": "user", "content": "hi"}]},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("test-agent", self.module._usage)
+        self.assertNotIn("someone-else", self.module._usage)
+
+    def test_no_caller_tokens_is_a_config_error(self):
+        """一个 LLM_TOKEN_* 都没配是配置错误（503），不是鉴权失败（401）。"""
+        with patch.dict(os.environ, {"LLM_TOKEN_TEST_AGENT": ""}):
+            response = self.client.get("/v1/models", headers=self.headers)
+        self.assertEqual(response.status_code, 503)
+
+    def test_ready_reports_caller_count(self):
+        self.assertEqual(self.client.get("/health/ready").json()["callers"], 1)
+
+
+class AuthTests(unittest.TestCase):
+    """身份只从 LLM_TOKEN_<CALLER> 推导，与 rag-service/auth.py 同一套约定。"""
+
+    def test_token_map_derives_caller_from_variable_name(self):
+        env = {"LLM_TOKEN_ZHOUGONGJIEMENG": "a", "LLM_TOKEN_GAME_REVIEW": "b", "UNRELATED": "c"}
+        with patch.dict(os.environ, env, clear=True):
+            self.assertEqual(auth.token_map(), {"a": "zhougongjiemeng", "b": "game-review"})
+
+    def test_resolve_rejects_unknown_and_empty_tokens(self):
+        with patch.dict(os.environ, {"LLM_TOKEN_RAG": "tok"}, clear=True):
+            self.assertEqual(auth.resolve("tok"), "rag")
+            self.assertIsNone(auth.resolve("nope"))
+            self.assertIsNone(auth.resolve(""))
+
+    def test_blank_values_do_not_create_callers(self):
+        with patch.dict(os.environ, {"LLM_TOKEN_RAG": "   "}, clear=True):
+            self.assertEqual(auth.token_map(), {})
 
 
 if __name__ == "__main__":

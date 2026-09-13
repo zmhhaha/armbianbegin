@@ -29,8 +29,10 @@
 
 | 头 | 说明 |
 |---|---|
-| `Authorization: Bearer <LLM_SERVICE_TOKEN>` | 必填，内部鉴权 |
-| `X-Caller: <service-name>` | 调用方标识，用于限流与用量统计，**不参与授权判定**。可选——litellm/CrewAI 这类客户端不会带，此时用 `/v1/usage` 的 **`by_alias`** 维度区分（设计上每个调用方用自己的别名档位） |
+| `Authorization: Bearer <本调用方的令牌>` | 必填。**令牌即身份** —— 服务从 `LLM_TOKEN_<CALLER>` 这一族环境变量建「令牌 → 调用者名」映射，调用者名由变量名决定（`LLM_TOKEN_GAME_REVIEW` → `game-review`），客户端**无法自称**。 |
+
+没有 `X-Caller` 之类的自报字段。用量与限流一律按令牌推导出的调用者归因；
+`/v1/usage` 另外给出 `by_alias` 维度 —— 它回答的是「哪个模型被用了多少」，与「谁在用」是两个问题。
 
 ### `POST /v1/chat/completions`
 
@@ -73,11 +75,20 @@ ConfigMap `llm-service-config`：
 凭据（Vault → `llm-service-secret`）：
 
 ```bash
+# 1) provider 凭据：只有本服务持有，绝不回传调用方
 kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/providers \
   DEEPSEEK_API_KEY='...'
-kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/auth \
-  LLM_SERVICE_TOKEN="$(openssl rand -hex 32)"
+
+# 2) 调用方令牌：一个调用方一个键，**变量名即身份**
+#    LLM_TOKEN_<CALLER> -> 调用者名 <caller>（小写、下划线换连字符）
+kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
+  LLM_TOKEN_ZHOUGONGJIEMENG="$(openssl rand -hex 32)" \
+  LLM_TOKEN_RESEARCH="$(openssl rand -hex 32)" \
+  ...
 ```
+
+14 个调用方的完整键名见 `vault/inventory/llm-service-externalsecret.yaml` 顶部。
+**不要打印这些令牌的值** —— 核对时只看键名和存在性。
 
 `OPENAI_API_KEY` 是 `openai-trusted` 用的，**现在可以留空** —— 该别名当前没有凭据，
 点名它会得到 503「缺少凭据」，不影响 readiness（`/health/ready` 只在所有别名都无凭据时才 503）。
@@ -154,7 +165,7 @@ bash deploy.sh           # 应用 Vault ExternalSecret + k8s，重启并等待�
 
 ```bash
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-LLM_SERVICE_TOKEN=dev \
+LLM_TOKEN_DEV=dev \
 LLM_ALIASES='{"aliases":{"deepseek-trusted":{"tier":"trusted","provider":"deepseek","base_url":"https://api.deepseek.com/v1","model":"deepseek-v4-flash","api_key_env":"DEEPSEEK_API_KEY"}}}' \
 DEEPSEEK_API_KEY=... uvicorn app:app --port 8000
 

@@ -18,6 +18,7 @@ from typing import Any
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from auth import resolve, token_map
 from config import ALLOWED_PARAMS, ConfigError, load_config
 from upstream import UpstreamError, forward
 
@@ -26,8 +27,6 @@ log = logging.getLogger("llm-service")
 
 app = FastAPI(title="llm-service", version="0.1.0")
 
-SERVICE_TOKEN = os.getenv("LLM_SERVICE_TOKEN", "").strip()
-
 try:
     ALIASES, RPM_LIMIT = load_config()
     CONFIG_ERROR: str | None = None
@@ -35,8 +34,7 @@ except ConfigError as error:
     ALIASES, RPM_LIMIT, CONFIG_ERROR = {}, 60.0, str(error)
 
 _usage: dict[str, dict[str, int]] = defaultdict(lambda: {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0})
-# 按别名记账：调用方未必会带 X-Caller（如 litellm 就不带），
-# 但每个调用方用自己的别名档位，所以别名维度足以区分谁在用。
+# 按别名记账：它回答的是「哪个模型被用了多少」，与「谁在用」是两个维度，所以两张表都留着。
 _alias_usage: dict[str, dict[str, int]] = defaultdict(lambda: {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0})
 _windows: dict[str, deque] = defaultdict(deque)
 
@@ -69,12 +67,21 @@ class ChatRequest(BaseModel):
     stream: bool = False
 
 
-def authorize(authorization: str | None, caller: str | None) -> str:
-    if not SERVICE_TOKEN:
-        raise HTTPException(503, "llm-service 未配置 LLM_SERVICE_TOKEN")
-    if authorization != f"Bearer {SERVICE_TOKEN}":
-        raise HTTPException(401, "invalid internal token")
-    return (caller or "unknown").strip()[:64] or "unknown"
+def authorize(authorization: str | None) -> str:
+    """身份**只从令牌推导**，不接受任何客户端自称。
+
+    一个 `LLM_TOKEN_*` 都没配属于**配置错误**（503），不是鉴权失败（401）—— 两者要分得开，
+    否则漏配令牌会被误当成调用方用错了凭据。
+    """
+    if not token_map():
+        raise HTTPException(503, "llm-service 未配置任何 LLM_TOKEN_<CALLER> 调用方令牌")
+    token = ""
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization[7:].strip()
+    caller = resolve(token)
+    if not caller:
+        raise HTTPException(401, "invalid caller token")
+    return caller
 
 
 def check_rate(caller: str) -> None:
@@ -99,12 +106,18 @@ def ready():
     credentialed = [name for name, alias in ALIASES.items() if alias.api_key()]
     if not credentialed:
         raise HTTPException(503, "no provider credential available")
-    return {"status": "ready", "aliases": len(ALIASES), "credentialed": len(credentialed)}
+    return {
+        "status": "ready",
+        "aliases": len(ALIASES),
+        "credentialed": len(credentialed),
+        # 已注入几个调用方令牌；为 0 时服务能起来但谁都调不通
+        "callers": len(token_map()),
+    }
 
 
 @app.get("/v1/models")
-def models(authorization: str | None = Header(default=None), x_caller: str | None = Header(default=None)):
-    authorize(authorization, x_caller)
+def models(authorization: str | None = Header(default=None)):
+    authorize(authorization)
     return {
         "object": "list",
         "data": [{"id": name, "object": "model", "owned_by": alias.provider} for name, alias in sorted(ALIASES.items())],
@@ -112,13 +125,13 @@ def models(authorization: str | None = Header(default=None), x_caller: str | Non
 
 
 @app.get("/v1/usage")
-def usage(authorization: str | None = Header(default=None), x_caller: str | None = Header(default=None)):
-    caller = authorize(authorization, x_caller)
+def usage(authorization: str | None = Header(default=None)):
+    caller = authorize(authorization)
     return {
         "caller": caller,
         "limits": {"requests_per_minute": RPM_LIMIT},
         "usage": _usage[caller],
-        # 调用方没带 X-Caller 时（如 litellm），用别名维度区分
+        # 别名维度：回答「哪个模型被用了多少」，与「谁在用」是两个问题
         "by_alias": {name: dict(counter) for name, counter in _alias_usage.items()},
     }
 
@@ -127,9 +140,8 @@ def usage(authorization: str | None = Header(default=None), x_caller: str | None
 async def chat(
     request: ChatRequest,
     authorization: str | None = Header(default=None),
-    x_caller: str | None = Header(default=None),
 ):
-    caller = authorize(authorization, x_caller)
+    caller = authorize(authorization)
     if CONFIG_ERROR:
         raise HTTPException(503, f"config error: {CONFIG_ERROR}")
     if request.model not in ALIASES:

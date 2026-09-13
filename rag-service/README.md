@@ -31,7 +31,7 @@ kubectl exec -n vault vault-0 -- vault kv put secret/rag-service/callers \
   RAG_TOKEN_RAG_OPERATOR="$(openssl rand -hex 32)"
 ```
 
-`secret/llm-service/auth`（调用 llm-service 的令牌）由 `llm-service` 部署时创建，RAG 复用同一份，不再单独保存。
+`secret/llm-service/callers` 里的 `LLM_TOKEN_RAG`（RAG 在 llm-service 侧的专属令牌）由 llm-service 那侧维护，RAG 只取自己那一个键，拿不到别的调用方的令牌。
 
 ### 2. 构建并部署
 
