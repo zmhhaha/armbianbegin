@@ -184,6 +184,26 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 | `deepseek-trusted` | deepseek | trusted | 纯文本生成（RAG、literature_downloader）与函数调用（content-llm-service、research/scientific/game_review） |
 | `openai-trusted` | openai | trusted | **预留**：Vault 里还没有 `OPENAI_API_KEY`，点名它会得到 503「缺少凭据」 |
 
+### 档位上限的真实语义
+
+`max_tokens_cap` / `max_messages` 这类限制**只在调用方自己传了对应字段时才生效**：
+
+```python
+if request.max_tokens and request.max_tokens > policy["max_tokens_cap"]:
+    raise HTTPException(400, ...)
+```
+
+所以它约束的是「**调用方不许向服务索要更多**」，**不是**「服务最多给这么多」。
+调用方不传 `max_tokens` 时服务不会注入任何值，预算由上游默认值决定。
+
+这个区别在两个方向上都有后果：
+
+- **别把它当成成本闸门。** 省略字段就绕开了上限。真要封顶得在服务端注入默认值，目前没做。
+- **对推理模型反而是对的默认。** 上游把输出分成 `reasoning_content`（思考）和 `content`（正文）
+  两路、共用同一份预算；卡死在 `guarded` 的 2048 会让思考吃光配额、正文为空，
+  而且**返回仍是 200**，只有 `completion_tokens` 正好顶格能看出来。长文生成类的调用方
+  应当不传 `max_tokens`。完整数据与症状识别见 [INTEGRATION.md](INTEGRATION.md) §4.5。
+
 ### 别名命名约定
 
 **格式固定为 `<provider>-<tier>`**：
@@ -247,4 +267,23 @@ ExternalSecret 要落到 `llm` 命名空间，而命名空间定义在 `k8s.yaml
 注意：**服务本身仍在跑**（凭据早已注入进程），只是新同步不会发生。排查：
 `kubectl -n vault exec vault-0 -- vault status` 看 `Sealed`，unseal 后
 `kubectl annotate externalsecret <name> -n <ns> force-sync="$(date +%s)" --overwrite` 立即重同步。
+
+**5. 新加 `LLM_TOKEN_<CALLER>` 之后必须重启本服务**
+`LLM_TOKEN_*` 是通过 `envFrom.secretRef` 注入的，而 **`envFrom` 只在容器创建时解析一次** ——
+Secret 之后更新不会流进运行中的进程。
+
+现象：调用方拿 `401 invalid caller token`，但两边令牌**确实一致**（可比 sha256 确认），
+`kubectl exec ... sh -c 'env | grep -c ^LLM_TOKEN_'` 的数字小于 Secret 里的键数。
+排查时最容易走错的方向是去查调用方的请求头或 Vault —— 都不是问题所在。
+
+```bash
+kubectl rollout restart deployment/llm-service -n llm
+```
+
+**每次往 `secret/llm-service/callers` 加调用方，都要顺手重启一次。**
+
+**6. 调用成功（200）但正文为空**
+如果调用方只读 `content`，而它收到的全是 `reasoning_content`，就是 `max_tokens` 被思考吃光了。
+特征：llm-service 日志里 `completion_tokens` **正好等于**调用方设的上限。
+见「档位上限的真实语义」与 [INTEGRATION.md](INTEGRATION.md) §4.5。
 

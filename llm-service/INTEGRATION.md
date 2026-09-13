@@ -266,6 +266,38 @@ llm-service 只做结构校验（非 JSON、`choices` 缺失 → 502），**不�
 curl -sS -H "Authorization: Bearer <你的令牌>" http://llm-service.llm.svc.cluster.local/v1/guard
 ```
 
+### 4.5 长文生成别把 `max_tokens` 卡死 —— 上游是推理模型
+
+这条是**上线后真实踩到的**，代价是「正文一个字都出不来」，所以单独说。
+
+上游（DeepSeek 系）把输出分成**两路**：
+
+```
+delta.reasoning_content   思考过程
+delta.content             正文
+```
+
+两者**共用同一个 `max_tokens` 预算**。预算不够时，思考会把它全部吃光，`content` 一个字都没有，
+`finish_reason` 是 `length`。**你不会收到任何错误** —— llm-service 记的是 `200 OK`，
+只有 `completion_tokens` 正好顶在你的上限上。流式调用方如果只读 `content`，看到的就是「模型没有返回正文」。
+
+实测（同一条续写请求，《西游记》文本，`deepseek-guarded`）：
+
+| `max_tokens` | 正文 | 思考 | 结果 |
+|---|---|---|---|
+| 1400 | **0 字** | 4017 字 | 被思考烧完，正文为空 |
+| 不发送 | **1187 字** | 2893 字 | 正常收尾 |
+| 2048（guarded 档上限） | 549 字 | 2917 字 | 能出字，但明显偏短 |
+
+**建议：长文 / 结构化输出这类请求不要自己设 `max_tokens`，直接不发送这个字段。**
+
+- `max_tokens` **不发送时不设限** —— 服务端只校验调用方**自己传的**值是否超档位上限
+  （见 README「档位上限的真实语义」），不传就用上游默认值。
+- 反过来，`guarded` 档的 2048 上限对推理模型**偏小**：思考本身就要 ~1000 tokens，
+  剩下给正文的不多。这不是「换个档位」能解决的 —— 换 `trusted` 会丢掉 spotlight 和 canary。
+- **症状识别**：llm-service 日志里 `completion_tokens` 每次都**正好等于**你设的上限，就是被截断了。
+  正常收尾的请求不会刚好顶格。
+
 ---
 
 ## 5. 错误语义（调用方视角）
