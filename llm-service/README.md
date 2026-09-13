@@ -10,7 +10,7 @@
 - 调用方只能传**允许的模型别名 + 有界的非敏感生成参数**（`temperature`、`top_p`、`max_tokens`、`stop`、`presence_penalty`、`frequency_penalty`，以及函数调用相关的 `tools` / `tool_choice` / `response_format` / `seed` / `n`）。
 - 请求体里出现 `base_url` / `api_key` / `provider` 之类**改路由**的字段，或使用未知别名，一律拒绝。
 - 凭据只从 Vault 注入进程环境，**绝不回传给调用方**。
-- 非敏感路由（provider、上游 base URL、模型别名、默认参数、超时、重试、fallback）放 ConfigMap。
+- 非敏感路由（provider、上游 base URL、模型别名、默认参数、超时、重试）放 ConfigMap。
 
 ## 抗滥用（Prompt hijack resistance，后续阶段）
 
@@ -35,7 +35,7 @@
 ### `POST /v1/chat/completions`
 
 ```json
-{"model": "chat-default", "messages": [{"role": "user", "content": "你好"}], "temperature": 0.7}
+{"model": "deepseek-trusted", "messages": [{"role": "user", "content": "你好"}], "temperature": 0.7}
 ```
 
 `model` 是**别名**，不是上游模型名。服务按别名解析 provider / base_url / 模型 / 凭据后转发，响应与 OpenAI 兼容（含 `usage`）。
@@ -55,14 +55,14 @@ ConfigMap `llm-service-config`：
 ```json
 {
   "aliases": {
-    "chat-default": {
+    "deepseek-trusted": {
+      "tier": "trusted",
       "provider": "deepseek",
       "base_url": "https://api.deepseek.com/v1",
       "model": "deepseek-v4-flash",
       "api_key_env": "DEEPSEEK_API_KEY",
-      "timeout_seconds": 60,
+      "timeout_seconds": 120,
       "max_retries": 2,
-      "fallback": ["chat-backup"],
       "defaults": {"temperature": 0.7, "max_tokens": 2048}
     }
   },
@@ -74,12 +74,21 @@ ConfigMap `llm-service-config`：
 
 ```bash
 kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/providers \
-  DEEPSEEK_API_KEY='...' OPENAI_API_KEY='...'
+  DEEPSEEK_API_KEY='...'
 kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/auth \
   LLM_SERVICE_TOKEN="$(openssl rand -hex 32)"
 ```
 
-`fallback` 指向另一个别名：主别名彻底失败（超时 / 5xx / 429）时按顺序转移。
+`OPENAI_API_KEY` 是 `openai-trusted` 用的，**现在可以留空** —— 该别名当前没有凭据，
+点名它会得到 503「缺少凭据」，不影响 readiness（`/health/ready` 只在所有别名都无凭据时才 503）。
+哪天买了 OpenAI 的额度，往同一个路径补一个 `OPENAI_API_KEY` 就能用，**代码一行都不用改**。
+
+重试只在**同一个别名**上做（超时 / 5xx / 429，最多 `max_retries` 次）。本服务**不做跨上游转移**：
+别名必须唯一对应一个模型，失败就返回错误，绝不静默换成另一个 provider 或另一个模型——否则调用方
+点名要 `deepseek-guarded`，实际作答的可能已经是别的模型，别名就失去意义了。
+
+上游返回 2xx 但响应体不是合法 JSON、或 `choices` 缺失/为空时，同样按上游故障返回 502，
+不把无效响应透传给调用方。注意**不校验 `message.content` 是否为空**：工具调用时它本来就是 `null`。
 
 ## 职责边界
 
@@ -104,14 +113,24 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/auth \
 
 **默认 `guarded`** —— 漏配的后果是"更严"而不是"更松"，这是安全默认。
 
-现有别名：
+现有别名（格式固定为 `<provider>-<tier>`，约定见下）：
 
-| 别名 | 类别 | 用途 |
-|---|---|---|
-| `chat-guarded` | guarded | 道法自然系列等对外 Agent（用户可写 prompt） |
-| `chat-default` | trusted | 纯文本生成（RAG） |
-| `chat-tools` | trusted | 函数调用（content-llm-service 的 CrewAI 网页工具） |
-| `chat-backup` | trusted | 上游失败时的转移目标 |
+| 别名 | provider | 类别 | 用途 |
+|---|---|---|---|
+| `deepseek-guarded` | deepseek | guarded | 8 家本法系列等对外 Agent（用户可写 prompt） |
+| `deepseek-trusted` | deepseek | trusted | 纯文本生成（RAG、literature_downloader）与函数调用（content-llm-service、research/scientific/game_review） |
+| `openai-trusted` | openai | trusted | **预留**：Vault 里还没有 `OPENAI_API_KEY`，点名它会得到 503「缺少凭据」 |
+
+### 别名命名约定
+
+**格式固定为 `<provider>-<tier>`**：
+
+- **前缀必须与配置里的 `provider` 字段一致** —— 让人一眼看出数据发给谁、谁计费。
+- 后缀只有 `guarded` / `trusted` 两档（策略见上表）。
+- **按真实存在的差别分档，不要按「用途」造名字。** 历史上曾用 `chat-default` / `chat-tools` 区分
+  「纯生成」和「函数调用」，但两者的 tier 都是 trusted、策略完全相同，只差默认 temperature 和
+  timeout —— 而 temperature 调用方本来就能自己传。这种名字会固化一个并不存在的区别。
+- 需要新 provider 或新档位时**按需加一条**，不预先铺满 provider × tier 矩阵。
 
 **同一个服务要两种用法**（对外 + 机内）时用不同别名即可——服务侧按路径选别名。
 phase 2 的劫持防护（system prompt 固化、不可信内容分隔、canary、终端配额）都挂在 `guarded` 这一档上。
@@ -136,7 +155,7 @@ bash deploy.sh           # 应用 Vault ExternalSecret + k8s，重启并等待�
 ```bash
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 LLM_SERVICE_TOKEN=dev \
-LLM_ALIASES='{"aliases":{"chat-default":{"provider":"deepseek","base_url":"https://api.deepseek.com/v1","model":"deepseek-v4-flash","api_key_env":"DEEPSEEK_API_KEY"}}}' \
+LLM_ALIASES='{"aliases":{"deepseek-trusted":{"tier":"trusted","provider":"deepseek","base_url":"https://api.deepseek.com/v1","model":"deepseek-v4-flash","api_key_env":"DEEPSEEK_API_KEY"}}}' \
 DEEPSEEK_API_KEY=... uvicorn app:app --port 8000
 
 python -m unittest discover -s tests

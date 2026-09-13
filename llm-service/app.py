@@ -152,22 +152,35 @@ async def chat(
     params = {key: getattr(request, key) for key in ALLOWED_PARAMS}
     started = time.time()
     try:
-        used_alias, response = await forward(ALIASES, request.model, request.messages, params)
+        response = await forward(ALIASES, request.model, request.messages, params)
     except UpstreamError as error:
         log.info(json.dumps({"event": "upstream_error", "caller": caller, "alias": request.model,
                              "status": error.status, "detail": error.message}, ensure_ascii=False))
         raise HTTPException(502, f"upstream error: {error.message}")
 
     if response.status_code >= 400:
-        log.info(json.dumps({"event": "upstream_reject", "caller": caller, "alias": used_alias,
+        log.info(json.dumps({"event": "upstream_reject", "caller": caller, "alias": request.model,
                              "status": response.status_code}, ensure_ascii=False))
         raise HTTPException(response.status_code, response.text[:500])
 
-    data = response.json()
+    # 上游给了一个 2xx，不代表它给了能用的内容。这里只做结构校验：
+    # 不是合法 JSON、或 choices 缺失/为空，都当作上游故障报错，不把无效响应透传给调用方。
+    # 刻意不检查 message.content 是否为空 —— 工具调用时 content 本来就是 null。
+    try:
+        data = response.json()
+    except ValueError:
+        log.info(json.dumps({"event": "upstream_invalid_body", "caller": caller, "alias": request.model,
+                             "status": response.status_code}, ensure_ascii=False))
+        raise HTTPException(502, "upstream error: response body is not valid JSON")
+    if not isinstance(data.get("choices"), list) or not data["choices"]:
+        log.info(json.dumps({"event": "upstream_no_choices", "caller": caller, "alias": request.model,
+                             "status": response.status_code}, ensure_ascii=False))
+        raise HTTPException(502, "upstream error: response contains no choices")
+
     tokens = data.get("usage") or {}
-    _record_usage(used_alias, caller, tokens)
+    _record_usage(request.model, caller, tokens)
     log.info(json.dumps({
-        "event": "chat", "caller": caller, "alias": request.model, "upstream_alias": used_alias,
+        "event": "chat", "caller": caller, "alias": request.model,
         "model": data.get("model"), "prompt_tokens": tokens.get("prompt_tokens"),
         "completion_tokens": tokens.get("completion_tokens"),
         "latency_ms": int((time.time() - started) * 1000),

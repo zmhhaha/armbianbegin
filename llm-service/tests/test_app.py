@@ -12,9 +12,9 @@ sys.path.insert(0, str(SERVICE_DIR))
 
 ALIASES = (
     '{"aliases":{'
-    '"chat-guarded":{"tier":"guarded","provider":"deepseek","base_url":"https://up.invalid/v1",'
+    '"deepseek-guarded":{"tier":"guarded","provider":"deepseek","base_url":"https://up.invalid/v1",'
     '"model":"real-model","api_key_env":"TEST_KEY"},'
-    '"chat-tools":{"tier":"trusted","provider":"deepseek","base_url":"https://up.invalid/v1",'
+    '"deepseek-trusted":{"tier":"trusted","provider":"deepseek","base_url":"https://up.invalid/v1",'
     '"model":"real-model","api_key_env":"TEST_KEY"}'
     '},'
     '"limits":{"requests_per_minute_per_caller":2}}'
@@ -31,6 +31,26 @@ class FakeResponse:
             "usage": {"prompt_tokens": 3, "completion_tokens": 5},
             "choices": [{"message": {"role": "assistant", "content": "hi"}}],
         }
+
+
+class FakeResponseWithoutChoices:
+    """上游返回 200，但响应体里没有可用的 choices。"""
+
+    status_code = 200
+    text = ""
+
+    def json(self):
+        return {"model": "real-model", "usage": {"prompt_tokens": 3, "completion_tokens": 5}}
+
+
+class FakeResponseNotJson:
+    """上游返回 200，但响应体根本不是 JSON（典型是网关的错误页）。"""
+
+    status_code = 200
+    text = "<html>gateway error</html>"
+
+    def json(self):
+        raise ValueError("Expecting value: line 1 column 1 (char 0)")
 
 
 class LlmServiceTests(unittest.TestCase):
@@ -56,7 +76,7 @@ class LlmServiceTests(unittest.TestCase):
         module = self.module
 
         async def fake_forward(aliases, alias_name, messages, params):
-            return alias_name, FakeResponse()
+            return FakeResponse()
 
         return patch.object(module, "forward", fake_forward)
 
@@ -64,14 +84,14 @@ class LlmServiceTests(unittest.TestCase):
         self.assertEqual(self.client.get("/health/live").status_code, 200)
         self.assertEqual(self.client.get("/health/ready").status_code, 200)
         response = self.client.get("/v1/models", headers=self.headers)
-        self.assertEqual([item["id"] for item in response.json()["data"]], ["chat-guarded", "chat-tools"])
+        self.assertEqual([item["id"] for item in response.json()["data"]], ["deepseek-guarded", "deepseek-trusted"])
 
     def test_chat_resolves_alias_and_records_usage(self):
         with self._patch_forward():
             response = self.client.post(
                 "/v1/chat/completions",
                 headers=self.headers,
-                json={"model": "chat-tools", "messages": [{"role": "user", "content": "hi"}], "temperature": 0.5},
+                json={"model": "deepseek-trusted", "messages": [{"role": "user", "content": "hi"}], "temperature": 0.5},
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["model"], "real-model")
@@ -85,14 +105,14 @@ class LlmServiceTests(unittest.TestCase):
 
         async def recording_forward(aliases, alias_name, messages, params):
             captured.update(params)
-            return alias_name, FakeResponse()
+            return FakeResponse()
 
         with patch.object(self.module, "forward", recording_forward):
             response = self.client.post(
                 "/v1/chat/completions",
                 headers=self.headers,
                 json={
-                    "model": "chat-tools",
+                    "model": "deepseek-trusted",
                     "messages": [{"role": "user", "content": "hi"}],
                     "tools": [{"type": "function", "function": {"name": "web_search"}}],
                     "tool_choice": "auto",
@@ -108,7 +128,7 @@ class LlmServiceTests(unittest.TestCase):
             "/v1/chat/completions",
             headers=self.headers,
             json={
-                "model": "chat-guarded",
+                "model": "deepseek-guarded",
                 "messages": [{"role": "user", "content": "hi"}],
                 "tools": [{"type": "function", "function": {"name": "web_search"}}],
             },
@@ -126,12 +146,12 @@ class LlmServiceTests(unittest.TestCase):
 
     def test_rejects_caller_controlled_routing(self):
         for extra in ({"base_url": "https://evil.invalid/v1"}, {"api_key": "x"}, {"provider": "openai"}):
-            body = {"model": "chat-default", "messages": [{"role": "user", "content": "hi"}], **extra}
+            body = {"model": "deepseek-trusted", "messages": [{"role": "user", "content": "hi"}], **extra}
             response = self.client.post("/v1/chat/completions", headers=self.headers, json=body)
             self.assertEqual(response.status_code, 422, extra)
 
     def test_requires_internal_token(self):
-        body = {"model": "chat-tools", "messages": [{"role": "user", "content": "hi"}]}
+        body = {"model": "deepseek-trusted", "messages": [{"role": "user", "content": "hi"}]}
         self.assertEqual(self.client.post("/v1/chat/completions", json=body).status_code, 401)
         self.assertEqual(
             self.client.post("/v1/chat/completions", headers={"Authorization": "Bearer wrong"}, json=body).status_code,
@@ -139,7 +159,7 @@ class LlmServiceTests(unittest.TestCase):
         )
 
     def test_rejects_stream_and_rate_limits(self):
-        body = {"model": "chat-tools", "messages": [{"role": "user", "content": "hi"}]}
+        body = {"model": "deepseek-trusted", "messages": [{"role": "user", "content": "hi"}]}
         with self._patch_forward():
             self.assertEqual(
                 self.client.post("/v1/chat/completions", headers=self.headers, json={**body, "stream": True}).status_code,
@@ -150,6 +170,31 @@ class LlmServiceTests(unittest.TestCase):
             limited = self.client.post("/v1/chat/completions", headers=self.headers, json=body)
         self.assertEqual(limited.status_code, 429)
         self.assertEqual(limited.headers["Retry-After"], "60")
+
+
+    def _post_with_forward_returning(self, fake_response):
+        async def fake_forward(aliases, alias_name, messages, params):
+            return fake_response
+
+        with patch.object(self.module, "forward", fake_forward):
+            return self.client.post(
+                "/v1/chat/completions",
+                headers=self.headers,
+                json={"model": "deepseek-trusted", "messages": [{"role": "user", "content": "hi"}]},
+            )
+
+    def test_rejects_upstream_response_without_choices(self):
+        """上游给 2xx 但没有 choices：按上游故障报错，不把无效响应透传给调用方。"""
+        response = self._post_with_forward_returning(FakeResponseWithoutChoices())
+        self.assertEqual(response.status_code, 502)
+        self.assertIn("no choices", response.json()["detail"])
+
+    def test_rejects_upstream_non_json_body(self):
+        """上游给 2xx 但不是 JSON（网关错误页）：同样报 502，且不回显上游原文。"""
+        response = self._post_with_forward_returning(FakeResponseNotJson())
+        self.assertEqual(response.status_code, 502)
+        self.assertIn("not valid JSON", response.json()["detail"])
+        self.assertNotIn("gateway error", response.json()["detail"])
 
 
 if __name__ == "__main__":

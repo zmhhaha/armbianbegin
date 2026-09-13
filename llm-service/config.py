@@ -70,7 +70,6 @@ class Alias:
     api_key_env: str
     timeout_seconds: float = 60.0
     max_retries: int = 2
-    fallback: tuple[str, ...] = ()
     defaults: dict = field(default_factory=dict)
     # 类别：策略在 TIERS 里定义，别名只选档位
     tier: str = DEFAULT_TIER
@@ -104,7 +103,6 @@ def _alias_from(name: str, item: dict) -> Alias:
         api_key_env=item["api_key_env"],
         timeout_seconds=float(item.get("timeout_seconds", 60)),
         max_retries=int(item.get("max_retries", 2)),
-        fallback=tuple(item.get("fallback") or ()),
         defaults=dict(item.get("defaults") or {}),
         tier=tier,
     )
@@ -125,11 +123,6 @@ def load_config() -> tuple[dict[str, Alias], float]:
     aliases = {name: _alias_from(name, item) for name, item in (data.get("aliases") or {}).items()}
     if not aliases:
         raise ConfigError("未配置任何模型别名")
-
-    for alias in aliases.values():
-        for target in alias.fallback:
-            if target not in aliases:
-                raise ConfigError(f"别名 {alias.name} 的 fallback {target} 未定义")
 
     limits = data.get("limits") or {}
     return aliases, float(limits.get("requests_per_minute_per_caller", 60))

@@ -11,15 +11,20 @@ metadata:
 data:
   # 只放非敏感路由：provider、上游 base URL、模型别名、默认参数、超时、重试。
   # 凭据一律通过 api_key_env 引用，实际值来自 llm-service-secret（Vault 注入）。
-  # 别名 = 类别 + 用途。调用方各取所需：
-  #   chat-guarded —— tier=guarded，给「用户会写 prompt」的对话型 Agent（禁扩权字段、收紧上限）
-  #   chat-default —— tier=trusted，纯文本生成（RAG 等）
-  #   chat-tools   —— tier=trusted，允许函数调用（content-llm-service 的 CrewAI 网页工具）
-  #   chat-backup  —— 上游失败时的转移目标
+  #
+  # 别名格式固定为 <provider>-<tier>：前缀必须与下面的 provider 字段一致，
+  # 后缀只有 guarded / trusted 两档（策略定义见 config.py 的 TIERS）。
+  # 加新别名时照这个格式来，需要哪个 provider × 哪一档就加哪一条，不要预先铺满矩阵。
+  #   deepseek-guarded —— tier=guarded，给「用户会写 prompt」的对话型 Agent（禁扩权字段、收紧上限）
+  #   deepseek-trusted —— tier=trusted，纯文本生成与函数调用
+  #                        （RAG、literature_downloader、content-llm-service、research/scientific）
+  #   openai-trusted   —— tier=trusted，**预留**：Vault 里还没有 OPENAI_API_KEY，
+  #                        点名它会得到 503「缺少凭据」，不影响 readiness。
+  # 不配 fallback：别名必须唯一对应一个模型，失败就报错，不跨上游转移。
   LLM_ALIASES: |
     {
       "aliases": {
-        "chat-guarded": {
+        "deepseek-guarded": {
           "tier": "guarded",
           "provider": "deepseek",
           "base_url": "https://api.deepseek.com/v1",
@@ -27,21 +32,9 @@ data:
           "api_key_env": "DEEPSEEK_API_KEY",
           "timeout_seconds": 60,
           "max_retries": 2,
-          "fallback": ["chat-backup"],
           "defaults": {"temperature": 0.8}
         },
-        "chat-default": {
-          "tier": "trusted",
-          "provider": "deepseek",
-          "base_url": "https://api.deepseek.com/v1",
-          "model": "deepseek-v4-flash",
-          "api_key_env": "DEEPSEEK_API_KEY",
-          "timeout_seconds": 60,
-          "max_retries": 2,
-          "fallback": ["chat-backup"],
-          "defaults": {"temperature": 0.7, "max_tokens": 2048}
-        },
-        "chat-tools": {
+        "deepseek-trusted": {
           "tier": "trusted",
           "provider": "deepseek",
           "base_url": "https://api.deepseek.com/v1",
@@ -49,15 +42,15 @@ data:
           "api_key_env": "DEEPSEEK_API_KEY",
           "timeout_seconds": 120,
           "max_retries": 2,
-          "defaults": {"temperature": 0.2, "max_tokens": 2048}
+          "defaults": {"temperature": 0.7, "max_tokens": 2048}
         },
-        "chat-backup": {
+        "openai-trusted": {
           "tier": "trusted",
           "provider": "openai",
           "base_url": "https://api.openai.com/v1",
           "model": "gpt-4o-mini",
           "api_key_env": "OPENAI_API_KEY",
-          "timeout_seconds": 60,
+          "timeout_seconds": 120,
           "max_retries": 1
         }
       },

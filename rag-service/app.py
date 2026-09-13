@@ -21,7 +21,7 @@ LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").rstrip("/")
 # 本服务用 httpx 自己拼请求，所以由代码补上 OpenAI 兼容路径；
 # 其他走 CrewAI/litellm 的服务只需给 base_url，litellm 会自己接这一段。
 LLM_CHAT_URL = f"{LLM_BASE_URL}/chat/completions" if LLM_BASE_URL else ""
-LLM_MODEL = os.getenv("LLM_MODEL", "chat-default")
+LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-trusted")
 LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "120"))
 LLM_TOKEN = os.getenv("LLM_SERVICE_TOKEN", "")
 # 索引版本：换 embedding 模型/维度时改这个值并重建（见 README「索引版本与重建」）

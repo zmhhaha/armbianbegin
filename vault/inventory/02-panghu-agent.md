@@ -45,7 +45,7 @@ kubectl apply -f inventory/game-review-agent-externalsecret.yaml
 
 ## literature-downloader
 
-模型凭据同上，走 llm-service（`LLM_MODEL=chat-default`）。它自己的 `agent-config` 仍在用，
+模型凭据同上，走 llm-service（`LLM_MODEL=deepseek-trusted`）。它自己的 `agent-config` 仍在用，
 但只放检索参数（`LITERATURE_*`），由 `literature_downloader/deploy.sh` 应用。
 
 ## 令牌同步与重启

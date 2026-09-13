@@ -69,7 +69,7 @@ bash deploy.sh
 
 ```yaml
 LLM_BASE_URL: http://llm-service.llm.svc.cluster.local/v1   # 基址，不含 /chat/completions（路径由代码补齐）
-LLM_MODEL: chat-default          # llm-service 注册的"模型别名"，不是上游模型名
+LLM_MODEL: deepseek-trusted    # llm-service 注册的"模型别名"，不是上游模型名
 LLM_TIMEOUT: "120"
 CALLER_PERMISSIONS: |
   {"rag-operator": {"read": ["*"], "write": ["*"]}}
