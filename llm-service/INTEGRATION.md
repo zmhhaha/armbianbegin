@@ -172,6 +172,13 @@ tools  tool_choice  response_format  seed  n
 **绝对不能传** `base_url` / `url` / `endpoint` / `api_key` / `api_keys` / `provider` / `upstream` / `headers`
 —— 这些是「改路由」的字段，请求体会被 pydantic 的 `extra="forbid"` 直接打回 422。
 
+**流式**：`stream: true` 支持，SSE 原样转发。服务会自动注入 `stream_options: {include_usage: true}`
+以便统计用量。注意两个语义差异：
+
+- **上游 4xx 原样透传**，上游 5xx 在「还没写任何字节」时变成正常的 502；一旦开始转发就没有重试，中途出错只能断流。
+- 用 `guarded` 档时 canary 泄漏检测是**边转发边查**的，命中且 `canary_action=reject` 时是**截断**（已发出的收不回），
+  不是像非流式那样换掉整个响应。
+
 ### 4.3 三个必须知道的坑
 
 **① CrewAI 必须显式给 `provider="openai"`**
@@ -221,7 +228,6 @@ curl -sS -H "Authorization: Bearer <你的令牌>" http://llm-service.llm.svc.cl
 | 400 | `unknown model alias` | 别名拼错，或服务端还没配这个别名。查 `GET /v1/models` |
 | 400 | `does not allow tools` / `response_format` | 你在 `guarded` 别名上用了扩权字段 → 换 `trusted` |
 | 400 | `max_tokens exceeds the cap` / `too many messages` | 撞档位上限。`guarded` 上限低，别拿它跑长上下文 |
-| 400 | `stream=true is not supported` | 本服务不支持流式，去掉 `stream` |
 | 401 | `invalid caller token` | 令牌不对或没同步。查 `llm-token` ExternalSecret 是否 Ready |
 | 422 | 请求体有非法字段 | 检查是不是传了 §4.2 列的「改路由」字段 |
 | 429 | 超限流 | 默认每调用方 120 请求/分钟。带 `Retry-After` 退避 |

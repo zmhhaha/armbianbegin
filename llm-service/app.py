@@ -17,12 +17,13 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from auth import resolve, token_map
 from config import ALLOWED_PARAMS, ConfigError, load_config, load_guard_config
 from guard import detect, harden, leaked, new_canary, user_texts
-from upstream import UpstreamError, forward
+from upstream import UpstreamError, UpstreamStream, forward, open_stream
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger("llm-service")
@@ -204,6 +205,63 @@ def guard_report(authorization: str | None = Header(default=None)):
     }
 
 
+def _stream_usage(text: str) -> dict:
+    """从 SSE 尾部取 usage。
+
+    流式请求注入过 `stream_options.include_usage`，上游会在最后一帧带 usage；
+    取不到就返回空 dict，用量统计会缺这次 —— 不因此报错。
+    """
+    for line in reversed(text.splitlines()):
+        line = line.strip()
+        if not line.startswith("data:"):
+            continue
+        payload = line[5:].strip()
+        if not payload or payload == "[DONE]":
+            continue
+        try:
+            data = json.loads(payload)
+        except ValueError:
+            continue
+        usage = data.get("usage")
+        if isinstance(usage, dict):
+            return usage
+    return {}
+
+
+async def _relay(stream: UpstreamStream, canary: str | None, caller: str, alias_name: str, started: float):
+    """把上游字节转发给调用方，顺带做 canary 检查与用量统计。
+
+    流式下 `canary_action=reject` 的语义是**截断**而不是「拒绝」：已经吐出去的字收不回来，
+    所以发现泄漏时只能停止继续转发。这一点写进了 README。
+    """
+    keep = 8192  # 只留尾部：usage 在最后，canary 检测也不需要留全文
+    tail = ""
+    leak_seen = False
+    async for chunk in stream.aiter():
+        tail = (tail + chunk.decode("utf-8", "ignore"))[-keep:]
+        # canary 一旦落进尾部窗口就会一直留在里面，所以只判一次，否则每个后续 chunk 都会重复计数
+        if canary and not leak_seen and canary in tail:
+            leak_seen = True
+            _guard_stats[caller]["canary_leaks"] += 1
+            log.info(json.dumps({"event": "guard_canary_leak", "caller": caller, "alias": alias_name,
+                                 "stream": True}, ensure_ascii=False))
+            if GUARD.canary_action == "reject":
+                _guard_stats[caller]["rejected"] += 1
+                log.info(json.dumps({"event": "guard_stream_truncated", "caller": caller,
+                                     "alias": alias_name}, ensure_ascii=False))
+                return
+        yield chunk
+
+    tokens = _stream_usage(tail)
+    _record_usage(alias_name, caller, tokens)
+    log.info(json.dumps({
+        "event": "chat", "caller": caller, "alias": alias_name, "stream": True,
+        "prompt_tokens": tokens.get("prompt_tokens"),
+        "completion_tokens": tokens.get("completion_tokens"),
+        "latency_ms": int((time.time() - started) * 1000),
+    }, ensure_ascii=False))
+
+
 @app.post("/v1/chat/completions")
 async def chat(
     request: ChatRequest,
@@ -214,8 +272,6 @@ async def chat(
         raise HTTPException(503, f"config error: {CONFIG_ERROR}")
     if request.model not in ALIASES:
         raise HTTPException(400, f"unknown model alias: {request.model}")
-    if request.stream:
-        raise HTTPException(400, "stream=true is not supported by this service")
     # 按别名的「类别」施加策略：trusted 透传标准字段；guarded 收窄能力面，防提示词劫持
     alias = ALIASES[request.model]
     policy = alias.policy
@@ -251,6 +307,29 @@ async def chat(
 
     params = {key: getattr(request, key) for key in ALLOWED_PARAMS}
     started = time.time()
+
+    # --- 流式分支：连接与读取分开，让「上游不可用」在还没写任何字节前变成正常的 5xx ---
+    if request.stream:
+        try:
+            stream = await open_stream(ALIASES, request.model, messages, params)
+        except UpstreamError as error:
+            log.info(json.dumps({"event": "upstream_error", "caller": caller, "alias": request.model,
+                                 "status": error.status, "detail": error.message, "stream": True},
+                                ensure_ascii=False))
+            raise HTTPException(502, f"upstream error: {error.message}")
+
+        if stream.status_code >= 400:
+            # 上游的 4xx 原样透传（和上面的非流式路径一致）
+            detail = await stream.aread_text()
+            log.info(json.dumps({"event": "upstream_reject", "caller": caller, "alias": request.model,
+                                 "status": stream.status_code, "stream": True}, ensure_ascii=False))
+            raise HTTPException(stream.status_code, detail[:500])
+
+        return StreamingResponse(
+            _relay(stream, canary, caller, request.model, started),
+            media_type=stream.content_type,
+        )
+
     try:
         response = await forward(ALIASES, request.model, messages, params)
     except UpstreamError as error:
