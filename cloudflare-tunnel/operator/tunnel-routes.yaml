@@ -1,6 +1,17 @@
 # ============================================================
 #  正式 Tunnel + 路由（生产环境）
 #  kubectl apply -f tunnel-routes.yaml
+#
+#  ⚠️ 这份清单是 Cloudflare 后台配置的**备份**，不是权威来源。
+#
+#  实际生效的路由在 **Cloudflare 后台 → 该 tunnel 的 Public Hostname 列表**。
+#  原因：目前这套 operator 只有一半在工作 ——
+#    · Tunnel CR      → 起 cloudflared Deployment（只注入 TUNNEL_TOKEN，远程管理模式）✅ 生效
+#    · TunnelRoute CR → 写 ConfigMap cf-tunnel-cfg-<tunnel>，但 Deployment 没有挂载它 ❌ 不生效
+#  （另外该 reconcile 每次用「单条」路由覆盖整个 ConfigMap，多路由会互相覆盖。）
+#
+#  所以：改路由请改后台，并同步回本文件保持备份完整。
+#  详见 ../README.md 的「路由的权威来源」一节。
 # ============================================================
 ---
 apiVersion: cf.armbianbegin.io/v1
@@ -33,6 +44,28 @@ spec:
   tunnelRef: main
   hostname: chat.panghuer.top
   backend: portal.chat-portal.svc.cluster.local:80
+---
+# 工具门户首页（Gitea / Drone / OpenSpec MCP）
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: tool-portal
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: tool.panghuer.top
+  backend: portal.tool-portal.svc.cluster.local:80
+---
+# 游戏门户首页
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: game-portal
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: game.panghuer.top
+  backend: portal.game-portal.svc.cluster.local:80
 ---
 # 研究助手 UI
 apiVersion: cf.armbianbegin.io/v1
