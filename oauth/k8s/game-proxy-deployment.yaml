@@ -70,6 +70,8 @@ spec:
           - "--custom-templates-dir=/etc/oauth2-proxy/templates"
           - "--cookie-expire=720h"
           - "--cookie-refresh=24h"
+          - "--session-store-type=redis"
+          - "--redis-connection-url=redis://:$(REDIS_PASSWORD)@redis.data.svc.cluster.local:6379/2"
           - "--cookie-name=_oauth2_proxy"
           - "--email-domain=$(ALLOWED_DOMAINS)"
           - "--redirect-url=https://__TARGET_NAME__.panghuer.top/oauth2/callback"
@@ -89,6 +91,8 @@ spec:
         envFrom:
         - secretRef:
             name: oauth2-proxy-secret
+        - secretRef:
+            name: guanliao-redis-secret
         volumeMounts:
         - name: config
           mountPath: /etc/oauth2-proxy
