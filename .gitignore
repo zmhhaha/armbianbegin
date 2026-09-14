@@ -2,6 +2,10 @@
 .idea/
 .claude/
 
+# MCP 客户端配置（含明文 token，禁止提交到公开仓库）
+.mcp.json
+.mcp.local.json
+
 # Python
 __pycache__/
 *.pyc
