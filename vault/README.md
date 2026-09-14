@@ -192,7 +192,7 @@ secret/data/<namespace>/<app-name>/<key>
 ### 手动写入一个密钥
 
 ```bash
-kubectl exec -n vault vault-0 -- vault kv put secret/data/oauth/oauth2-proxy \
+kubectl exec -n vault vault-0 -- vault kv put secret/oauth/oauth2-proxy \
   COOKIE_SECRET="$(openssl rand -hex 16)" \
   OIDC_CLIENT_ID="my-client" \
   OIDC_CLIENT_SECRET="my-secret"
@@ -201,20 +201,97 @@ kubectl exec -n vault vault-0 -- vault kv put secret/data/oauth/oauth2-proxy \
 ### 读取一个密钥
 
 ```bash
-kubectl exec -n vault vault-0 -- vault kv get secret/data/oauth/oauth2-proxy
+kubectl exec -n vault vault-0 -- vault kv get secret/oauth/oauth2-proxy
 ```
 
 ### 列出所有密钥
 
 ```bash
-kubectl exec -n vault vault-0 -- vault kv list secret/data/oauth/
+kubectl exec -n vault vault-0 -- vault kv list secret/oauth/
 ```
 
-### 删除一个密钥
+### 删除一个密钥 —— ⚠️ 必须用 `metadata delete`
 
 ```bash
-kubectl exec -n vault vault-0 -- vault kv delete secret/data/oauth/oauth2-proxy
+kubectl exec -n vault vault-0 -- vault kv metadata delete secret/oauth/oauth2-proxy
 ```
+
+**`vault kv delete` 不等于删除。** 它只**软删除当前版本**，而 KV v2 默认
+`max_versions: 0`（**无限保留历史版本**）。结果这三种查法**全部显示「已删除」**：
+
+```bash
+vault kv list secret/<path>/          # 仍列出该路径（元数据还在）
+vault kv get  secret/<path>           # data: null（当前版本已软删）
+vault kv metadata get secret/<path>   # 不看 versions 字段就看不出来
+```
+
+**只有 `vault kv get -version=N` 读得出来。** 2026-09-14 在 panghu_agent 侧清出 12 条这样的
+路径，每条都还留着**当时 llm-service 正在使用**的那把 DeepSeek key —— 全部可读、可恢复。
+
+**删完必须核实 `versions` 里没有存活条目**：
+
+```bash
+kubectl -n vault exec vault-0 -- vault kv metadata get -format=json secret/<path> \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin)["data"]; \
+      print([v for v,i in d["versions"].items() if not i["deletion_time"] and not i["destroyed"]])'
+```
+
+输出 `[]` 才算真删干净。**不要只看 `kv list` 或 `kv get` 就判定已清理。**
+
+---
+
+## 清理残留（退役一个组件时）
+
+凭据迁移完之后，下面四类东西**都要单独清**——它们是四个不同的位置，漏掉任何一个都会留下
+可用的凭据或死配置：
+
+| # | 位置 | 怎么清 |
+|---|---|---|
+| 1 | **仓库里的清单文件** | 删除 `<component>/k8s/*externalsecret.yaml` |
+| 2 | **集群里的 ExternalSecret** | `kubectl delete externalsecret <name> -n <ns>` |
+| 3 | **集群里它同步出的 Secret** | 若 ExternalSecret 是 `creationPolicy: Owner`，上一步会一并 GC；否则手动 `kubectl delete secret` |
+| 4 | **Vault 里的源数据** | `vault kv metadata delete secret/<ns>/<app>`（见上，**不能用 `kv delete`**） |
+
+### ⚠️ 第 1 步做完，不等于 2/3/4 做完了
+
+这是本项目反复踩到的一类错误：**从仓库删掉 ExternalSecret 清单，集群里的 ExternalSecret 对象
+仍然存在，而且仍在按 `refreshInterval` 持续同步。** 也就是说凭据还在被拉取、还在被使用。
+
+2026-09-14 的两次实际案例：
+
+- **panghu_game**：5 个 namespace 的 provider ExternalSecret 在仓库里早已删除，集群里
+  却仍 `SecretSynced`，各渲染出一个只含 `DEEPSEEK_*` 的 Secret —— 共享 key 仍散在 5 个 namespace。
+  `school-of-one/llm-secret` 同理（键名是小写 `deepseek-api-key`，很容易被大小写敏感的检索漏掉）。
+- **panghu_agent**：12 条 Vault 路径只做了软删除，历史版本全在（见上）。
+
+**核对方式（不信「我以为删了」）**：
+
+```bash
+# 2/3：全集群找残留
+kubectl get externalsecret -A | grep -E '<component>|agent'
+kubectl get secret -A | grep -E 'deepseek|openai|anthropic|api-key'
+
+# 4：全 Vault 找带 provider 键的路径
+kubectl -n vault exec vault-0 -- vault kv list secret/
+```
+
+### ConfigMap 不会自动清理
+
+非敏感 ConfigMap 不走 ESO，也就不在任何「退役」流程里。三类会变成孤儿：
+
+- **deploy 脚本创建、但 Deployment 并不挂载的**（例如 School of One 的
+  `duel-judge-code` / `combo-judge-code` / `training-code`）—— 删了下次部署还会回来，
+  要清得连脚本一起改
+- **Job 跑完留下的**（例如 literature-downloader 的 `scihub-input-*`）—— 这类**没有
+  `ownerReferences`**，Job 被删时不会级联清理
+- **改架构后废弃的**（例如 `data/sqlite-server` —— 代码已烤进镜像，ConfigMap 是旧做法的残留）
+
+**判断方法：ConfigMap 是否被任何工作负载的 `envFrom` / `env.valueFrom` / `volumes` 引用。**
+不被引用的就是孤儿。
+
+⚠️ 检查 CronJob 时要看对路径：pod spec 在 `.spec.jobTemplate.spec.template.spec`，
+**不是** `.spec.template.spec`。按后者取会永远读不到 CronJob 的引用，
+把所有被 CronJob 使用的资源误报成孤儿（本项目踩过）。
 
 ---
 

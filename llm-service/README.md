@@ -287,3 +287,35 @@ kubectl rollout restart deployment/llm-service -n llm
 特征：llm-service 日志里 `completion_tokens` **正好等于**调用方设的上限。
 见「档位上限的真实语义」与 [INTEGRATION.md](INTEGRATION.md) §4.5。
 
+**7. 清 Vault 凭据必须用 `metadata delete`，`kv delete` 等于没删**
+
+这个坑骗过所有的常规检查，单独记一条。
+
+KV v2 默认 `max_versions: 0`（**无限保留历史版本**），而 `vault kv delete` **只软删除当前版本**。
+结果是这三种查法**全部显示「已删除」**：
+
+```bash
+vault kv list   secret/<project>/          # 仍列出该路径（元数据还在）
+vault kv get    secret/<project>/api       # data: null（当前版本已软删）
+vault kv metadata get ...                  # 不看 versions 字段就看不出来
+```
+
+**只有 `vault kv get -version=N` 读得出来。** 2026-09-14 在 panghu_agent 侧清出 12 条这样的路径，
+每条都还留着**当时 llm-service 正在使用**的那把 DeepSeek key —— 全部可读、可恢复。
+
+正确做法：
+
+```bash
+vault kv metadata delete secret/<project>/api     # 元数据 + 所有版本一起删
+```
+
+核对时**必须看 `versions` 里有没有 `deletion_time` 为空的条目**：
+
+```bash
+vault kv metadata get -format=json secret/<project>/api \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin)["data"]; \
+      print([v for v,i in d["versions"].items() if not i["deletion_time"] and not i["destroyed"]])'
+```
+
+输出 `[]` 才算真删干净。**清凭据后跑一遍这个，不要只看 `kv list`。**
+

@@ -138,7 +138,7 @@ Step 1: 写入 Vault ──── Step 2: 创建 ExternalSecret ──── Ste
 ### Step 1: 写入 Vault
 ```
 # 手动方式（推荐首次使用）
-kubectl exec -n vault vault-0 -- vault kv put secret/data/oauth/oauth2-proxy \
+kubectl exec -n vault vault-0 -- vault kv put secret/oauth/oauth2-proxy \
   COOKIE_SECRET="$(openssl rand -hex 16)" \
   OIDC_CLIENT_ID="xxxx" \
   OIDC_CLIENT_SECRET="xxxx"
@@ -159,6 +159,90 @@ kubectl get secret -n <ns> <secret-name> -o yaml
 
 ### Step 4: 清理
 从 YAML 文件中移除明文字段，替换为注释说明 "由 ESO 从 Vault 同步"。
+
+---
+
+## 退役一个组件（反向流程）
+
+凭据收归 `llm-service` 之类的改造会把一批 ExternalSecret 作废。**这是四个不同的位置，
+必须逐个清**，漏掉任何一个都会留下可用凭据或死配置：
+
+| # | 位置 | 怎么清 | 常见漏法 |
+|---|---|---|---|
+| 1 | 仓库清单 | 删 `<component>/k8s/*externalsecret.yaml` | — |
+| 2 | 集群 ExternalSecret | `kubectl delete externalsecret <name> -n <ns>` | ⚠️ **只做 1 不做 2** |
+| 3 | 它同步出的 Secret | `creationPolicy: Owner` 会随 2 一起 GC；否则手动删 | 同上 |
+| 4 | Vault 源数据 | `vault kv metadata delete secret/<ns>/<app>` | ⚠️ **用了 `kv delete`** |
+
+### ⚠️ 漏法一：以为删了清单就等于删了对象
+
+**从仓库删掉 ExternalSecret 清单，集群里的 ExternalSecret 对象仍然存在，而且仍在按
+`refreshInterval` 持续同步。** 凭据还在被拉取。
+
+核对（不要凭记忆）：
+
+```bash
+kubectl get externalsecret -A | grep -E '<component>|agent'
+kubectl get secret -A | grep -iE 'deepseek|openai|anthropic|api-?key'
+```
+
+⚠️ 查 Secret 键名时**用大小写不敏感匹配**。`school-of-one/llm-secret` 的键是小写
+`deepseek-api-key`，大小写敏感的检索会整个漏掉。
+
+### ⚠️ 漏法二：用了 `kv delete`
+
+`vault kv delete` **只软删除当前版本**，KV v2 默认 `max_versions: 0`（无限保留历史版本），
+所以历史凭据全部可读、可恢复。而且这三种查法都显示「已删除」：
+
+```bash
+vault kv list secret/<path>/          # 仍列出该路径
+vault kv get  secret/<path>           # data: null
+vault kv metadata get secret/<path>   # 不看 versions 字段看不出来
+```
+
+**必须用 `vault kv metadata delete`，并核实没有存活版本**：
+
+```bash
+kubectl -n vault exec vault-0 -- vault kv metadata delete secret/<ns>/<app>
+kubectl -n vault exec vault-0 -- vault kv metadata get -format=json secret/<ns>/<app> \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin)["data"]; \
+      print([v for v,i in d["versions"].items() if not i["deletion_time"] and not i["destroyed"]])'
+# 输出 [] 才算干净
+```
+
+### 清完之后：轮换或停用
+
+副本删干净只是**降低当下暴露面**，不等于关闭暴露 —— 这些 key 在多个 namespace 里跑了数周，
+每一份都曾是有效凭据。收尾动作是**在供应商控制台轮换或停用**。
+
+⚠️ 停用前先确认**哪一把是还在用的**。同一个供应商可能同时存在多把 key（本项目实际有两个
+DeepSeek key 混用），对着 sha256 比一遍再决定，别把生产在用的那把关了。
+
+---
+
+## 非敏感 ConfigMap（手动维护，不走 ESO 管理）
+
+以下为非敏感配置，手动维护，不走 Vault + ESO 管理，原因见 `wiki/deployment-guide.md` 问题 8。
+
+- `oauth/k8s/casdoor-configmap.yaml` — Casdoor 配置（URL、DB 连接等）
+- `oauth/k8s/proxy-configmap.yaml` — oauth2-proxy 配置
+- `email-service/k8s-deployment.yaml` — 部分 SMTP 配置
+- `panghu_agent/k8s/configmap.yaml` — Provider/Model 配置
+- Hadoop/HBase/Hive/ZK ConfigMaps — 集群地址等
+
+**它们不参与上面的退役流程，因此不会自动清理。** 三类会变成孤儿：
+
+- **deploy 脚本创建、但 Deployment 并不挂载的**（School of One 的
+  `duel-judge-code` / `combo-judge-code` / `training-code`）—— 删了下次部署还会回来，
+  要清得连脚本一起改
+- **Job 跑完留下的**（literature-downloader 的 `scihub-input-*`）—— 这类**没有
+  `ownerReferences`**，Job 被删时不会级联清理
+- **改架构后废弃的**（`data/sqlite-server` —— 代码已烤进镜像）
+
+判断标准：**是否被任何工作负载的 `envFrom` / `env.valueFrom` / `volumes` 引用。**
+
+⚠️ 检查 CronJob 时 pod spec 在 `.spec.jobTemplate.spec.template.spec`，**不是**
+`.spec.template.spec`。按后者取会把所有被 CronJob 使用的资源误报成孤儿。
 
 ---
 

@@ -14,9 +14,40 @@
   **只取本调用方那一个键**（`LLM_TOKEN_<CALLER>`）注入 —— 每个命名空间拿不到别人的令牌，
   llm-service 由变量名反推身份。
 - 各 namespace 的 `agent-secret` ExternalSecret 与 `agent-config` 已删除。
-  模型凭据分散在各 Agent 的 Vault `secret/<ns>/api` 路径也已清除。
+  模型凭据分散在各 Agent 的 Vault `secret/<ns>/api` 路径也已清除（**清除过程见下节，
+  第一次并没有清干净**）。
 
 详见 `panghu_agent/README.md` 的「模型调用：统一走 llm-service」。
+
+## ⚠️ 第一次清理没有清干净（2026-09-14 发现）
+
+原文写的是「`secret/<ns>/api` 路径也已清除」。**那句话当时是错的** —— 实际只做了
+`vault kv delete`，它只**软删除当前版本**；KV v2 默认 `max_versions: 0`（无限保留历史版本），
+所以每个路径的历史版本都还在，且全部可读、可恢复。
+
+复查时 12 条路径中 10 条仍有存活版本，且**每条的最新存活版本里装的就是当时 llm-service
+正在使用的那把 DeepSeek key**（指纹 `0c881ff6…`）：
+
+```
+secret/daofaziran-agent/api        v1,2,3   ← v3 = 在用 key
+secret/research-agent/api          v1–v5    ← v5 = 在用 key
+secret/scientific-agent/api        v1,2,3
+secret/game-review-agent/api       v1,2,3
+secret/zhongkuifumo-agent/api      v1,2,3
+secret/fofawubian-agent/api        v1,2,3
+secret/yimaneili-agent/api         v1,2,3
+secret/zhenzhuzhida-agent/api      v1,2,3
+secret/bingbichunqiu-agent/api     v1
+secret/xiaotanrenjian-agent/api    v1
+secret/literature-downloader/api   已全软删（无存活版本）
+secret/zhougongjiemeng-agent/api   已全软删（无存活版本）
+```
+
+**为什么常规检查查不出来**：`kv list` 仍列出路径、`kv get` 返回 `data: null`、
+`kv metadata get` 不看 `versions` 字段也看不出来 —— 三种查法全部显示「已删除」。
+
+已用 `vault kv metadata delete` 重做，12 条全部核实为无存活版本。
+**教训与核对命令写进了 `vault/rules.migrate.md` 的「退役一个组件」一节。**
 
 ## 涉及过的 namespace
 
