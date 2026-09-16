@@ -1,0 +1,12 @@
+# Planned route backup only; NOT live Cloudflare configuration.
+# Remote-managed tunnel routing must be configured in Cloudflare dashboard.
+# Do not apply this CR to activate routing: existing operator does not mount it.
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: hermes
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: hermes.panghuer.top
+  backend: hermes-web.hermes.svc.cluster.local:4180

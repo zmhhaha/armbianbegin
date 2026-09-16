@@ -1,0 +1,44 @@
+# Container template, NOT a standalone Kubernetes resource.
+# Loaded by panghu_chat/hermes/scripts/render.py into the Hermes Pod.
+# Localhost upstream requires this proxy to remain in the SAME Pod.
+name: oauth2-proxy
+image: __OAUTH_IMAGE__
+args:
+  - --http-address=0.0.0.0:4180
+  - --provider=oidc
+  - --oidc-issuer-url=__OIDC_ISSUER__
+  - --redirect-url=https://__HOSTNAME__/oauth2/callback
+  - --upstream=http://127.0.0.1:9119/
+  - --authenticated-emails-file=/owner/emails
+  - --scope=openid email profile
+  - --cookie-name=__Host-hermes
+  - --cookie-path=/
+  - --cookie-secure=true
+  - --cookie-samesite=lax
+  - --cookie-expire=8h
+  - --cookie-refresh=1h
+  - --cookie-csrf-per-request=true
+  - --reverse-proxy=true
+  - --proxy-websockets=true
+  - --skip-provider-button=true
+envFrom:
+  - secretRef: {name: hermes-oidc}
+ports:
+  - {name: http, containerPort: 4180}
+volumeMounts:
+  - {name: owner, mountPath: /owner, readOnly: true}
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10000
+  runAsGroup: 10000
+  allowPrivilegeEscalation: false
+  capabilities: {drop: [ALL]}
+  seccompProfile: {type: RuntimeDefault}
+readinessProbe:
+  httpGet: {path: /ping, port: http}
+livenessProbe:
+  httpGet: {path: /ping, port: http}
+  initialDelaySeconds: 20
+resources:
+  requests: {cpu: 10m, memory: 32Mi}
+  limits: {cpu: 200m, memory: 128Mi}
