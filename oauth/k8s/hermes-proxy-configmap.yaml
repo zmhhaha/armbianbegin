@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-oauth
+  namespace: hermes
+data:
+  oauth2-proxy.cfg: |
+    http_address = "0.0.0.0:4180"
+    provider = "oidc"
+    oidc_issuer_url = "https://auth.panghuer.top"
+    redirect_url = "https://hermes.panghuer.top/oauth2/callback"
+    upstreams = ["http://127.0.0.1:9119/"]
+    authenticated_emails_file = "/owner/emails"
+    scope = "openid email profile"
+    cookie_name = "__Host-hermes"
+    cookie_path = "/"
+    cookie_secure = true
+    cookie_samesite = "lax"
+    cookie_expire = "8h"
+    cookie_refresh = "1h"
+    cookie_csrf_per_request = true
+    reverse_proxy = true
+    proxy_websockets = true
+    skip_provider_button = true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hermes-owner
+  namespace: hermes
+data:
+  # Fill your verified Casdoor email. Empty deliberately grants nobody access.
+  emails: ""

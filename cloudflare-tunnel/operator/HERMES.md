@@ -11,7 +11,7 @@
    这会滚动现有 Tunnel；保留原标签和 replicas，并在维护窗口关注其他域名连接。
 3. 在 Cloudflare Tunnel 的 Published application 中增加 hostname `hermes.panghuer.top`，
    service `http://hermes-web.hermes.svc.cluster.local:4180`。不设置 HTTP Host Header 覆盖，不转发到 9119。
-4. 如修改 hostname，同步 `panghu_chat/hermes/deployment.local.yaml`、Casdoor callback 和此备份。
+4. 如修改 hostname，同步 `oauth/k8s/hermes-proxy-configmap.yaml`、Casdoor callback 和此备份。
 
 Cloudflare Access 可另加 Self-hosted application 与精确邮箱 Allow 策略，其他身份默认拒绝。
 它是可选的第二层认证，不替代已实现的 oauth2-proxy。无需关闭 origin TLS 验证；当前内部 service 使用 HTTP。
