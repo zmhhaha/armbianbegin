@@ -9,7 +9,10 @@ data:
     provider = "oidc"
     oidc_issuer_url = "https://auth.panghuer.top"
     redirect_url = "https://dsh.panghuer.top/oauth2/callback"
-    upstreams = ["http://127.0.0.1:3080/"]
+    upstreams = ["http://127.0.0.1:3081/"]
+    pass_host_header = true
+    set_xauthrequest = true
+    request_logging = false
     authenticated_emails_file = "/owner/emails"
     scope = "openid email profile"
     cookie_name = "__Host-dsh"

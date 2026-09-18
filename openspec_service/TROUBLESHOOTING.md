@@ -223,6 +223,56 @@ Deployment/PVC/PostgreSQL。
 
 ---
 
+### 2.6 Casdoor 同步停用 Gitea 账号，导致 OpenSpec 无法读取或提交 change
+
+**事件日期：2026-09-18；部署版本：Gitea 1.23.8。**
+
+现象：MCP 返回 `Gitea API returned 403: This account is prohibited from signing in, please contact your site administrator.`。即使客户端配置了有效的 Casdoor JWT，读取 change 也失败，更新因此没有提交。
+
+#### 认证链路
+
+客户端的 Casdoor JWT 用于 OpenSpec 身份认证；OpenSpec 调用 Gitea 时使用后端 `GITEA_TOKEN`，再查询用户的仓库 ACL，并非直接转发客户端 JWT。实现见 `src/gitea.mjs`、`src/rest.mjs`。
+
+后端凭据来自 Vault `secret/openspec/service` 的 `gitea_provision_token` 和 `gitea_username`，经 ExternalSecret 注入。事发时配置用户名为 `zmh_haha`，对应 Gitea 用户 ID 3；使用当前后端 Token 请求 `/api/v1/user` 和项目仓库都返回相同 403，管理命令显示该用户 `IsActive=false`。
+
+#### 日志证据与原因
+
+以下时间均已从容器日志 UTC 转为北京时间：
+
+| 时间 | 事件 |
+| --- | --- |
+| 2026-09-18 08:00:01 | `SyncExternalUsers[casdoor] disabling user 3` |
+| 2026-09-18 11:13:38 | OpenSpec 查询 `/api/v1/repos/openspec-service/armbianbegin/collaborators/zmh_haha/permission` 返回 403 |
+| 2026-09-18 11:28:29 | 再次查询仓库权限，仍返回 403 |
+| 2026-09-18 11:47:26 | 管理后台 `POST /-/admin/users/3/edit` 返回 303，对应用户手动激活操作 |
+
+核对 [Gitea v1.23.8 OAuth 同步源码](https://github.com/go-gitea/gitea/blob/v1.23.8/services/auth/source/oauth2/source_sync.go)：同步任务对保存了 Refresh Token 且访问凭据已过期的外部登录记录执行刷新；收到 OAuth `invalid_grant` 后进入上述停用分支，将账号 `IsActive` 设为 `false`，并清除保存的 OAuth Access Token、Refresh Token 和过期时间。
+
+因此，本次已确认的触发链是：**Casdoor OAuth 刷新返回 `invalid_grant` → Gitea 外部用户同步停用账号 → 后端 Gitea Token 无法访问 API → OpenSpec 权限检查失败。** 不是客户端 MCP JWT 失效，也不是直接按“多久未登录”停用账号。长时间未登录可能通过 Refresh Token 失效间接触发，但此次尚未确定 `invalid_grant` 是过期、撤销还是其他原因，不能把这些猜测写成结论。
+
+#### 恢复与复查
+
+1. 在 Gitea 管理后台检查对应账号，恢复激活状态，并检查是否存在禁止登录标记。此次用户已手动激活；不要据此声称已经验证 OpenSpec 写入恢复。
+2. 使用现有后端凭据重新检查 `/api/v1/user`，再通过 MCP 读取目标 change。单纯恢复账号状态通常不需要重建 MCP、更新客户端 JWT 或重启 OpenSpec。
+3. 读取成功后获取最新 revision，再提交尚未保存的 change 更新，避免覆盖其他修改。
+4. 若更换了后端凭据，用 `vault kv patch` 更新上述字段，避免覆盖数据库等其他配置；等待 ExternalSecret 同步后再滚动重启 OpenSpec，使环境变量加载新值。
+
+只读定位命令（不输出凭据）：
+
+```bash
+kubectl -n gitops exec gitea-0 -- gitea admin user list --config /etc/gitea/app.ini
+kubectl -n gitops logs gitea-0 --timestamps --since=24h \
+  | grep -E 'SyncExternalUsers|Failed authentication attempt|403 Forbidden|POST /-/admin/users'
+```
+
+日志可能含用户信息和 URL，分享前脱敏，不输出 JWT、Token、Cookie 或完整 Secret。日志中的 `Z` 表示 UTC，和本地操作时间对照时需要加 8 小时；如事件已超出容器日志保留范围，需要查集中日志或备份。
+
+#### 长期方案（尚未实施）
+
+建议为 OpenSpec 配置独立、最小权限的 Gitea 本地服务账号及 Token，限定其组织和仓库访问范围，不使用全局管理员 Token，避免后台服务依赖个人账号的 OAuth 刷新状态。客户端仍使用个人 Casdoor JWT，项目授权仍必须通过个人身份映射和 Gitea ACL，不可因使用服务账号而绕过。
+
+另行检查 Casdoor Refresh Token 生命周期、撤销与刷新行为，以及 Gitea 外部用户同步策略。不要只反复手动激活，也不要未经评估就关闭全部账号同步。此次仅完成日志和源码定位，未修改同步策略或迁移后端凭据。
+
 ## 3. 镜像与构建
 
 ### 3.1 服务报 `Gitea clone failed: spawn git ENOENT`（503）
