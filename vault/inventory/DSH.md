@@ -30,24 +30,45 @@ KV 命令路径不含 `data/`；ExternalSecret 沿用仓库 `secret/data/*` 约�
 
 `authorized_keys` 是 `id_ed25519.pub` 的重命名映射（`secretKey` + `remoteRef.property`），所以信任关系在 Vault 里只写一次，两边不可能漂移。**不要**把客户端私钥也放进 `dsh-runners`，也不要把主机私钥放进 `dsh`——那正是这套拆分要避免的。
 
-生成与写入（全部在 Git 之外）：
+生成与写入（全部在 Git 之外）。在能跑 `kubectl` 的管理机上执行：
 
 ```bash
-ssh-keygen -t ed25519 -N '' -C dsh-client -f /secure/dsh-client
-ssh-keygen -t ed25519 -N '' -C dsh-host   -f /secure/dsh-host
+install -d -m 0700 /root/dsh-ssh && cd /root/dsh-ssh
+
+ssh-keygen -t ed25519 -N '' -C dsh-client -f ./dsh-client
+ssh-keygen -t ed25519 -N '' -C dsh-host   -f ./dsh-host
 
 # known_hosts 固定项目容器的主机密钥。别名 dsh-runner-<project> 由
 # config/ssh_config 展开成 <别名>.dsh-runners.svc.cluster.local，所以这份
-# 可以在项目容器启动之前就生成好。
-printf '[dsh-runner-<project>.dsh-runners.svc.cluster.local]:2222 %s\n' \
-  "$(cut -d' ' -f1,2 /secure/dsh-host.pub)" > /secure/known_hosts
+# 可以在项目容器启动之前就生成好。PROJECT 必须等于 config/ssh.env 里的
+# DSH_SSH_HOST。
+PROJECT=armbianbegin
+printf '[dsh-runner-%s.dsh-runners.svc.cluster.local]:2222 %s\n' \
+  "$PROJECT" "$(cut -d' ' -f1,2 ./dsh-host.pub)" > ./known_hosts
+```
 
-kubectl exec -n vault vault-0 -- vault kv put secret/dsh/ssh \
-  id_ed25519=@/secure/dsh-client \
-  id_ed25519.pub=@/secure/dsh-client.pub \
-  ssh_host_ed25519_key=@/secure/dsh-host \
-  ssh_host_ed25519_key.pub=@/secure/dsh-host.pub \
-  known_hosts=@/secure/known_hosts
+写入 Vault。**逐条写，值走 stdin**：`vault kv put key=@路径` 里的路径是 **vault Pod 内部**的，不是宿主机的；而管道可以让私钥不出现在命令行、shell 历史或 Pod 文件系统上。
+
+```bash
+kubectl -n vault exec -i vault-0 -- vault kv put   secret/dsh/ssh id_ed25519=-               < ./dsh-client
+kubectl -n vault exec -i vault-0 -- vault kv patch secret/dsh/ssh id_ed25519.pub=-           < ./dsh-client.pub
+kubectl -n vault exec -i vault-0 -- vault kv patch secret/dsh/ssh ssh_host_ed25519_key=-     < ./dsh-host
+kubectl -n vault exec -i vault-0 -- vault kv patch secret/dsh/ssh ssh_host_ed25519_key.pub=- < ./dsh-host.pub
+kubectl -n vault exec -i vault-0 -- vault kv patch secret/dsh/ssh known_hosts=-              < ./known_hosts
+```
+
+校验（**只列键名，不打印值**——值一旦落进终端就会被记进会话与滚动缓冲）：
+
+```bash
+kubectl -n vault exec vault-0 -- vault kv get -format=json secret/dsh/ssh | jq -r '.data.data | keys[]'
+```
+
+应当输出五个键名：`id_ed25519`、`id_ed25519.pub`、`known_hosts`、`ssh_host_ed25519_key`、`ssh_host_ed25519_key.pub`。
+
+确认后 `/root/dsh-ssh/` 下的私钥副本就可以删掉——Vault 才是真源，而轮换本来也要重新生成：
+
+```bash
+shred -u ./dsh-client ./dsh-host && rm -f ./dsh-client.pub ./dsh-host.pub ./known_hosts
 ```
 
 `dsh-ssh` 要求严格主机密钥校验，所以**换掉主机密钥就必须同时换 `known_hosts`**，否则连接会被拒——这是设计上的失败即停，不是故障。
