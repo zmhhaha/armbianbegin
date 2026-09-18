@@ -58,7 +58,7 @@ GitOps 直连（无认证代理），`cloudflare-tunnel/operator/gitops-routes.y
 
 ## 三、准入控制：现状几乎没有
 
-> 📌 **更新（2026-09-16）**：仓库里出现了第一份 per-user 白名单配置 —— `oauth/k8s/hermes-proxy-container.yaml`（Hermes，未提交）。它用 `--authenticated-emails-file` 精确到单个邮箱、`--cookie-name=__Host-hermes` 且不设 domain。本节"现网无先例"说的仍是**已部署**的服务；要抄写法，直接看那份模板。详见 [hermes-code-review.md](hermes-code-review.md) 第一节第 5 条。
+> 📌 **更新（2026-09-17）**：仓库里出现了第一份 per-user 白名单配置 —— `oauth/k8s/hermes-proxy-configmap.yaml` 的 `hermes-oauth` ConfigMap（Hermes，已部署）。它用 `authenticated_emails_file` 精确到单个邮箱、`cookie_name = "__Host-hermes"` 且不设 domain。本节"现网无先例"说的仍是**其他已部署服务**；要抄写法，直接看那份 ConfigMap（容器定义在 `panghu_chat/hermes/k8s/core.yaml`）。详见 [hermes-code-review.md](hermes-code-review.md) 第三节。
 
 ### MFA
 
@@ -110,7 +110,7 @@ oauth2-proxy 参数（`oauth/k8s/proxy-deployment.yaml:60-78`，游戏版 `game-
 
 > ⚠️ 含义：新服务若走 oauth2-proxy 且不覆盖 cookie-name/domain，就与现有全部子域**共享同一个 `_oauth2_proxy` 登录态**。任何"独立、隔离的会话"要求都需要显式覆盖 cookie-name 和 cookie-domain，这属于新设计。
 >
-> 📌 **现成写法**：`oauth/k8s/hermes-proxy-container.yaml` 用 `--cookie-name=__Host-hermes` + 不设 `--cookie-domain` 做到了独立 cookie。注意 `__Host-` 前缀**强制要求** Secure + `Path=/` + 无 Domain 三条同时成立，那份模板三条都满足。
+> 📌 **现成写法**：`oauth/k8s/hermes-proxy-configmap.yaml` 的 `hermes-oauth` 用 `cookie_name = "__Host-hermes"` + 不设 cookie_domain 做到了独立 cookie。注意 `__Host-` 前缀**强制要求** Secure + `Path=/` + 无 Domain 三条同时成立，那份配置三条都满足。
 
 ## 五、WebSocket / SSE 反代
 
@@ -150,7 +150,7 @@ sed -e 's/__TARGET_NAME__/guanliao/g' -e '/proxyWebSockets: true/a\          tim
 ## 七、对新服务的影响清单
 
 1. 加公网认证 = 在 `oauth/k8s/` sed 起一个 `oauth2-proxy-<name>` Deployment + **去 Cloudflare 后台**改那条 hostname 的 backend。
-2. 想做单用户白名单 → **两条现成路**：(a) `oauth2-proxy` 的 `--authenticated-emails-file`（见 `oauth/k8s/hermes-proxy-container.yaml`）；(b) 应用内 JWT `sub` 白名单 + 直连后端路由（见 `openspec_service` + `openspec-service-route.yaml`）。前者更省事，后者能承载更多按用户区分的权限。
+2. 想做单用户白名单 → **两条现成路**：(a) `oauth2-proxy` 的 `authenticated_emails_file`（见 `oauth/k8s/hermes-proxy-configmap.yaml` 的 `hermes-oauth`）；(b) 应用内 JWT `sub` 白名单 + 直连后端路由（见 `openspec_service` + `openspec-service-route.yaml`）。前者更省事，后者能承载更多按用户区分的权限。
 3. MFA 想开就得先在 Casdoor 侧确认是否支持，仓库里查不到。
 4. 要独立会话 → 覆盖 cookie-name 为 `__Host-*` 且不设 cookie-domain（见上），否则与现网所有子域共享 `_oauth2_proxy`。
 5. 有流式响应 → `proxyWebSockets: true` + 长流的 `timeout`，应用侧加 `x-accel-buffering: no`。

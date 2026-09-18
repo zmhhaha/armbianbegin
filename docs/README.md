@@ -27,5 +27,5 @@
 
 | 文档 | 记录了什么 |
 |---|---|
-| [hermes-code-review.md](hermes-code-review.md) | 对 Hermes 已写代码的评审（2026-09-16）。2 高危（Hublog 出站端口不一致、CLI 契约未对齐镜像摘要）、6 中危、5 低危；同时记录了 SSRF 防护、凭据最小权限分离等做得好的地方 |
+| [hermes-code-review.md](hermes-code-review.md) | 对 Hermes 已写代码的评审（2026-09-16 初评，**2026-09-17 修订**：代码大幅改动且已部署）。当前仍存 1 高危 —— Hublog 出站 NetworkPolicy 写 8080 而实际连 80；另有 6 中危、5 低危。也记录了 SSRF 防护、凭据最小权限分离、双层认证等做得好的地方 |
 | [hermes-intelligence-review.md](hermes-intelligence-review.md) | 对 OpenSpec change `add-hermes-geopolitical-intelligence` 的**方案层**评审（2026-09-16，同日两次修订）。**未改动该 change 本身** |
