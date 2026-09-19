@@ -183,7 +183,7 @@ spec:
 
 数据经共享 RWX PVC `content-agents-data` 挂 `/data`。
 
-**Job 先例**（一次性/迁移）：DB migration Job —— `panghu_chat/hublog/k8s/migration-job.yaml`、`panghu_game/{TaShuo,ShaPan,GuanLiao,QianFu}/deploy/k8s/migration-job.yaml`，约定 `command: [python, -m, app.migrate]`、`ttlSecondsAfterFinished: 86400`。运行期动态创建 Job 的先例：`panghu_agent/scihub_cli/job.yaml:1-2`（"Literature Downloader API creates per-task Jobs at runtime"）。
+**Job 先例**（一次性/迁移）：DB migration Job —— `panghu_chat/hublog/k8s/migration-job.yaml`、`panghu_game/{TaShuo,ShaPan,GuanLiao,QianFu}/deploy/k8s/migration-job.yaml`，约定 `command: [python, -m, app.migrate]`、`ttlSecondsAfterFinished: 3600`（完成后保留 1 小时）。运行期动态创建 Job 的先例：`panghu_agent/scihub_cli/job.yaml:1-2`（"Literature Downloader API creates per-task Jobs at runtime"）。
 
 **应用内调度器：在重点服务里没有。** 对 `apscheduler|APScheduler|BackgroundScheduler|AsyncIOScheduler|node-cron|import schedule` 的全局 grep 在 llm/embedding/rag/es/email 的代码里**零命中**。命中的 `schedule.` 全在游戏引擎里指"角色作息表"（如 `panghu_game/QianFu/packages/core/src/engine.ts:2000`）。宿主机层面只有 `debian_begin.sh:202-203` 给 registry 容器加了 `@reboot` crontab。
 

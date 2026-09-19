@@ -23,7 +23,7 @@ metadata:
   name: init-static
   namespace: main-portal
 spec:
-  ttlSecondsAfterFinished: 60
+  ttlSecondsAfterFinished: 3600
   template:
     spec:
       nodeName: arm-cluster-master
