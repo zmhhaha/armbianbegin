@@ -33,5 +33,13 @@ metadata:
   namespace: dsh
 data:
   # Fill your verified Casdoor email. Empty deliberately grants nobody access.
+  # Add/remove users on the server: kubectl -n dsh edit configmap dsh-owner
+  # Edit data.emails: one verified email per line; retain existing users.
+  # After deploying the dynamic-allowlist adapter, no restart is needed.
+  # Allow time for Kubernetes to refresh the mounted ConfigMap file.
+  # Existing WebSocket connections are not immediately revoked on removal.
+  # Also update this file, otherwise the next deployment overwrites live edits.
+  # Apply this file from the repository root:
+  # kubectl apply -f oauth/k8s/dsh-proxy-configmap.yaml
   emails: |
     zmh_haha@163.com

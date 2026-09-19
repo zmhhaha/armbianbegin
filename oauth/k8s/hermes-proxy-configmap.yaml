@@ -42,5 +42,13 @@ metadata:
   namespace: hermes
 data:
   # Fill your verified Casdoor email. Empty deliberately grants nobody access.
+  # Add/remove users on the server: kubectl -n hermes edit configmap hermes-owner
+  # Edit data.emails: one verified email per line; retain existing users.
+  # oauth2-proxy reloads the email file without restarting the service.
+  # Allow time for Kubernetes to refresh the mounted ConfigMap file.
+  # Existing WebSocket connections are not immediately revoked on removal.
+  # Also update this file, otherwise the next deployment overwrites live edits.
+  # Apply this file from the repository root:
+  # kubectl apply -f oauth/k8s/hermes-proxy-configmap.yaml
   emails: |
     zmh_haha@163.com

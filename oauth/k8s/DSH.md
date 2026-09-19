@@ -42,7 +42,11 @@ bash deploy.sh --dry-run     # 只打印 apply 顺序
 bash deploy.sh               # 真正部署
 ```
 
-envFrom 凭据轮换或邮箱白名单修改后，必须重启网页：
+邮箱白名单支持免重启更新：修改 `dsh-owner` ConfigMap 后，等待 Kubernetes 将文件更新到 Pod，适配层在每次 HTTP 请求和 WebSocket 建连认证时重新读取 `/owner/emails`。空名单拒绝所有用户，文件读取失败返回 503，不沿用旧名单。已建立的 WebSocket 不会因名单修改立即断开。
+
+首次启用这一功能需要构建并部署新镜像，此后修改名单无需重启。仍需同步仓库配置，避免后续部署覆盖名单。
+
+envFrom 凭据轮换后，仍须重启网页：
 
 ```bash
 kubectl -n dsh rollout restart deployment/dsh-web
