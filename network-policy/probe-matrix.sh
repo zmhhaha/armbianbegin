@@ -154,6 +154,37 @@ $SELECTOR
 $EXCEPT
 EOF
         ;;
+    # Narrowing: is ANY `except` broken, or only the 13-entry list?
+    5) cat <<EOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: s5-except-one-wide, namespace: $PROBE_NS}
+spec:
+$SELECTOR
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+EOF
+        ;;
+    6) cat <<EOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: s6-except-podcidr, namespace: $PROBE_NS}
+spec:
+$SELECTOR
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.244.0.0/16
+EOF
+        ;;
     *) echo "unknown scenario: $1" >&2; exit 2 ;;
     esac
 }
@@ -162,8 +193,11 @@ LABELS=( "无策略（基线）" \
          "空 egress（deny-all）" \
          "ipBlock 0.0.0.0/0，无 except" \
          "ipBlock 0.0.0.0/0 + 13 条 except" \
-         "空 default-deny + 场景 3 叠加" )
-EXPECT=( "内网通 公网通" "内网断 公网断" "内网通 公网通" "内网断 公网通" "内网断 公网通" )
+         "空 default-deny + 场景 3 叠加" \
+         "ipBlock 0.0.0.0/0 + 1 条 except(10.0.0.0/8)" \
+         "ipBlock 0.0.0.0/0 + 1 条 except(10.244.0.0/16)" )
+EXPECT=( "内网通 公网通" "内网断 公网断" "内网通 公网通" "内网断 公网通" "内网断 公网通" \
+         "内网断 公网通" "内网断 公网通" )
 
 cleanup() {
     kubectl -n "$PROBE_NS" delete networkpolicy --all --ignore-not-found >/dev/null 2>&1 || true
@@ -198,19 +232,35 @@ dump_iptables() {
 }
 
 echo "=== 0. preflight ==="
-kubectl -n kube-router get daemonset kube-router >/dev/null || {
-    echo 'kube-router 未部署。先跑 bash deploy.sh。' >&2; exit 1; }
-if [[ "$(kubectl -n kube-router get pods -l k8s-app=kube-router \
-        -o jsonpath="{.items[*].spec.nodeName}" 2>/dev/null)" != *"$NODE"* ]]; then
-    echo "$NODE 上没有 kube-router Pod。" >&2; exit 1
+# Engine-agnostic: this matrix is the acceptance test, and it must keep working
+# after the kube-router -> Calico switch. Either engine will do; what matters is
+# that ONE of them covers $NODE, because a policy is enforced by the node
+# hosting the pod.
+ENGINE=
+if kubectl -n kube-router get ds kube-router >/dev/null 2>&1; then
+    ENGINE=kube-router
+    SEL='-l k8s-app=kube-router'
+    NS=kube-router
+elif kubectl -n kube-system get ds calico-node >/dev/null 2>&1; then
+    ENGINE=calico-node
+    SEL='-l k8s-app=calico-node'
+    NS=kube-system
+else
+    echo '  找不到策略引擎（kube-router 或 calico-node 都没有）。' >&2
+    exit 1
 fi
-echo "  kube-router 运行在 $NODE"
-echo "  DaemonSet args:"
-kubectl -n kube-router get daemonset kube-router \
-    -o jsonpath='{range .spec.template.spec.containers[0].args[*]}    {.}{"\n"}{end}'
+if [[ "$(kubectl -n "$NS" get pods $SEL -o jsonpath="{.items[*].spec.nodeName}" 2>/dev/null)" != *"$NODE"* ]]; then
+    echo "  $ENGINE 没有覆盖 $NODE。" >&2
+    echo "  策略由 Pod 所在节点执行，探针必须落在有引擎的节点上。" >&2
+    exit 1
+fi
+echo "  引擎: $ENGINE   节点: $NODE  ✓"
 
 echo
 echo "=== 1. 探针 Pod ==="
+# Wait out any namespace left terminating by a previous run -- otherwise the pod
+# create fails with "namespace is being terminated".
+kubectl delete ns "$PROBE_NS" --ignore-not-found --timeout=120s >/dev/null 2>&1 || true
 kubectl create ns "$PROBE_NS" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 cat <<EOF | kubectl apply -f - >/dev/null
 apiVersion: v1
@@ -238,7 +288,7 @@ kubectl -n "$PROBE_NS" wait --for=condition=Ready "pod/$PROBE_POD" --timeout=120
 echo
 echo "=== 2. 场景矩阵 ==="
 printf '  %-4s %-34s %-8s %-8s %s\n' "#" "策略" "内网" "公网" "期望"
-for n in 0 1 2 3 4; do
+for n in 0 1 2 3 4 5 6; do
     [[ -n "$ONLY" && "$ONLY" != "$n" ]] && continue
     yaml="$(scenario "$n")"
     [[ -n "$yaml" ]] && printf '%s' "$yaml" | kubectl apply -f - >/dev/null
@@ -258,7 +308,8 @@ done
 echo
 echo "=== 3. 判读 ==="
 cat <<'EOF'
-  场景 3 公网=断        -> ipBlock 的 except 列表是根因（kube-router 没按预期处理）
-  场景 4 ≠ 场景 3       -> 策略叠加没有被当成并集
-  场景 3 公网=通、4 也通 -> 两个假设都不成立，问题在别处（看 --dump 的计数器定位）
+  场景 2 全通 / 场景 3 公网断   -> `except` 列表是根因（已实测确认）
+  场景 4 == 场景 3              -> 策略叠加没有问题（已实测确认）
+  场景 5 或 6 公网也断          -> 不是条目多少的问题，`0.0.0.0/0 + except` 整体不被支持
+  场景 5、6 公网通 / 3 断       -> 问题只在长列表（数量/某条特定 CIDR）
 EOF

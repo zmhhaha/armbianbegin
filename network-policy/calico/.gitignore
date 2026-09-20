@@ -1,0 +1,4 @@
+# mirror.sh downloads the official manifests and rewrites their image registry,
+# and pushes the images into the private one. Everything here is derived.
+rendered/
+build.local.env

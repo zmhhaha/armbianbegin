@@ -1,6 +1,18 @@
 # 网络策略引擎选型与启用清单
 
-**结论：集群当前没有任何 NetworkPolicy 生效。** 修复路径是 **kube-router 的 `--run-firewall` 策略-only 模式**，生效范围**只框在 `dsh` / `dsh-runners` / `hermes` 三个命名空间**。
+**结论：集群当前没有任何 NetworkPolicy 生效。**
+
+> ## 🔴 2026-09-21 选型更新：kube-router 出局，改为完整 Calico
+>
+> 本文档第二节原推荐 kube-router `--run-firewall` 策略-only 模式。**该推荐已被实测推翻。**
+>
+> **根因**：kube-router **不支持 `ipBlock` 的 `except` 列表**——同样写 `ipBlock: 0.0.0.0/0`，**不加 `except` 全通，加上 `except` 就退化成"全拒"**（`probe-matrix.sh` 实测，一次只动一个变量）。
+>
+> **为什么这是致命的**：NetworkPolicy **没有取反表达**，多个策略只取并集。"公网放行 + 内网拒绝"唯一的语法就是 `0.0.0.0/0` + `except`。**写不出来 = DSH 的内网边界在 kube-router 上无法表达。**
+>
+> **改为完整 Calico**，官方有 flannel → Calico 的实时迁移路径（逐节点自动切换，不需手工重建 164 个 Pod，有回退）。执行材料见 [../network-policy/calico/README.md](../network-policy/calico/README.md)。
+>
+> 下文第二节的选型分析保留作为**决策记录**（尤其是"为什么不选 Calico 策略-only"那段——那个结论仍然成立）。
 
 - 调查日期：2026-09-20
 - 调查方式：SSH 到 `arm-cluster-master` 只读查询 + 从 `dsh-runner` 容器内 TCP 探测
@@ -187,15 +199,21 @@ bash deploy.sh --all-nodes         # 通过后再全量
 
 ## 六、启用后仍需注意
 
-> ### 🔴 2026-09-20 首次铺开 orangepi5 失败并回滚
+> ### 🔴 2026-09-20 首次铺开 orangepi5 失败并回滚，根因已定位
 >
 > `dsh-runner` 的出网被**整个掐断**，包括 `runner-egress` 用 `ipBlock 0.0.0.0/0` + 13 条 `except` 明确放行的公网。已回滚，服务恢复。
 >
 > **`verify.sh` 当时 PASS——因为它只测过「无策略」和「deny-all」，从未测过带 `ipBlock` allow 规则的策略。** 那次 PASS 完全不能预测真实策略的行为。这是本节最该记住的一句。
 >
-> 两个待证假设：① `ipBlock` 的 `except` 被 kube-router 错处理；② `default-deny` 与具体策略的**叠加**没被当成并集。上游线索 [#1617](https://github.com/cloudnativelabs/kube-router/issues/1617) 结构完全一致，但它的解法（显式 `--service-cluster-ip-range`）对本集群无效——默认值恰是我们的 Service CIDR。
+> **根因（`probe-matrix.sh` 实测，一次只动一个变量）**：`ipBlock` 的 **`except` 列表**。同样写 `ipBlock: 0.0.0.0/0`，**不加 `except` 全通，加上 `except` 就变成全断**。「策略叠加」假设已被推翻——空 `default-deny` 叠加不改变结果。
 >
-> 定位工具与完整记录见 [network-policy/README.md](../network-policy/README.md)。
+> **这是结构性问题，不是调参能绕过的。** NetworkPolicy 没有取反表达，「公网放行 + 内网拒绝」唯一的写法就是 `ipBlock 0.0.0.0/0` + `except`。
+>
+> > **⇒ 如果 kube-router 不支持 `except`，本文档第三节设计的整个内网边界在 kube-router 上根本表达不出来。选型需要重新评估（可能回到 Canal / 完整 Calico，即接受换 CNI、重建 Pod）。**
+>
+> 上游线索 [#1617](https://github.com/cloudnativelabs/kube-router/issues/1617) 结构完全一致，但它的解法（显式 `--service-cluster-ip-range`）对本集群无效——默认值恰是我们的 Service CIDR。
+>
+> 完整矩阵与记录见 [network-policy/README.md](../network-policy/README.md)。
 
 - **存量 Pod 是否被 kube-router 纳管**：策略-only 模式不装 CNI 插件，理论上能接管已存在的 Pod，但**未验证**。最小验证里若内网仍连通，先排查这一条再否定整个方案。
 - **IPv6 未覆盖**：`ipBlock` 只有 IPv4，全仓无 IPv6 处理。需确认节点无 IPv6 出口（见 [../panghu_chat/dsh/docs/boundaries.md](../panghu_chat/dsh/docs/boundaries.md)）。

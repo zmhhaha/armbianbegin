@@ -1,6 +1,25 @@
-# 网络策略引擎（kube-router，仅防火墙模式）
+# 网络策略引擎
 
-**这个组件现在它唯一要做的事**：让集群里那 13 个 NetworkPolicy 对象**真的生效**。今天的 CNI 是 `kube-flannel`，不实现 NetworkPolicy，所以它们全部空转——完整证据见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md) 与 [../panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
+> ## 🛑 kube-router 路线已放弃，改用完整 Calico
+>
+> **2026-09-21 决定。** 实测确认 **kube-router 不支持 `ipBlock` 的 `except` 列表**——写上它，整条策略退化成"全拒"。而 NetworkPolicy **没有取反表达**，"公网放行 + 内网拒绝"唯一的写法就是 `0.0.0.0/0` + `except`。
+>
+> **⇒ DSH 那条内网边界在 kube-router 上根本表达不出来。** 这不是调参能绕过的，是引擎能力缺失。
+>
+> 好消息：Calico 官方有 **flannel → Calico 的实时迁移路径**，逐节点自动切换，**不需要手工重建 164 个 Pod**，且有文档化的回退。前提也已核实齐备（flannel 用 VXLAN、MTU 1450、controller-manager 的 CIDR 参数都在）。
+>
+> **➡️ 去 [calico/](calico/README.md)。**
+>
+> 本目录其余内容保留下来，因为它们仍有价值：
+> - `probe-matrix.sh` —— **最终验收工具**，已改成引擎无关，Calico 下照跑
+> - `verify.sh` / `deploy.sh` / `k8s/` —— kube-router 专用，仅作历史记录
+> - 下面的故障记录 —— 换引擎的理由，别删
+
+---
+
+# 附：kube-router 路线（已放弃）
+
+**这个组件本来唯一要做的事**：让集群里那 13 个 NetworkPolicy 对象**真的生效**。原来的 CNI 是 `kube-flannel`，不实现 NetworkPolicy，所以它们全部空转——完整证据见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md) 与 [../panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
 
 ## 为什么不选 Calico
 
@@ -127,18 +146,38 @@ registry.npmmirror.com:443  BLOCKED(ECONNREFUSED)
 
 > **教训：`verify.sh` 通过只证明"引擎在跑"，不证明"你的策略形状是对的"。**
 
-**两个假设，都还没证实**：
+### ✅ 根因已定位：`ipBlock` 的 `except` 列表
 
-1. **`ipBlock` 的 `except` 列表**不被 kube-router 正确处理。
-2. **策略叠加**没被当成并集——runner 同时被 `dsh-runners/default-deny`（空规则）和 `runner-egress` 选中。
+`probe-matrix.sh` 在 `nanopct4-server1` 上跑完 7 个场景，一次只动一个变量：
 
-**上游线索**：[kube-router#1617](https://github.com/cloudnativelabs/kube-router/issues/1617) 的结构与我们的**完全一致**（`pod-selector: {}` 的空策略 + 一条带具体 egress 的策略），维护者给的机制是"**流量被 SNAT 成节点 IP 后，源地址不再匹配该 Pod 的策略链**"。但该 issue 的解法（显式 `--service-cluster-ip-range`）对我们无效——那个参数的默认值 `10.96.0.0/12` 恰好就是我们集群的 Service CIDR。**机制可能适用，但触发点不是同一个。**
+| # | 策略 | 内网 | 公网 | 期望 | |
+|---|---|---|---|---|---|
+| 0 | 无策略 | 通 | 通 | 内网通 公网通 | ✅ |
+| 1 | 空 egress（deny-all） | 断 | 断 | 内网断 公网断 | ✅ |
+| 2 | `ipBlock 0.0.0.0/0`，**无 except** | 通 | 通 | 内网通 公网通 | ✅ |
+| 3 | `ipBlock 0.0.0.0/0` **+ 13 条 except** | 断 | **断** | 内网断 **公网通** | ❌ |
+| 4 | 空 `default-deny` + 场景 3 | 断 | **断** | 内网断 **公网通** | ❌ |
 
-**定位工具**：`probe-matrix.sh`（见下）。它把上面每条假设做成一个独立场景，并能在失败时 dump iptables 计数器，直接读出包死在哪条规则上——这正是上游维护者在这类报告里反复索要的证据。
+**场景 2 与 3 只差一个 `except` 列表，结果从「全通」翻成「全断」。**
+
+两个结论：
+
+1. ✅ **根因是 `except`。** 写上它，整条策略退化成「全拒」。
+2. ❌ **「策略叠加」假设被推翻。** 场景 4 与场景 3 完全一致，`default-deny` 叠加没有问题。
+
+场景 5/6 进一步收窄：`0.0.0.0/0` + **单条** `except`（无论宽窄）是否也失败——用来区分「长列表才有问题」和「`0.0.0.0/0 + except` 整体不被支持」。
+
+**这个后果是结构性的，不是调参能绕过的。** NetworkPolicy **没有取反表达**：要写「公网放行、内网拒绝」，唯一的写法就是 `ipBlock 0.0.0.0/0` + `except`。
+
+> **⇒ 如果 `except` 在 kube-router 上不成立，DSH 那条「项目容器不能访问集群内部」的边界在 kube-router 上根本表达不出来。**
+
+**上游线索**（机制不适用，但记录在此）：[kube-router#1617](https://github.com/cloudnativelabs/kube-router/issues/1617) 的策略结构与我们的**完全一致**（`podSelector: {}` 空策略 + 一条带具体 egress 的策略），维护者给的机制是「流量被 SNAT 成节点 IP 后源地址不再匹配该 Pod 的策略链」。但那个 issue 的解法（显式 `--service-cluster-ip-range`）对我们无效——该参数默认值 `10.96.0.0/12` 恰好就是本集群的 Service CIDR。**机制可能适用，但我们这个失败是另一个原因。**
+
+**定位工具**：`probe-matrix.sh`。`--dump` 可在失败时抓 iptables 计数器，直接读出包死在哪条规则上。
 
 ```sh
-bash probe-matrix.sh --node nanopct4-server1            # 跑全部 5 个场景
-bash probe-matrix.sh --only 3 --dump                    # 只跑场景 3 并 dump iptables
+bash probe-matrix.sh --node nanopct4-server1            # 跑全部 7 个场景
+bash probe-matrix.sh --only 5 --dump                    # 单跑某个场景并 dump iptables
 ```
 
 ## 文件
