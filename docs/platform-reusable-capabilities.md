@@ -83,6 +83,8 @@ tier 策略在 `llm-service/config.py:44-57`。**上限只在调用方自己传�
 
 两个前提：Pod 必须带 `rag-client: "true"` 标签过 NetworkPolicy（`rag-service/k8s.yaml:103-107`）；改环境变量后需重启 Deployment。
 
+> 🔴 **2026-09-20 更正**：该 NetworkPolicy **在本集群未生效**（CNI 是 `kube-flannel`，不实现 NetworkPolicy）。从 `dsh-runner` 容器直连 `rag-service.data.svc.cluster.local:8080` 实测 **CONNECTED**。打标签仍应保留（策略生效后即为准入条件），但**当前它不提供任何隔离**。同类问题同时影响 `embedding-service` 与 `llm-service`。证据见 [../panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
+
 **索引与别名**：`index_name` = `rag-<collection>-<INDEX_VERSION>`（`app.py:68-70`），`alias_name` = `rag-<collection>`（`app.py:73-75`）。检索只认别名，写入时原子改指向（`app.py:78-94`）。同 source_id + 同 checksum 幂等返回 ready（`app.py:284-290`）；checksum 变化时写临时索引再原子替换（`app.py:251-271`）。`doc_type=knowledge` 时由服务端按 H2 小节切分（`app.py:227-246`，逻辑在 `chunking.py:34-62`）。
 
 ## 三、embedding-service

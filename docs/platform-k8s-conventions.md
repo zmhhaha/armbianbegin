@@ -66,6 +66,10 @@
 **写法特征**：`from: [{namespaceSelector: {}, podSelector: {matchLabels: {...}}}]` —— `namespaceSelector` 为空 `{}` 即"匹配所有 namespace"，靠 **label** 而不是 namespace 做准入。
 
 > ⚠️ **这是本仓库最高频的坑**：调用方 Pod 必须**显式打上** `llm-client: "true"` / `rag-client: "true"` / `embedding-client: "true"` 标签，否则连不上。而且**表现为超时（connection timeout），不是 401** —— 很容易误判成服务挂了。仓库里约 15 处记录了这个坑：`llm-service/INTEGRATION.md:159`、`llm-service/README.md:229`、`rag-service/k8s.yaml:24`、`panghu_game/GuanLiao/deploy/README.md:63`、`panghu_agent/k8s/api-deployment.yaml:21-23` 等。
+>
+> 🔴 **2026-09-20 更正：以上整段在本集群上没有依据。** 实测确认集群 CNI 是 `kube-flannel`（无 Calico/Cilium/kube-router），**flannel 不实现 NetworkPolicy**，因此这 3 个策略**从未生效**。从 `dsh-runner` 容器直连 `rag-service` / `embedding-service` / `llm-service` 全部 **CONNECTED**。
+>
+> 打标签仍是**正确的写法**（策略生效后它就是准入条件），但**不要再用"表现为超时"去诊断连通性问题**——现在的超时一定是别的原因。那"约 15 处记录"经查大多是注释与 README 相互引用，**不是本集群的实测经验**。证据见 [../panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
 
 `llm-guard-report-agent` 的 CronJob 演示了正确写法（`panghu_agent/content_agents/k8s/cronjobs.yaml:271-273`）。
 
