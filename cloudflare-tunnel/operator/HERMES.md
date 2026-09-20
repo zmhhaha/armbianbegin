@@ -19,5 +19,9 @@ Cloudflare Access 可另加 Self-hosted application 与精确邮箱 Allow 策略
 现有 operator 不持久管理上述额外 Pod 标签，重建 Deployment 可能丢失标签；丢失后 NetworkPolicy 会拒绝连接，
 应恢复标签而非放宽整个集群访问。未自动修改共享 operator，以免影响已有服务。
 
+> 🔴 **2026-09-20 更正，这条已作废，且原因有两层：**
+> 1. **不再需要这个标签了。** `hermes/tunnel-ingress` 已改为直接选择 cloudflared 固有的 `app: cloudflared, tunnel: main` 标签，不再依赖 `hermes-ingress: "true"`。重建 Deployment 丢失自加标签不再有影响。
+> 2. **原句的因果也不成立。** 集群 CNI 是 `kube-flannel`，不实现 NetworkPolicy —— 策略当前**不会**拒绝任何连接。见 [../../docs/network-policy-engine.md](../../docs/network-policy-engine.md)。
+
 回滚时先在 Cloudflare 仅移除 Hermes 路由，再停止 Hermes；不要删除共享 main Tunnel 或覆盖其他 Public Hostname。
 本次没有修改远端路由、标签或 Access 策略。

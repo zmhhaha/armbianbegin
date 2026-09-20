@@ -199,6 +199,8 @@ NetworkPolicy 只允许带 `rag-client: "true"` 标签的 Pod 访问 RAG；出�
 （需访问 Elasticsearch / embedding-service / llm-service）。RAG 自身带 `llm-client: "true"` 标签，
 以通过 llm-service 的入站策略。
 
+> 🔴 **2026-09-20 更正**：这两条策略在本集群**均未生效**——CNI 是 `kube-flannel`，不实现 NetworkPolicy；`rag-client` / `llm-client` 标签不产生任何准入效果。从 `dsh-runner` 容器直连 `rag-service.data.svc:8080` 实测 **CONNECTED**。另注意：`embedding-service` 的入站策略要求 `embedding-client: "true"`，而**全集群带该标签的 Pod 数量为 0**——一旦启用策略引擎，RAG 会立刻断在这里。见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
+
 ## 本地运行与测试
 
 ```bash

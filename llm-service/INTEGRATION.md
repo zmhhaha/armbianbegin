@@ -156,7 +156,8 @@ spec:
   template:
     metadata:
       labels:
-        llm-client: "true"        # ← NetworkPolicy 的放行条件，缺了会连不上（不是 401，是超时）
+        llm-client: "true"        # ← NetworkPolicy 的放行条件。写上是对的，但见下方更正：
+                                  #   本集群当前没有策略引擎，缺了**不会**被拦。
     spec:
       containers:
         - name: api

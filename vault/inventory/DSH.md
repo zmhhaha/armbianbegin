@@ -88,7 +88,7 @@ kubectl -n dsh rollout restart deployment/dsh-web
 ```
 
 - Cookie 密钥使用随机 32 字节 base64。改动 `OAUTH2_PROXY_COOKIE_SECRET` 会让所有现有会话失效。
-- 凭据只挂到对应容器：模型密钥只进 web 容器，OAuth 密钥只进代理容器。**两者都不进项目容器**，项目容器的 NetworkPolicy 也不允许它访问这些服务的地址。
+- 凭据只挂到对应容器：模型密钥只进 web 容器，OAuth 密钥只进代理容器。**两者都不进项目容器**——**这才是真正在起作用的隔离。**（原句还有"项目容器的 NetworkPolicy 也不允许它访问这些服务的地址"，**2026-09-20 实测不成立**：集群 CNI 是 `kube-flannel`，不实现 NetworkPolicy，runner 能直连这些地址。见 [../../docs/network-policy-engine.md](../../docs/network-policy-engine.md)。）
 - **SSH 密钥对**：轮换要两边同时做，否则网页侧会连不上，或者更糟——用旧密钥继续连。顺序是：先在 Vault 写入新的 `secret/dsh/ssh`（含配套的 `known_hosts`）→ 重启两个 ExternalSecret → 重启项目容器（重新落位主机密钥）→ 重启网页。中途连不上是预期的，不要用放宽校验来绕过。
 
 ## 清理

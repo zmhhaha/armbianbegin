@@ -91,6 +91,7 @@ tier 策略在 `llm-service/config.py:44-57`。**上限只在调用方自己传�
 
 - 模型 `bge-small-zh-v1.5`，ONNX Runtime CPU，CLS 池化 + L2 归一化，**512 维**（`app.py:11-17,52-56`；`README.md:3`）。
 - 部署：单副本，`nodeSelector: orangepi5-max-server1`，`ORT_INTRA_OP_THREADS=4`（`k8s.yaml:11-52`）。NetworkPolicy 只放行 `embedding-client: "true"` 标签（`k8s.yaml:54-68`）。模型随镜像发布，构建时从 hf-mirror 下载（`README.md:5-14`）。
+  - 🔴 **2026-09-20 更正**：该策略**未生效**（CNI 是 `kube-flannel`）。更要紧的是：**实测全集群带 `embedding-client: "true"` 标签的 Pod 数量为 0**，而 `rag-service` 是本服务唯一调用方 —— 策略引擎一旦启用，RAG 会立刻断在这里。见 [network-policy-engine.md](network-policy-engine.md)。
 - 接口：`POST /v1/embeddings`，body `{model, input(1-16 条，每条≤8192 字符), input_type(passage|query)}`（`app.py:21-24`）；`query` 会加中文检索指令前缀（`app.py:47-48`）。
 - 地址 `http://embedding-service.data.svc.cluster.local:8080`（`README.md:28`）。
 

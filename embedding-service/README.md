@@ -23,6 +23,13 @@ bash build.sh --push
 
 部署要求已有 data namespace；默认调度 orangepi5-max-server1。NetworkPolicy 只允许带 embedding-client: "true" 标签的集群 Pod 访问，需要 CNI 支持 NetworkPolicy。
 
+> 🔴 **2026-09-20 实测：本集群的 CNI 不支持。** CNI 是 `kube-flannel`，不实现 NetworkPolicy，因此该策略**从未生效**。两个后果：
+>
+> 1. 现在任何 Pod 都能访问本服务（标签不是准入门槛）。
+> 2. **一旦接入策略引擎，`rag-service` 会立刻断连**——实测全集群带 `embedding-client: "true"` 标签的 Pod 数量为 **0**，而 rag-service 是本服务唯一的调用方。届时需先给它补标签；另需处理本服务 `egress: []`（连 DNS 都禁）是否有影响。
+>
+> 见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
+
 ## API
 
 地址：http://embedding-service.data.svc.cluster.local:8080

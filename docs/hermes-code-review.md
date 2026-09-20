@@ -24,11 +24,17 @@
 
 ### H1. Hublog 出站端口不一致：NetworkPolicy 8080 vs 实际连接 80
 
+> 🔴 **2026-09-20 双重状态更新：**
+> 1. **清单层已修**：`hublog-publisher` 现在同时放行 **80 与 8080**，不再赌 CNI 在 DNAT 前还是后匹配端口。
+> 2. **但本条从未"发作"过，因为策略根本没生效**：集群 CNI 是 `kube-flannel`，不实现 NetworkPolicy。下面"Hublog 发布会被拦"的推论**在当时的集群上不成立**（发布任务实际跑过并 Completed）。
+>
+> 所以这条的准确定性是**清单内部不一致**，不是一次实际故障。它仍然值得修——策略引擎一旦启用，它就是第一个会炸的点。见 [network-policy-engine.md](network-policy-engine.md)。
+
 修改后**两处都变明确**了，但方向相反：
 
 | 位置 | 值 |
 |---|---|
-| `panghu_chat/hermes/k8s/core.yaml:604` | `hublog-publisher` NetworkPolicy 只放行 `port: 8080` |
+| `panghu_chat/hermes/k8s/core.yaml` | `hublog-publisher` NetworkPolicy ~~只放行 `port: 8080`~~ → **2026-09-20 已改为同时放行 80 与 8080** |
 | `panghu_chat/hermes/k8s/core.yaml:49` | `HUBLOG_URL: http://hublog-api.hublog.svc.cluster.local` —— **无端口，即 80** |
 | `panghu_chat/hermes/app/pipeline.py:211` | `cls(part.hostname, part.port, ...)` → `part.port` 为 `None` → **80** |
 

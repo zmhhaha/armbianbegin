@@ -228,6 +228,8 @@ bash deploy.sh           # 应用 Vault ExternalSecret + k8s，重启并等待�
 
 部署到命名空间 `llm`。NetworkPolicy 只允许带 `llm-client: "true"` 标签的 Pod 访问；出站只放行 DNS 与 443。
 
+> 🔴 **2026-09-20 更正**：该 NetworkPolicy 在本集群**未生效**——CNI 是 `kube-flannel`，不实现 NetworkPolicy。从 `dsh-runner` 容器直连 `llm-service.llm.svc:80` 实测 **CONNECTED**。打标签仍应保留（策略生效后即为准入条件），但**当前它不提供任何隔离**。见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
+
 ## 迁移现有服务
 
 已完成的迁移：8 家本法 Agent、research / scientific / game_review、literature_downloader、
