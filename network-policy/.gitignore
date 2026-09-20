@@ -1,0 +1,5 @@
+# build.sh writes the pinned image digest and deploy.sh writes the rendered
+# DaemonSet here. Both are local build artifacts: the digest changes whenever
+# the upstream image is re-synced, and the rendered manifest is derived from
+# k8s/20-kube-router.yaml.
+rendered/

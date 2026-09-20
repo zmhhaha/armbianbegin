@@ -132,27 +132,52 @@ ports: [{protocol: TCP, port: 4180}]
 
 ## 五、最小验证（不要直接上全集群）
 
+**✅ 已落成可执行材料：[`network-policy/`](../network-policy/README.md)。** 本节只讲判断，具体命令与脚本在那个目录里。
+
+> ⚠️ **本节 2026-09-20 更正过一次，方向变了。** 初版写的是"直接调度到 `orangepi5-max-server1` 试"。实测 pod 分布后推翻：
+>
+> | 节点 | Pod 数 |
+> |---|---:|
+> | `orangepi5-max-server1` | **94**（全集群 164 的 57%） |
+> | `nanopct4-server3` / `-server2` | 32 / 19 |
+> | `arm-cluster-master` | 12 |
+> | `nanopct4-server1` | **4**（全是 hostNetwork 基础设施） |
+>
+> 而 kube-router 的失败模式**不是"策略没生效"**（那是 fail-open，不比今天差），**是它改坏宿主机 FORWARD 链导致那台节点的 Pod 掉网**。在一台跑着 94 个 Pod 的节点上冒烟，是在赌整个集群。
+>
+> 但反过来，`nanopct4-server1` 上**没有任何应用 Pod**，纯在那儿试也证明不了策略生效。所以验证设计成**用一个用完即删的探针 Pod**，既把爆炸半径压到零，又能真正测到 enforcement。
+
+### 三步铺开
+
 ```sh
-# 1) 只调度到一台节点，且只跑策略
-#    DaemonSet 加 nodeSelector: kubernetes.io/hostname: orangepi5-max-server1
-#    args: --run-firewall=true --run-router=false --run-service-proxy=false
+cd network-policy
+bash build.sh                      # 同步镜像进私有 registry，固定 digest
 
-# 2) 只保留最值钱的那一条策略：runner-egress
-kubectl -n dsh-runners delete networkpolicy default-deny runner-ingress
-#    runner-egress 保持
+bash deploy.sh --dry-run           # 先看渲染
+bash deploy.sh                     # 默认钉在 nanopct4-server1（4 个 Pod）
+bash verify.sh                     # 三阶段自证
 
-# 3) 从 DSH runner 内重跑探测——应当与此前完全相反
-#    内网 7 个目标 → TIMEOUT；公网 443 → CONNECTED
+bash deploy.sh --node orangepi5-max-server1   # 真正要紧的那台
+bash verify.sh --node orangepi5-max-server1
+
+bash deploy.sh --all-nodes         # 通过后再全量
 ```
 
-**同节点与跨节点都要测**（网桥问题只在同节点出现）。runner 在 `orangepi5-max-server1` 上，需同时试一个同节点目标（如 `redis.data.svc:6379`）和一个别的节点上的目标。
+`verify.sh` 的三阶段是**必须**的，因为"流量断了"本身什么都证明不了——可能只是数据面坏了：
 
-判定：
+| 阶段 | 动作 | 期望 |
+|---|---|---|
+| A | 无策略时探测 | 全部 `CONNECTED`（基线） |
+| B | 给探针 Pod 套 deny-all egress | 全部 `BLOCKED`/`TIMEOUT`（证明在生效） |
+| C | 删除该策略再探测 | 全部 `CONNECTED`（证明可逆） |
 
-| 结果 | 动作 |
-|---|---|
-| 内网 TIMEOUT、公网 CONNECTED | ✅ 铺全集群，恢复被删的两条策略 |
-| 内网仍 CONNECTED | ❌ kube-router 在此网络下不可用，转 Canal 路线（接受全量重建 Pod） |
+**C 失败是最危险的信号**——策略可装不可卸，立即停手，不要 `--all-nodes`。
+
+**同节点与跨节点都要测**：网桥问题只在同节点出现。探针目标里已同时包含两类。
+
+### 通过之后、全量之前
+
+引擎一开，现存 13 个策略会**一起**变成真的。先决定哪些该生效（见第三节的删除清单），否则 RAG 会断在 `embedding-client` 标签上。
 
 ## 六、启用后仍需注意
 

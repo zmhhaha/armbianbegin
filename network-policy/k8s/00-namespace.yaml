@@ -1,0 +1,18 @@
+# Namespace for the network policy engine (kube-router, firewall-only mode).
+#
+# Separate from kube-system on purpose, following the precedent of the
+# kube-flannel namespace this cluster already creates in debian_begin.sh.
+#
+# kube-router manipulates the host's iptables/ipset, so it needs hostNetwork,
+# hostPID, privileged and CAP_NET_ADMIN. No restricted Pod Security profile can
+# express that, so the namespace opts into privileged -- exactly as the
+# kube-flannel namespace does. This is a statement about what the component is,
+# not a relaxation: nothing else is deployed here.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-router
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged

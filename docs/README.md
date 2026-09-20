@@ -45,4 +45,4 @@
 | 文档 | 记录了什么 |
 |---|---|
 | [../panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) | 服务器上全部服务的汇总评估。2026-08-07 初版，**2026-09-20 全面复核**：45 个命名空间 / 164 个 Pod、已部署服务、缺失清单、Ceph/Vault/备份/监控现状，以及第 8.0 节的 NetworkPolicy 未生效实测结论。**动手改集群或设计新服务前先读它。** |
-| [network-policy-engine.md](network-policy-engine.md) | 网络策略引擎的选型与启用清单（2026-09-20）。**Calico 策略-only 官方不支持**（附 issue 证据），采用 kube-router `--run-firewall` 模式；生效范围只框 dsh/hermes，含启用前必须修的三处与最小验证步骤。 |
+| [network-policy-engine.md](network-policy-engine.md) | 网络策略引擎的选型与启用清单（2026-09-20）。**Calico 策略-only 官方不支持**（附 issue 证据），采用 kube-router `--run-firewall` 模式；生效范围只框 dsh/hermes，含启用前必须修的三处与分三步的铺开方案。可执行材料在同名目录 [../network-policy/](../network-policy/README.md)（build/deploy/verify 三个脚本 + 清单模板）。 |

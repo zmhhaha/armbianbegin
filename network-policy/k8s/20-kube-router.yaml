@@ -1,0 +1,105 @@
+# kube-router in firewall-only mode: it programs NetworkPolicy, nothing else.
+#
+#   --run-router=false          pod networking stays with flannel
+#   --run-service-proxy=false   kube-proxy keeps doing Services
+#   --enable-cni=false          NEVER write a CNI config; flannel owns /etc/cni/net.d
+#   --run-firewall=true         the only thing we want
+#
+# THIS FILE IS A TEMPLATE. deploy.sh substitutes the image reference and the
+# target node name, then
+# refuses to apply while any unreplaced token remains -- same convention as
+# panghu_chat/dsh/deploy.sh. Do not `kubectl apply -f` it directly.
+#
+# ROLLOUT IS DELIBERATELY ONE NODE AT A TIME. The failure mode of this component
+# is not "policy does not take effect" (that fails open, i.e. no worse than
+# today); it is "the host's FORWARD chain gets rearranged and pod traffic on that
+# node drops". Read README.md before widening the nodeSelector.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kube-router
+  namespace: kube-router
+  labels:
+    k8s-app: kube-router
+spec:
+  selector:
+    matchLabels:
+      k8s-app: kube-router
+  template:
+    metadata:
+      labels:
+        k8s-app: kube-router
+    spec:
+      priorityClassName: system-node-critical
+      serviceAccountName: kube-router
+      containers:
+      - name: kube-router
+        image: __IMAGE__
+        imagePullPolicy: IfNotPresent
+        args:
+          - "--run-router=false"
+          - "--run-firewall=true"
+          - "--run-service-proxy=false"
+          - "--enable-cni=false"
+          # Log at 3 while we are validating; drop to 2 once it is trusted.
+          - "--v=3"
+        securityContext:
+          privileged: true
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        # Cache sync can take up to --cache-sync-timeout (default 1m), so gate
+        # liveness behind a startup probe.
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 20244
+          periodSeconds: 5
+          failureThreshold: 30
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 20244
+          periodSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 250m
+            memory: 250Mi
+        volumeMounts:
+        - name: lib-modules
+          mountPath: /lib/modules
+          readOnly: true
+        - name: xtables-lock
+          mountPath: /run/xtables.lock
+          readOnly: false
+      hostNetwork: true
+      hostPID: true
+      # Inherit the host resolver: we resolve no hostnames, and cluster DNS would
+      # depend on the service proxy we explicitly disabled.
+      dnsPolicy: Default
+      nodeSelector:
+        kubernetes.io/os: linux
+        # --- pins the rollout to ONE node. deploy.sh --all-nodes removes this line. ---
+        kubernetes.io/hostname: __TEST_NODE__
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+      volumes:
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
+      - name: xtables-lock
+        hostPath:
+          path: /run/xtables.lock
+          type: FileOrCreate

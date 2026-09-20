@@ -1,0 +1,73 @@
+# RBAC for kube-router in firewall-only mode.
+#
+# Adapted from upstream daemonset/kube-router-firewall-daemonset.yaml
+# (cloudnativelabs/kube-router, v2.11.1). Only the ServiceAccount namespace and
+# the ClusterRole name changed.
+#
+# These are cluster-scoped with fixed names. That is fine even though we run on
+# one node at a time: the binding is inert for nodes with no kube-router Pod.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-router
+  namespace: kube-router
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-router
+rules:
+  - apiGroups:
+    - ""
+    resources:
+      - namespaces
+      - pods
+      - services
+      - nodes
+    verbs:
+      - list
+      - get
+      - watch
+  - apiGroups:
+    - "networking.k8s.io"
+    resources:
+      - networkpolicies
+    verbs:
+      - list
+      - get
+      - watch
+  - apiGroups:
+      - "coordination.k8s.io"
+    resources:
+      - leases
+    verbs:
+      - get
+      - create
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - services/status
+    verbs:
+      - update
+  - apiGroups:
+      - "discovery.k8s.io"
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+      - watch
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kube-router
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-router
+subjects:
+- kind: ServiceAccount
+  name: kube-router
+  namespace: kube-router
