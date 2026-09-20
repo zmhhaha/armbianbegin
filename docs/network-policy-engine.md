@@ -175,9 +175,15 @@ bash deploy.sh --all-nodes         # 通过后再全量
 
 **同节点与跨节点都要测**：网桥问题只在同节点出现。探针目标里已同时包含两类。
 
-### 通过之后、全量之前
+### 通过之后、动 orangepi5 之前：两件必做
 
-引擎一开，现存 13 个策略会**一起**变成真的。先决定哪些该生效（见第三节的删除清单），否则 RAG 会断在 `embedding-client` 标签上。
+**`verify.sh` 证明的是引擎能工作，不是你的策略是对的。** 探针只受它自己那条临时策略影响；PASS 不能说明真实策略挂到 94 个真实 Pod 上会怎样。两件事必须先做完：
+
+**① 把已修好的策略 apply 到集群。** 仓库里的修复**提交了 ≠ 集群上是新的**。2026-09-20 实测：集群里 `dsh/tunnel-ingress` 与 `hermes/tunnel-ingress` **仍是旧版**（要求 `dsh-ingress` / `hermes-ingress` 标签，而 cloudflared 从来没这两个标签），`hublog-publisher` 仍只放行 8080。**直接上引擎 = DSH/Hermes 立刻从公网失联、发布断掉。** 核对与 apply 命令见 [network-policy/README.md](../network-policy/README.md)。
+
+**② 删掉范围外的三条策略**（见第三节），否则 `embedding-service` 的入站策略会在 orangepi5 上立刻执行，而实测全集群带 `embedding-client: "true"` 的 Pod 为 0 → **RAG 当场断**。
+
+注意 ① 现在做是**零风险**的：引擎还没生效，改了也没人执行。
 
 ## 六、启用后仍需注意
 

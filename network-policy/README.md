@@ -25,7 +25,7 @@ kube-router 有专门的 `--run-firewall` 模式：只写策略，Pod 网络留�
 | `arm-cluster-master` | 12 | |
 | `nanopct4-server1` | **4** | 默认起点。4 个全是 hostNetwork 的基础设施（flannel / kube-proxy / CSI），没有应用负载 |
 
-## 三步铺开
+## 铺开步骤
 
 ```sh
 # 0) 把镜像同步进私有 registry（固定 digest）
@@ -36,13 +36,63 @@ bash deploy.sh --dry-run        # 先看渲染结果
 bash deploy.sh                  # 默认就钉在这一台
 bash verify.sh                  # 三阶段验证，见下
 
-# 2) 上真正要紧的那台（先读下面"验证通过之后"）
+# ⚠️ 2 之前必须先做完下面「动 orangepi5 之前」的两件事
+
+# 2) 上真正要紧的那台
 bash deploy.sh --node orangepi5-max-server1
 bash verify.sh --node orangepi5-max-server1
 
 # 3) 全量
 bash deploy.sh --all-nodes
 ```
+
+> ### ⚠️ `verify.sh` 证明的是**引擎能工作**，不是**你的策略是对的**
+>
+> 探针 Pod 只受它自己那条临时策略影响。它 PASS 完全不能说明真实策略挂在 94 个真实 Pod 上会怎样。
+> **真实策略的对错要单独审**——就是下面这两件事。
+
+## 动 orangepi5 之前必须做的两件事
+
+kube-router 只对它**所在节点上的 Pod** 生效。`orangepi5-max-server1` 上跑着 94 个 Pod，包括 `dsh-web`、`dsh-runner`、`hermes-web`、`embedding-service`、`llm-service`、postgres、redis。**引擎一装上去，选中这些 Pod 的策略会同时变成真的。**
+
+### ① 把已修好的策略 apply 到集群
+
+仓库里的修复**只提交了、不代表集群上是新的**。部署前先核对，否则会当场失联：
+
+```sh
+kubectl -n dsh    get networkpolicy tunnel-ingress -o jsonpath='{.spec.ingress[0].from[0].podSelector}'
+kubectl -n hermes get networkpolicy tunnel-ingress -o jsonpath='{.spec.ingress[0].from[0].podSelector}'
+# 期望：{"matchLabels":{"app":"cloudflared","tunnel":"main"}}
+# 若仍是 {"matchLabels":{"dsh-ingress":"true"}} —— 那是旧版，cloudflared 没有这个标签，
+# 装引擎 = DSH/Hermes 从公网失联。
+
+kubectl -n hermes get networkpolicy hublog-publisher -o jsonpath='{.spec.egress[1].ports}'
+# 期望同时含 80 与 8080；只有 8080 会让发布断掉。
+```
+
+不匹配就 apply（**当前引擎还没生效，apply 是零风险的**）：
+
+```sh
+kubectl apply -f ../panghu_chat/dsh/k8s/networkpolicies.yaml
+kubectl apply -f ../panghu_chat/hermes/k8s/core.yaml
+```
+
+> `core.yaml` 是整个 Hermes 清单（15 个文档），apply 会一并同步 Deployment / PVC / CronJob——这正是 `hermes/deploy.sh` 本身的做法，幂等，且不会重启未变更的工作负载。**只想动策略的话**，把文件里那两个 `kind: NetworkPolicy` 抽出来单独 apply 即可。
+
+### ② 删掉范围外的三条策略
+
+`embedding-service` 与 `llm-service` 就在 orangepi5 上，它们的入站策略会被立刻执行：
+
+```sh
+kubectl -n data delete networkpolicy embedding-service rag-service
+kubectl -n llm  delete networkpolicy llm-service
+```
+
+**不删的具体后果**：`embedding-service` 只放行带 `embedding-client: "true"` 的 Pod，而**实测全集群带该标签的 Pod 数量为 0**，`rag-service`（在 `nanopct4-server2`）是它唯一的调用方——**RAG 立刻断**。
+
+（`data/rag-service` 那条反而暂时不会生效，因为 rag-service 不在 orangepi5 上；等哪天铺到 server2 再说。）
+
+> 另一种选择是**修好它们而不是删掉**：`rag-service` 和 `llm-service` 的调用方标签实测都齐（10 / 12 个全带），只有 `embedding-service` 需要给 `rag-service` 补一个 `embedding-client: "true"` 标签。如果你想顺便把这三条也收口，这是最小改动——但会扩大第一次上 orangepi5 的爆炸半径。**默认建议还是先删。**
 
 ## `verify.sh` 为什么是三个阶段
 
@@ -58,18 +108,9 @@ bash deploy.sh --all-nodes
 
 **A 失败**说明数据面本来就坏了，与策略无关；**C 失败**是最危险的信号——策略可装不可卸，必须停下。
 
-## 验证通过之后：先决定哪些策略该生效
+## 全量之前还要想的一件事
 
-这是最容易踩的一步。**引擎一开，集群里现存的 13 个策略会一起变成真的**，其中 3 个不在 dsh/hermes 范围内：
-
-```sh
-kubectl -n data delete networkpolicy embedding-service rag-service
-kubectl -n llm  delete networkpolicy llm-service
-```
-
-不删的后果是具体的：`embedding-service` 只放行带 `embedding-client: "true"` 的 Pod，而**实测全集群带这个标签的 Pod 数量为 0**，`rag-service` 是它唯一的调用方——RAG 会立刻断。详见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md) 第三节。
-
-**建议先删，把生效范围严格框在 `dsh` / `dsh-runners` / `hermes`。** 全集群收口是一件独立的、可以慢慢做的事。
+上面「动 orangepi5 之前」处理的是**当下会不会炸**。全量之后还有一层：届时集群里**每条**策略都在生效，包括那些今天看起来"人畜无害"的。选型与范围决策见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md) 第三节。
 
 ## 文件
 
