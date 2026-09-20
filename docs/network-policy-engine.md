@@ -187,6 +187,16 @@ bash deploy.sh --all-nodes         # 通过后再全量
 
 ## 六、启用后仍需注意
 
+> ### 🔴 2026-09-20 首次铺开 orangepi5 失败并回滚
+>
+> `dsh-runner` 的出网被**整个掐断**，包括 `runner-egress` 用 `ipBlock 0.0.0.0/0` + 13 条 `except` 明确放行的公网。已回滚，服务恢复。
+>
+> **`verify.sh` 当时 PASS——因为它只测过「无策略」和「deny-all」，从未测过带 `ipBlock` allow 规则的策略。** 那次 PASS 完全不能预测真实策略的行为。这是本节最该记住的一句。
+>
+> 两个待证假设：① `ipBlock` 的 `except` 被 kube-router 错处理；② `default-deny` 与具体策略的**叠加**没被当成并集。上游线索 [#1617](https://github.com/cloudnativelabs/kube-router/issues/1617) 结构完全一致，但它的解法（显式 `--service-cluster-ip-range`）对本集群无效——默认值恰是我们的 Service CIDR。
+>
+> 定位工具与完整记录见 [network-policy/README.md](../network-policy/README.md)。
+
 - **存量 Pod 是否被 kube-router 纳管**：策略-only 模式不装 CNI 插件，理论上能接管已存在的 Pod，但**未验证**。最小验证里若内网仍连通，先排查这一条再否定整个方案。
 - **IPv6 未覆盖**：`ipBlock` 只有 IPv4，全仓无 IPv6 处理。需确认节点无 IPv6 出口（见 [../panghu_chat/dsh/docs/boundaries.md](../panghu_chat/dsh/docs/boundaries.md)）。
 - **`calico-node` 不适用**：若最终转 Canal，注意其 `calico-node` 需要 privileged，可参考本仓库 `kube-flannel` 命名空间已有的 `pod-security=privileged` 做法。

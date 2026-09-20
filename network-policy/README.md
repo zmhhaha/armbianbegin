@@ -112,6 +112,35 @@ kubectl -n llm  delete networkpolicy llm-service
 
 上面「动 orangepi5 之前」处理的是**当下会不会炸**。全量之后还有一层：届时集群里**每条**策略都在生效，包括那些今天看起来"人畜无害"的。选型与范围决策见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md) 第三节。
 
+## 🔴 2026-09-20 首次上orangepi5 失败，原因未定案
+
+第一次真实铺开（`deploy.sh --node orangepi5-max-server1`）**必须回滚**。记录在这里，避免下次重蹈。
+
+**现象**：`dsh-runner` 的出网被**整个掐断**，连 `runner-egress` 用 `ipBlock: 0.0.0.0/0` + 13 条 `except` 明确放行的公网都被 REJECT：
+
+```
+github.com:443              BLOCKED(ECONNREFUSED)   ← 本该放行
+registry.npmmirror.com:443  BLOCKED(ECONNREFUSED)
+```
+
+**`verify.sh` 当时是 PASS 的**，这是最值得记住的一点：它只测过**无策略**和 **deny-all** 两种情形，**从未测过带 `ipBlock` allow 规则的策略**。所以那次 PASS 完全不能预测真实策略的行为。
+
+> **教训：`verify.sh` 通过只证明"引擎在跑"，不证明"你的策略形状是对的"。**
+
+**两个假设，都还没证实**：
+
+1. **`ipBlock` 的 `except` 列表**不被 kube-router 正确处理。
+2. **策略叠加**没被当成并集——runner 同时被 `dsh-runners/default-deny`（空规则）和 `runner-egress` 选中。
+
+**上游线索**：[kube-router#1617](https://github.com/cloudnativelabs/kube-router/issues/1617) 的结构与我们的**完全一致**（`pod-selector: {}` 的空策略 + 一条带具体 egress 的策略），维护者给的机制是"**流量被 SNAT 成节点 IP 后，源地址不再匹配该 Pod 的策略链**"。但该 issue 的解法（显式 `--service-cluster-ip-range`）对我们无效——那个参数的默认值 `10.96.0.0/12` 恰好就是我们集群的 Service CIDR。**机制可能适用，但触发点不是同一个。**
+
+**定位工具**：`probe-matrix.sh`（见下）。它把上面每条假设做成一个独立场景，并能在失败时 dump iptables 计数器，直接读出包死在哪条规则上——这正是上游维护者在这类报告里反复索要的证据。
+
+```sh
+bash probe-matrix.sh --node nanopct4-server1            # 跑全部 5 个场景
+bash probe-matrix.sh --only 3 --dump                    # 只跑场景 3 并 dump iptables
+```
+
 ## 文件
 
 | 文件 | 作用 |
@@ -119,6 +148,7 @@ kubectl -n llm  delete networkpolicy llm-service
 | `build.sh` | 拉 ARM64 上游 → 断言架构 → 解析 digest → 推私有 registry，摘要写进 `rendered/` |
 | `deploy.sh` | 渲染模板、**拒绝未替换的占位符**、apply、等 rollout；`--remove` 回滚 |
 | `verify.sh` | 三阶段自证；探针 Pod 用完即删 |
+| `probe-matrix.sh` | **失败原因定位**：5 个隔离场景 + iptables 计数器 dump。`--only <n>` 单跑，`--dump` 抓规则计数 |
 | `k8s/00-namespace.yaml` | `kube-router` 命名空间，PSA `privileged`（参照仓库已有的 `kube-flannel` 做法） |
 | `k8s/10-rbac.yaml` | SA + ClusterRole + ClusterRoleBinding，改编自上游 |
 | `k8s/20-kube-router.yaml` | **模板**，含 `__IMAGE__` / `__TEST_NODE__` 占位符，不能直接 apply |

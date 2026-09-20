@@ -41,6 +41,13 @@ spec:
           - "--run-firewall=true"
           - "--run-service-proxy=false"
           - "--enable-cni=false"
+          # Spell out the Service CIDR even though 10.96.0.0/12 happens to be
+          # kube-router's built-in default and matches this cluster
+          # (cluster_config.sh SERVICE_CIDR). kube-router uses it to tell
+          # cluster-internal addresses apart from the public Internet; a
+          # mismatch silently changes which traffic its policy chains match --
+          # see cloudnativelabs/kube-router#1617.
+          - "--service-cluster-ip-range=10.96.0.0/12"
           # Log at 3 while we are validating; drop to 2 once it is trusted.
           - "--v=3"
         securityContext:
