@@ -24,21 +24,21 @@ DRY_RUN=0
 command -v kubectl >/dev/null || { echo 'kubectl is required.' >&2; exit 1; }
 
 patch_one() {
-    local ns="$1" name="$2"
+    local kind="$1" ns="$2" name="$3"
     local cur
-    cur="$(kubectl -n "$ns" get ds "$name" -o jsonpath='{.spec.template.spec.tolerations}' 2>/dev/null || true)"
+    cur="$(kubectl -n "$ns" get "$kind" "$name" -o jsonpath='{.spec.template.spec.tolerations}' 2>/dev/null || true)"
     if [[ "$cur" == *"$TAINT_KEY"* ]]; then
-        printf '  %-34s 已有容忍，跳过\n' "$ns/$name"
+        printf '  %-14s %-40s 已有容忍，跳过\n' "$kind" "$ns/$name"
         return 0
     fi
-    printf '  %-34s 补 toleration\n' "$ns/$name"
+    printf '  %-14s %-40s 补 toleration\n' "$kind" "$ns/$name"
     if [[ "$DRY_RUN" == 1 ]]; then
         echo "      (dry-run) 会追加 tolerations += {key: $TAINT_KEY, operator: Exists, effect: NoExecute}"
         return 0
     fi
     # Strategic merge appends list items by key, so this adds without replacing
     # any existing toleration.
-    kubectl -n "$ns" patch daemonset "$name" --type=strategic -p "$(cat <<EOF
+    kubectl -n "$ns" patch "$kind" "$name" --type=strategic -p "$(cat <<EOF
 spec:
   template:
     spec:
@@ -52,8 +52,15 @@ EOF
 }
 
 echo "=== 给基础设施 DaemonSet 补 $TAINT_KEY:NoExecute 容忍 ==="
-patch_one default csi-cephfsplugin
-patch_one default csi-rbdplugin
+patch_one daemonset default csi-cephfsplugin
+patch_one daemonset default csi-rbdplugin
+echo
+echo "=== 给 CSI provisioner Deployment 补（它们同样是基础设施）==="
+echo "    注意：这两个有 requiredDuringScheduling 的 podAntiAffinity，要求每个"
+echo "    副本落在不同节点。不加容忍时，节点一旦被污点覆盖，它们只能放下 1 个副本，"
+echo "    其余的永远 Pending（2026-09-22 实际发生过）。"
+patch_one deployment default csi-cephfsplugin-provisioner
+patch_one deployment default csi-rbdplugin-provisioner
 echo
 
 if [[ "$DRY_RUN" == 1 ]]; then
@@ -61,13 +68,16 @@ if [[ "$DRY_RUN" == 1 ]]; then
     exit 0
 fi
 
-echo "=== 复核（两个都应为 ✅）==="
-kubectl get ds -n default -o json 2>/dev/null | python3 -c "
+echo "=== 复核（四项都应为 ✅）==="
+kubectl -n default get ds,deploy -o json 2>/dev/null | python3 -c "
 import json,sys
+want={'csi-cephfsplugin','csi-rbdplugin','csi-cephfsplugin-provisioner','csi-rbdplugin-provisioner'}
 for d in json.load(sys.stdin)['items']:
+    n=d['metadata']['name']
+    if n not in want: continue
     tol=d['spec']['template']['spec'].get('tolerations') or []
     ok=any(t.get('key')=='memory.guard/over-80' and t.get('effect')=='NoExecute' for t in tol)
-    print(f\"  {'✅' if ok else '❌'} default/{d['metadata']['name']}\")
+    print(f\"  {'OK  ' if ok else 'FAIL'} {d['kind']}/{n}\")
 "
 echo
 echo '前置条件就绪。现在可以启用 NoExecute 守卫了。'

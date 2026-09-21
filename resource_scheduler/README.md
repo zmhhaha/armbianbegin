@@ -53,25 +53,33 @@ handles it, and logs `removed stale NoSchedule taint` when it does.
 ## Prerequisite: infrastructure DaemonSets must tolerate it
 
 `NoExecute` evicts **every** Pod that does not tolerate the taint, DaemonSets
-included. Two of this cluster's infrastructure DaemonSets do **not**, and must
+included. Four of this cluster's infrastructure workloads do **not**, and must
 be given the toleration *first* — otherwise the guard tears storage off the very
 node it is trying to relieve:
 
-| DaemonSet | Tolerates `NoExecute` today? |
+| Workload | Tolerates `NoExecute` today? |
 |---|---|
-| `default/csi-cephfsplugin` | ❌ only control-plane `NoSchedule` |
-| `default/csi-rbdplugin` | ❌ same |
+| `default/csi-cephfsplugin` (DaemonSet) | ❌ only control-plane `NoSchedule` |
+| `default/csi-rbdplugin` (DaemonSet) | ❌ same |
+| `default/csi-cephfsplugin-provisioner` (Deployment) | ❌ same |
+| `default/csi-rbdplugin-provisioner` (Deployment) | ❌ same |
 | `kube-system/calico-node` | ✅ `*:NoExecute` |
 | `kube-system/kube-proxy` | ✅ `*` with no effect (matches all effects) |
+
+**The two provisioner Deployments fail differently and are easy to miss.** They
+carry a `requiredDuringScheduling` `podAntiAffinity` requiring each replica on a
+distinct host. Once the guard taints the nodes, only the untainted ones can host
+them, so two of the three replicas sit `Pending` forever — no eviction, no error
+anywhere except a scheduling event. That happened on 2026-09-22.
 
 ```sh
 bash apply-guard-prerequisites.sh --dry-run   # 先看会改什么
 bash apply-guard-prerequisites.sh            # 补上容忍
 ```
 
-**Re-run it after any change that replaces the CSI DaemonSets from their
-upstream manifests** — a re-applied manifest loses the toleration, and the next
-time a node crosses 80% its storage mounts will be evicted.
+**Re-run it after any change that replaces these workloads from their upstream
+manifests** — a re-applied manifest loses the toleration, and the next time a
+node crosses 80% its storage mounts will be evicted.
 
 ## Where the evicted Pods go
 
