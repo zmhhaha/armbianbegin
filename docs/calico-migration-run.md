@@ -97,10 +97,44 @@
 - **迁移前 CNI 配置**：`/root/cni-before/<node>.txt`（5 台）
 - flannel DaemonSet 的清单仍在仓库（`kube-flannel.yml`），回退可用
 
-## 下一步的两个选项
+## 结局
 
-**A. 继续排查 ClusterIP。** 已缩小到 NAT 层，但仍有未解层。
+**集群留在 Calico，不回滚。** 用户修正 Calico 的 `IP_AUTODETECTION_METHOD` 为 `kubernetes-internal-ip`（避免 autodetect 在多网卡主机上挑错网卡）后，公网、跨节点 Pod、ClusterIP 全部恢复。Calico 兑现的是 flannel 从来没有的能力（NetworkPolicy 真正生效），回滚反而会丢掉它。
 
-**B. 回滚到 flannel。** 官方文档化路径，逐节点：drain → 删 `/etc/cni/net.d/10-calico.conflist` → 重启 → 标签改回 flannel → uncordon；最后去掉 flannel DaemonSet 的 nodeSelector。代价是 5 台各一次 drain + 重启。
+**那份"下一步的两个选项"作废**：ClusterIP 不是 Calico 的 NAT 问题，是 `198.18.0.0/15` 那个 fake-ip 陷阱在策略侧的连带表现（见顶部横幅）。**若再遇到类似情况，先查 fake-ip，再怀疑引擎。**
 
-**若再尝试迁移，先解决前提**：给集群腾出足以容纳 `orangepi5` 那 94 个 Pod 的容量，或改用逐节点手工迁移（不用控制器的整体 drain）。**本集群当前的容量分布不适合官方的实时迁移。**
+## 附带发现：私有 registry 的一种故障模式（与迁移无关）
+
+排查 `cf-tunnel-operator` 拉取失败时挖出来的，值得单独记——**本仓库的私有 registry 服务全集群，这个坑会再来。**
+
+**症状**：某个镜像在**所有**节点都拉不动，报 `unknown blob`；同 registry 的其他镜像一切正常。
+
+**误判路径**（我走了一遍，都是错的）：先怀疑节点本地镜像库损坏 → `docker rmi`（镜像根本没登记）→ `docker image prune -a`（无效）→ 建议清空本地库（**不需要，且那台盘不够**）。
+
+**真正的原因**：registry 的存储是两级的——
+
+```
+blobs/sha256/<xx>/<digest>/data                    ← blob 数据（一直都在，没坏）
+repositories/<名字>/_layers/sha256/<digest>/link   ← 仓库到 blob 的关联（丢了 4 个）
+```
+
+**数据在，关联不在**，registry 就认为"这个仓库没有这个 blob"，对 manifest 里的层返回 404。
+
+**怎么确认**：看 registry 容器的日志，它会明确写出来——
+
+```
+err.code="blob unknown"  err.message="blob unknown to registry"
+http.response.status=404  vars.name=<镜像名>  vars.digest=sha256:...
+```
+
+以及数一下 `_layers/sha256` 的目录数，与 manifest 的层数对不上就是它。
+
+**修法（不删任何东西）**：从一台有完整镜像的节点重推一次。
+
+```sh
+# 在完好的节点上（本例是 orangepi5）
+docker push arm-cluster-master:5000/<镜像>:<tag>
+```
+
+推送会为缺失的层补上 link（数据已存在时它是 `Layer already exists` 或 `Mounted from ...` 而不是重新上传）。本例 `_layers` 从 2 个补到 8 个，问题镜像立刻可以拉了。
+
