@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Protect the small NanoPC workers from new scheduling decisions based on
-# kubelet's node-level memory availability. Existing pods are left running.
+# Protect the small NanoPC workers from memory exhaustion.
+#
+# The guard uses a NoExecute taint so that pods ALREADY on an over-watermark
+# node are moved off it, not merely blocked from arriving. NoSchedule only stops
+# new pods; it leaves whatever is already resident, which is how a 3.8 GiB node
+# ended up carrying workloads it could not afford until the OOM killer started
+# shooting processes on it (2026-09-21).
+#
+# IMPORTANT: NoExecute evicts every pod that does not tolerate it, INCLUDING
+# infrastructure DaemonSets. calico-node and kube-proxy tolerate all effects
+# already; the two Ceph CSI DaemonSets do NOT and must be given
+# `memory.guard/over-80:NoExecute` first, or storage mounts break on the node
+# the guard is trying to relieve. See README.md.
 
 KUBECTL="${KUBECTL:-/usr/bin/kubectl}"
 KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
@@ -30,6 +41,9 @@ nodes = (
 )
 taint_key = "memory.guard/over-80"
 taint_value = "true"
+# NoExecute, not NoSchedule: an over-watermark node must shed what it already
+# carries. See the header comment for the DaemonSet toleration prerequisite.
+taint_effect = "NoExecute"
 
 
 def run(*args):
@@ -82,16 +96,16 @@ for node in nodes:
         usage = max(0.0, min(100.0, (capacity - available) * 100.0 / capacity))
         taints = item.get("spec", {}).get("taints", []) or []
         guarded = any(
-            taint.get("key") == taint_key and taint.get("effect") == "NoSchedule"
+            taint.get("key") == taint_key and taint.get("effect") == taint_effect
             for taint in taints
         )
 
         if usage >= high and not guarded:
-            run("taint", "nodes", node, f"{taint_key}={taint_value}:NoSchedule", "--overwrite")
-            log(f"{node}: {usage:.1f}% used; added NoSchedule guard")
+            run("taint", "nodes", node, f"{taint_key}={taint_value}:{taint_effect}", "--overwrite")
+            log(f"{node}: {usage:.1f}% used; added {taint_effect} guard")
         elif usage <= low and guarded:
-            run("taint", "nodes", node, f"{taint_key}={taint_value}:NoSchedule-")
-            log(f"{node}: {usage:.1f}% used; removed NoSchedule guard")
+            run("taint", "nodes", node, f"{taint_key}={taint_value}:{taint_effect}-")
+            log(f"{node}: {usage:.1f}% used; removed {taint_effect} guard")
         else:
             state = "guarded" if guarded else "open"
             log(f"{node}: {usage:.1f}% used; {state}")

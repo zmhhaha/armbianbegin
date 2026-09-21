@@ -193,7 +193,11 @@ spec:
 
 > ✅ **约定明确：周期性任务用 K8s CronJob，一次性/迁移任务用 Job，应用内不做调度。** 新服务如果自带调度器（比如引入一个第三方 agent 运行时），要么按这个约定改掉，要么显式说明为什么例外 + 如何防止与 CronJob 重复执行。
 
-另有一个宿主机级定时器作对照：`resource_scheduler/systemd/k8s-node-memory-guard.{service,timer}` —— 1 分钟跑一次读 kubelet `stats/summary`，>80% 给 NanoPC 节点打 `memory.guard/over-80=true:NoSchedule` taint，≤75% 摘除（`resource_scheduler/k8s-node-memory-guard.sh:9-10,89-94`）。
+另有一个宿主机级定时器作对照：`resource_scheduler/systemd/k8s-node-memory-guard.{service,timer}` —— 1 分钟跑一次读 kubelet `stats/summary`，>80% 给 NanoPC 节点打 **`memory.guard/over-80=true:NoExecute`** taint，≤75% 摘除（`resource_scheduler/k8s-node-memory-guard.sh`）。
+
+> **2026-09-21 由 `NoSchedule` 改为 `NoExecute`。** 原先是 NoSchedule，只能拦住新 Pod、**不动已在上面的**——结果一台 3.8 GiB 的节点带着 68 个工作负载跑到 95%，OOM killer 开始击杀宿主进程，最后整台 NotReady。NoExecute 才会真正把负载撵走。
+>
+> ⚠️ **改之前必须先给基础设施 DaemonSet 补容忍**：`csi-cephfsplugin` / `csi-rbdplugin` 不忍受它（`calico-node` 和 `kube-proxy` 已经全容忍），否则存储挂载会被一起驱逐。用 `resource_scheduler/apply-guard-prerequisites.sh`，**并且在上游清单重放 CSI 之后要重跑**。
 
 ## 八、资源量级与集群规模
 
