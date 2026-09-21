@@ -41,6 +41,12 @@ export K8S_VERSION="v1.31.2"
 export POD_CIDR="10.244.0.0/16"
 export SERVICE_CIDR="10.96.0.0/12"
 export K8S_API_PORT="6443"
+# kubelet 每节点的 Pod 上限。默认是 110，而 orangepi5-max-server1 承载了全集群
+# 大部分工作负载，2026-09-22 实测被打满（25 个 Pod Pending，调度器报
+# "Too many pods"）。本集群的服务都很小，200 是安全的。
+# 由 debian_begin.sh 写入各节点的 /var/lib/kubelet/config.yaml —— 不写的话，
+# 重建节点会悄悄回到 110。
+export KUBELET_MAX_PODS="200"
 
 # ---- 基础服务端口 ----
 export COREDNS_HOSTS_FILE="/etc/hosts"  # CoreDNS hosts 插件用的 hosts 文件

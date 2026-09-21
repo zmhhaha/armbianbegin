@@ -368,6 +368,14 @@ kubeadm init --apiserver-advertise-address=${MASTER_IP} \
 # K8s v1.31+: kubeadm 生成的 --pod-infra-container-image 已被 kubelet 废弃，
 # pause 镜像由 cri-dockerd 管理，移除该参数避免 kubelet 解析失败
 sed -i 's/ --pod-infra-container-image=[^ ]*//' /var/lib/kubelet/kubeadm-flags.env
+
+# kubelet 每节点 Pod 上限。kubeadm 生成的 config.yaml 不含 maxPods，于是用默认
+# 110 —— orangepi5-max-server1 承载了全集群大部分工作负载，2026-09-22 被打满，
+# 25 个 Pod Pending，调度器只报 "Too many pods"。服务都很小，200 是安全的。
+# 幂等：先删同名键再追加，重复执行不会堆叠。
+sed -i '/^maxPods:/d' /var/lib/kubelet/config.yaml
+printf 'maxPods: %s\n' "${KUBELET_MAX_PODS:-200}" >> /var/lib/kubelet/config.yaml
+
 systemctl restart kubelet
 sleep 5
 
@@ -550,6 +558,9 @@ for i in "${hostnamearray[@]}"; do
         iptables -P OUTPUT ACCEPT"
     
     ssh root@${i} "${servercmd} --cri-socket unix:///var/run/cri-dockerd.sock"
+
+    # 同上：join 生成的 config.yaml 也没有 maxPods，默认 110。
+    ssh root@${i} "sed -i '/^maxPods:/d' /var/lib/kubelet/config.yaml; printf 'maxPods: ${KUBELET_MAX_PODS:-200}\n' >> /var/lib/kubelet/config.yaml; systemctl restart kubelet"
 done
 
 ########################################################
@@ -599,8 +610,9 @@ done
 echo $[$(cat /sys/class/thermal/thermal_zone0/temp)/1000]°C
 echo $[$(cat /sys/class/thermal/thermal_zone1/temp)/1000]°C
 
-docker image inspect <镜像名称>
-docker image history <镜像名称>
+# 备忘（不是可执行命令：<镜像名称> 会被 shell 当成重定向，导致整个脚本语法错误）
+#docker image inspect <镜像名称>
+#docker image history <镜像名称>
 
 #orangepi5
 cd /sys/class/leds/green_led
