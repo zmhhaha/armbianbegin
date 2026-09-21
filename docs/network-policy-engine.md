@@ -2,17 +2,26 @@
 
 **结论：集群当前没有任何 NetworkPolicy 生效。**
 
-> ## 🔴 2026-09-21 选型更新：kube-router 出局，改为完整 Calico
+> ## 🔴 2026-09-21 更正：**kube-router 是被误判的，真正的原因是策略里的一条 CIDR**
 >
-> 本文档第二节原推荐 kube-router `--run-firewall` 策略-only 模式。**该推荐已被实测推翻。**
+> 本文档这一节之前写着"kube-router 不支持 `ipBlock` 的 `except` 列表"，并据此改用完整 Calico。**该结论错误，特此更正。**
 >
-> **根因**：kube-router **不支持 `ipBlock` 的 `except` 列表**——同样写 `ipBlock: 0.0.0.0/0`，**不加 `except` 全通，加上 `except` 就退化成"全拒"**（`probe-matrix.sh` 实测，一次只动一个变量）。
+> **真正的原因**：DSH 的 `runner-egress` 策略在 except 列表里写了 **`198.18.0.0/15`**（大概是当成 RFC 2544 基准测试保留段加的）。但**本网络的软路由跑 OpenClash fake-ip DNS，把所有外部域名都解析成 `198.18.x.x`**——这一条等于**把整个公网排除了**。仓库里 [../cloudflare-tunnel/TROUBLESHOOTING-1033.md](../cloudflare-tunnel/TROUBLESHOOTING-1033.md) 早就记录过这个 fake-ip 行为。
 >
-> **为什么这是致命的**：NetworkPolicy **没有取反表达**，多个策略只取并集。"公网放行 + 内网拒绝"唯一的语法就是 `0.0.0.0/0` + `except`。**写不出来 = DSH 的内网边界在 kube-router 上无法表达。**
+> 实测（2026-09-21，同一 Pod、同一策略、只改这一条）：
 >
-> **改为完整 Calico**，官方有 flannel → Calico 的实时迁移路径（逐节点自动切换，不需手工重建 164 个 Pod，有回退）。执行材料见 [../network-policy/calico/README.md](../network-policy/calico/README.md)。
+> | except 列表 | 内网 | 公网 |
+> |---|---|---|
+> | 13 条（含 `198.18.0.0/15`） | 断 ✅ | **断 ❌** |
+> | 12 条（去掉它） | 断 ✅ | **通 ✅** |
 >
-> 下文第二节的选型分析保留作为**决策记录**（尤其是"为什么不选 Calico 策略-only"那段——那个结论仍然成立）。
+> **kube-router 与 Calico 的 `except` 实现都是正确的。** 我最初的 `probe-matrix.sh` 场景复刻了同一条错误的 except 列表，于是"验证"出了一个不存在的引擎缺陷，并据此做了一次不必要的换 CNI 手术。
+>
+> **当前状态**：集群已在 Calico 上且工作正常（迁移本身完成了，Calico 也更能兑现 NetworkPolicy）。**不回滚**——它现在提供的能力是 flannel 从来没有的。策略侧的真问题已在 [../panghu_chat/dsh/k8s/networkpolicies.yaml](../panghu_chat/dsh/k8s/networkpolicies.yaml) 修掉（删除该 CIDR 并加注说明）。
+>
+> **教训**：`except` 里写"保留段"之前，先确认本网络的 DNS 不做 fake-ip。这个仓库有 fake-ip，而且已经写过一次。
+>
+> 完整过程见 [calico-migration-run.md](calico-migration-run.md)。
 
 - 调查日期：2026-09-20
 - 调查方式：SSH 到 `arm-cluster-master` 只读查询 + 从 `dsh-runner` 容器内 TCP 探测

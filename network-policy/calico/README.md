@@ -42,6 +42,57 @@
 | quay.io 可达 | 是 | 但仍按仓库惯例镜像进私有 registry |
 | 镜像 | `quay.io/calico/{cni,node,kube-controllers,flannel-migration-controller}:v3.32.2` | |
 
+## 两条路径：直接部署 vs 迁移
+
+| 场景 | 用哪个 |
+|---|---|
+| **新集群，从来没有 flannel**（或你从一开始就想用 Calico） | **`install.sh`** |
+| 集群**已经跑着 flannel**，要换成 Calico | **`migrate.sh`** |
+
+> `install.sh` 会先检查有没有 flannel，有就拒绝运行——在活的 flannel 底下直接装 Calico 会把网络搞坏。
+
+### `install.sh`：直接部署
+
+```sh
+bash mirror.sh            # 镜像进私有 registry（install.sh 也会自动调）
+bash install.sh --dry-run # 看渲染结果
+bash install.sh
+```
+
+它用的是上游 flannel-migration 那份清单，但**必须先改四处**，否则直接部署必然失败：
+
+| # | 上游清单里的值 | 为什么必须改 |
+|---|---|---|
+| 1 | `calico-node` 的 nodeSelector 含 `projectcalico.org/node-network-during-migration: calico` | 那个标签只有迁移控制器会打。直接部署时留着 → **calico-node 永远不调度，什么都起不来** |
+| 2 | `CALICO_IPV4POOL_IPIP=Always` / `..._VXLAN=Never` | 会建 **IPIP** 池。本集群跑 VXLAN |
+| 3 | `IP=autodetect`，且没有 `IP_AUTODETECTION_METHOD` | **2026-09-21 就是这里断网两小时**：多网卡主机上 autodetect 挑错网卡。改成 `kubernetes-internal-ip` |
+| 4 | 没设 `CALICO_IPV4POOL_CIDR` | 默认会用 `192.168.0.0/16`，与 `--cluster-cidr` 不符 |
+
+脚本会把这四处渲染好，并在最后检查 IP 池 CIDR 与封装模式。
+
+### `migrate.sh`：本次实际走的路
+
+```sh
+bash migrate.sh preflight   # 前置检查（flannel 后端、controller-manager 参数、无 Calico 残留）
+bash migrate.sh install     # 装 Calico，尚未切换
+bash migrate.sh migrate     # 跑迁移控制器，逐节点 drain
+bash migrate.sh recover     # ← 控制器不会做的三件收尾，这次全靠手工补
+bash migrate.sh verify
+# 或者 bash migrate.sh  一次跑完（每阶段之间会停）
+```
+
+**`recover` 那一段是这份脚本存在的主要理由。** 控制器在三处不收尾，2026-09-21 全部踩到：
+
+1. **它把 drain 过的节点留着 cordon** → 0/5 可调度、114 个 Pod Pending。
+2. **它每个节点的 `remove-flannel` 助手 Pod 可能被驱逐**，那台节点就会停在"CNI 配置是 Calico、数据面还是 flannel"的半迁移态。
+3. **flannel 的 iptables 链（`FLANNEL-POSTRTG` / `FLANNEL-FWD`）会留下**，其 masquerade 规则 SNAT 跨节点 Pod 流量、破坏 Service 路由。
+
+脚本会逐节点检查并报告这三项，而不是假设控制器做完了。
+
+### 完整过程记录
+
+[../../docs/calico-migration-run.md](../../docs/calico-migration-run.md) —— 含**顶部更正横幅**：2026-09-21 真正卡住集群的不是 CNI，是 DSH 策略 except 列表里的 `198.18.0.0/15`（软路由 OpenClash fake-ip 把所有外部域名解析到那个段）。**"kube-router 不支持 except"是误判。**
+
 ## 分步方案
 
 每一步都有**通过条件**，不满足就停下，不要往下走。

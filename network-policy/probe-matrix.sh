@@ -83,7 +83,9 @@ EXCEPT='        - 10.0.0.0/8
         - 224.0.0.0/4
         - 240.0.0.0/4
         - 192.0.0.0/24
-        - 198.18.0.0/15
+        # 198.18.0.0/15 deliberately NOT listed: OpenClash fake-ip DNS resolves
+        # every external name into that range here, so listing it excludes the
+        # whole public Internet and makes scenario 3 look like an engine bug.
         - 192.88.99.0/24
         - 255.255.255.255/32'
 

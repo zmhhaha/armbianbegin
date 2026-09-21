@@ -28,6 +28,7 @@
 
 | 文档 | 主题 |
 |---|---|
+| [calico-migration-run.md](calico-migration-run.md) | **Calico 迁移实录（2026-09-21）**。⚠️ **顶部有更正横幅，先读它**：真正的卡点不是 CNI，而是 DSH 策略里 except 列表中的 `198.18.0.0/15`——本网络 OpenClash fake-ip DNS 把所有外部域名解析到那个段，那一行等于排除整个公网。**"kube-router 不支持 except"是误判。** 文档保留完整过程（cordon 未解除、remove-flannel 未执行、kube-router 残留、磁盘压力），那些都是真的 |
 | [rag-service-spike.md](rag-service-spike.md) | RAG 可行性实测（2026-09-10）：ES/embedding 基准数据、索引 schema 草案、容量估算。注意草案里的字段与实际实现的 mapping 有出入，以代码为准 |
 | [llm-service-abuse-defense.md](llm-service-abuse-defense.md) | 防止调用方把 llm-service 当通用 LLM 白嫖的调研（2026-09-11）：威胁模型、杠杆排序、落实状态 |
 | [jdwatch-work-research.md](jdwatch-work-research.md) | `jdwatch.work` 就业信息采集方式调研（2026-09-04）：结论是职位聚合站 + 自动化爬虫管道 |

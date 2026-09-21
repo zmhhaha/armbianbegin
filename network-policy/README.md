@@ -1,25 +1,27 @@
 # 网络策略引擎
 
-> ## 🛑 kube-router 路线已放弃，改用完整 Calico
+> ## ⚠️ 2026-09-21：kube-router 是被**误判**的，原因见下
 >
-> **2026-09-21 决定。** 实测确认 **kube-router 不支持 `ipBlock` 的 `except` 列表**——写上它，整条策略退化成"全拒"。而 NetworkPolicy **没有取反表达**，"公网放行 + 内网拒绝"唯一的写法就是 `0.0.0.0/0` + `except`。
+> 本目录原先写着"kube-router 不支持 `ipBlock` 的 `except` 列表"，并据此改用完整 Calico。**该结论错误。**
 >
-> **⇒ DSH 那条内网边界在 kube-router 上根本表达不出来。** 这不是调参能绕过的，是引擎能力缺失。
+> **真正的原因**：DSH 的 `runner-egress` 在 except 列表里写了 `198.18.0.0/15`，而本网络的 OpenClash fake-ip DNS 把**所有外部域名**解析到 `198.18.x.x`——那一行等于把整个公网排除。实测：**13 条 except（含它）→ 公网断；12 条（去掉）→ 公网通、内网仍正确拒绝。**
 >
-> 好消息：Calico 官方有 **flannel → Calico 的实时迁移路径**，逐节点自动切换，**不需要手工重建 164 个 Pod**，且有文档化的回退。前提也已核实齐备（flannel 用 VXLAN、MTU 1450、controller-manager 的 CIDR 参数都在）。
+> `probe-matrix.sh` 当时的场景复刻了同一条错误 CIDR，于"验证"出了不存在的引擎缺陷。
 >
-> **➡️ 去 [calico/](calico/README.md)。**
+> **现状**：
+> - 集群已迁移到 **Calico 并正常工作**（含 `except`）。**不回滚**——它兑现了 flannel 从来没有的 NetworkPolicy 能力。
+> - DSH 策略里那条 CIDR 已删除并加注防复发。
+> - `probe-matrix.sh` 已修正，不再复刻那条错误。
 >
-> 本目录其余内容保留下来，因为它们仍有价值：
-> - `probe-matrix.sh` —— **最终验收工具**，已改成引擎无关，Calico 下照跑
-> - `verify.sh` / `deploy.sh` / `k8s/` —— kube-router 专用，仅作历史记录
-> - 下面的故障记录 —— 换引擎的理由，别删
+> **完整更正记录**：[../docs/calico-migration-run.md](../docs/calico-migration-run.md)（顶部横幅）与 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
+>
+> **教训**：往 `except` 里加"保留段"之前，先确认本网络的 DNS 不做 fake-ip。[../cloudflare-tunnel/TROUBLESHOOTING-1033.md](../cloudflare-tunnel/TROUBLESHOOTING-1033.md) 早就记录过这个行为。
 
 ---
 
-# 附：kube-router 路线（已放弃）
+# 附：kube-router 路线（工具保留，选型结论已更正）
 
-**这个组件本来唯一要做的事**：让集群里那 13 个 NetworkPolicy 对象**真的生效**。原来的 CNI 是 `kube-flannel`，不实现 NetworkPolicy，所以它们全部空转——完整证据见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md) 与 [../panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
+**这个组件本来唯一要做的事**：让集群里的 NetworkPolicy 对象**真的生效**。原来的 CNI 是 `kube-flannel`，不实现 NetworkPolicy，所以它们全部空转——完整证据见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md) 与 [../panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
 
 ## 为什么不选 Calico
 
