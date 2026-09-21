@@ -99,6 +99,18 @@ for node in nodes:
             taint.get("key") == taint_key and taint.get("effect") == taint_effect
             for taint in taints
         )
+        # kubectl keys taints by (key, effect), so a node carrying the old
+        # NoSchedule variant keeps it forever once we switch to NoExecute: the
+        # add below would create a second taint with the same key, and the
+        # low-watermark removal only strips the NoExecute one. Migrate it.
+        stale = any(
+            taint.get("key") == taint_key and taint.get("effect") == "NoSchedule"
+            for taint in taints
+        )
+
+        if stale:
+            run("taint", "nodes", node, f"{taint_key}={taint_value}:NoSchedule-")
+            log(f"{node}: removed stale NoSchedule taint")
 
         if usage >= high and not guarded:
             run("taint", "nodes", node, f"{taint_key}={taint_value}:{taint_effect}", "--overwrite")

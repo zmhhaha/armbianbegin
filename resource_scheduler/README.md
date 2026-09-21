@@ -38,6 +38,18 @@ power-cycled.
 **NoSchedule would have prevented none of that**, because none of those Pods
 were being newly scheduled. `NoExecute` is what actually sheds load.
 
+### Migrating nodes that still carry the old NoSchedule taint
+
+`kubectl taint` keys taints by `(key, effect)`, so `--overwrite` adding
+`memory.guard/over-80:NoExecute` does **not** replace an existing
+`memory.guard/over-80:NoSchedule` — the node ends up carrying both. The
+low-watermark removal only strips the `NoExecute` one, so the stale
+`NoSchedule` would sit there permanently.
+
+The script therefore removes any leftover `NoSchedule` variant with this key
+before applying the new effect. No manual cleanup is needed: the next timer run
+handles it, and logs `removed stale NoSchedule taint` when it does.
+
 ## Prerequisite: infrastructure DaemonSets must tolerate it
 
 `NoExecute` evicts **every** Pod that does not tolerate the taint, DaemonSets
