@@ -138,3 +138,36 @@ docker push arm-cluster-master:5000/<镜像>:<tag>
 
 推送会为缺失的层补上 link（数据已存在时它是 `Layer already exists` 或 `Mounted from ...` 而不是重新上传）。本例 `_layers` 从 2 个补到 8 个，问题镜像立刻可以拉了。
 
+## 迁移的连带影响：Vault 封印（已恢复）
+
+迁移期间 Pod 大量重建，**`vault-0` 重启后进入 `Sealed` 状态**——Vault 用的是 Shamir 封印，**任何重启都会重新封印，需要人工用 3/5 把钥匙解封**。
+
+后果不是"Vault 挂了"，而是**静默的链式失败**：
+
+```
+Vault sealed
+  -> ClusterSecretStore/vault-backend  InvalidProviderConfig
+  -> ESO 无法登录：auth/kubernetes/login 返回 503 "Vault is sealed"
+  -> 60 个 ExternalSecret 全部 SecretSyncedError
+  -> 依赖这些密钥的服务起不来（OpenSpec 502、casdoor 探针失败、10 个 oauth2-proxy CrashLoop）
+```
+
+**排查时容易走错**：日志里是 `ClusterSecretStore is not ready`，看起来像 ESO 的问题；真正的原因在 Vault 的 `Sealed` 字段。**先 `vault status` 看那一行。**
+
+恢复：`unseal.sh`（用操作者持有的钥匙）。解封后 `vault-backend` 立刻变 `Valid`，ExternalSecret 从大批报错降到 1（那 1 个是 6 周前的陈旧 Vault 路径，与本次无关）。
+
+> **注意**：**在 Vault 解封之前启动的 Pod 不会自己恢复**——它们的进程已经带着"读不到密钥"的状态跑着了。解封后要重启：`kubectl -n openspec rollout restart deployment/openspec-service`。
+
+## 迁移的连带影响：Casdoor 被自己的探针打死（已恢复）
+
+`casdoor` 有 **14 次重启**，连带 10 个 oauth2-proxy CrashLoopBackOff。日志显示 Casdoor **一直在正常服务**（`/api/health`、`/.well-known/openid-configuration` 都返回 `allow`），但 kubelet 的探针报超时。
+
+原因有两层：
+
+1. **探针超时只有 1 秒**：`readinessProbe.timeoutSeconds: 1`，而 `/api/health` 要查 MySQL。
+2. **MySQL 的宿主节点内存吃紧**：`nanopct4-server1` 上 mysqld 是**宿主进程**，那台同时跑着 ceph-osd(728M) + ceph-mgr(465M) + mysqld(446M) + ceph-mon(366M) + gitea(254M)，总量 3.8G 的机器常年 90%+，dmesg 里有 OOM 击杀记录。
+
+**DB 一慢 → 1 秒探针超时 → kubelet 重启 Casdoor → 循环。**
+
+`kubectl -n oauth rollout restart deployment/casdoor` 重启后立刻稳定，40 个 oauth2-proxy 全部跟上。**但根因没解决**：只要 `nanopct4-server1` 还在 90%+，这个循环就会再来。真正的解法是减少那台节点上的负载（见上文"迁移把它压垮了"那节），或放宽 Casdoor 的探针超时。
+
