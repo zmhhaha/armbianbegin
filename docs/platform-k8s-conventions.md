@@ -227,9 +227,30 @@ spec:
 
 合计约 34 核 / 44 GiB。无 Metrics Server，资源观测需直接 SSH。
 
-调度靠 `nodeSelector` 钉死节点（llm、embedding、es 都钉 `orangepi5-max-server1`；rag 只钉 `kubernetes.io/arch: arm64`）。**没有 tolerations 实际使用**（只在 hadoop/spark 是注释掉的）。低资源节点靠 taint + `resource_scheduler` 守卫。
+调度靠 `nodeSelector` 钉死节点（llm、embedding、es 都钉 `orangepi5-max-server1`；rag 只钉 `kubernetes.io/arch: arm64`）。低资源节点靠 taint + `resource_scheduler` 守卫；tolerations 目前只有 Ceph CSI 的 DaemonSet/provisioner 在用（`memory.guard/over-80:NoExecute`，见 `resource_scheduler/README.md`）。
 
 > ⚠️ 容量现实：ES 一个服务就占 3Gi request / 4Gi limit，而三台 NanoPC 各只有 3.66 GiB 且不适合跑重负载。**新增长驻服务前先做内存估算**，这不是一个能随手加常驻进程的集群。`docs/rag-service-spike.md:18-25` 对节点能力有更细的实测口径。
+
+### 8.1 主节点参与调度（2026-09-22 起）
+
+**kubeadm 默认给 master 打的 `node-role.kubernetes.io/control-plane:NoSchedule` 已摘除**，master 现在是一个普通可调度节点。摘除动作也写进了 `debian_begin.sh`（`kubeadm init` 之后），重建节点不会悄悄恢复。
+
+原因：全集群只有 orangepi5 有实际余量，三台 NanoPC 各 3.66 GiB 且大部分被宿主机进程（ceph-osd / mysqld / gitea / radosgw）占用，于是工作负载全堆到 orangepi5 —— 2026-09-22 实测 **132/200 个 Pod**，而同规格 16 GiB 的 master 只跑 8 个、内存用了 22%。摘除后实测：3 个无任何亲和性的 Pod 有 **2 个选了 master**。
+
+**摘掉污点后，控制面靠两层保护，两者都与污点无关：**
+
+| 层 | 机制 | 实测值 |
+|---|---|---|
+| Pod 优先级 | etcd / kube-apiserver / kube-controller-manager / kube-scheduler 是静态 Pod，`priorityClassName: system-node-critical`（priority 2000001000）。kubelet 驱逐管理器按优先级排序，它们最后才轮到 | 对**内存**压力有效；**对磁盘 I/O 竞争完全无效** |
+| cgroup 硬限额 | `enforceNodeAllocatable` 走 kubelet 默认值 `["pods"]`，kubelet 把 `kubepods.slice/memory.max` 设成该节点的 allocatable | 预留前 **15.58 GiB**（= 整块物理内存）；预留后 **10.58 GiB** |
+
+> 🔴 **这个集群的 requests 不能当容量信号用。** master 上 12 个 Pod 的 memory requests 合计只有 **0.23 GiB** —— 控制面静态 Pod 全部是 BestEffort、一个 requests 都没声明。调度器按 requests 算容量时看到的几乎是"空节点"，**光靠调度器挡不住它们**。真正拦得住 BestEffort Pod 的是上表那个 cgroup 硬限额，而它由 `systemReserved` / `kubeReserved` 决定。
+
+因此 master 上设了 **5 GiB 预留**：`cluster_config.sh` 的 `KUBELET_SYSTEM_RESERVED=3Gi` + `KUBELET_KUBE_RESERVED=2Gi`，由 `debian_begin.sh` 在 `kubeadm init` 后写入 `/var/lib/kubelet/config.yaml`。效果是把 `kubepods.slice/memory.max` 从 15.58 GiB 压到 10.58 GiB —— 与 Pod 有没有写 requests 无关，是内核层面的硬边界。属**构造保证**：对以后新建的服务自动生效，也不会因为重新 apply manifest 而丢失（这一点和 CSI DaemonSet 丢 tolerations 是同一类坑，但方向相反）。已有集群上用 `resource_scheduler/apply-master-reservations.sh` 应用（幂等，支持 `--dry-run`）。
+
+**另一层是 `evictionHard`**：kubeadm 没写过驱逐设置，走 kubelet 内置默认 `memory.available<100Mi` —— 几乎要撑爆才动手。它管的是"真没内存了才驱逐"，与预留互补（预留是"根本不让你堆那么满"），且**不受预留影响**。
+
+> ⚠️ 摘污点不是没有代价：优先级机制**只管内存、不管磁盘 I/O**，而 etcd 每次写都要 fsync 落盘。**不要把写盘重的服务（数据库、Ceph OSD、狂写日志的）放到 master 上** —— 这一条没有任何机制兜底，只能靠约定。污点原本起的作用正是"让那块盘上根本没有邻居"。
 
 ## 九、新增服务的检查清单
 

@@ -89,3 +89,65 @@ NanoPCs carry the same size limit and will often carry this same taint. **Expect
 Pod churn to concentrate on `orangepi5`, and expect some Pods to sit `Pending`
 when there is nowhere to put them.** That is still better than an OOM-killed
 node, but it is a trade, not a free win.
+
+---
+
+## `apply-master-reservations.sh` — reserve memory for the control plane
+
+This directory also holds the counterpart script for the **master**, because the
+two mechanisms are easy to confuse and one of them was removed on 2026-09-22.
+
+**What changed.** kubeadm's default
+`node-role.kubernetes.io/control-plane:NoSchedule` taint was removed from
+`arm-cluster-master` so the 16 GiB master could absorb load that had piled up on
+`orangepi5-max-server1` (132/200 pods, while the master sat at 8 pods and 22%
+memory). Measured before/after: 2 of 3 unconstrained Pods now choose the master.
+
+**What protects the control plane without the taint:**
+
+| Layer | Mechanism | Bounds |
+|---|---|---|
+| Pod priority | etcd / apiserver / controller-manager / scheduler are static pods with `priorityClassName: system-node-critical` (priority 2000001000); kubelet's eviction manager picks them last | **memory only** — it does nothing for disk I/O |
+| cgroup hard cap | `enforceNodeAllocatable` is unset in config.yaml, so kubelet's default `["pods"]` applies: it sets `kubepods.slice/memory.max` to the node's **allocatable** | everything, including BestEffort |
+
+> 🔴 **`requests` are not a usable capacity signal on this cluster.** The 12 pods
+> on the master declare a combined **0.23 GiB** of memory requests — the
+> control-plane static pods are all BestEffort with no requests at all. The
+> scheduler therefore sees a nearly-empty node and will happily over-pack it.
+> The only thing that actually stops a BestEffort pod is the cgroup cap above,
+> and that cap is set from `systemReserved` + `kubeReserved`.
+
+**What the script does.** Writes `systemReserved: 3Gi` + `kubeReserved: 2Gi`
+into `/var/lib/kubelet/config.yaml` and restarts kubelet. Measured effect:
+
+```
+allocatable               16239240Ki  →  10996360Ki   (exactly −5 GiB)
+kubepods.slice/memory.max 16733839360 →  11365130240  (15.58 → 10.58 GiB)
+```
+
+So 5 GiB is walled off from everything Kubernetes schedules; the kernel enforces
+it regardless of what any pod declares. This is a **construction guarantee** — it
+applies to services that do not exist yet, and it cannot be lost by re-applying a
+manifest (the failure mode that cost this cluster its CSI tolerations the same
+day, in the opposite direction).
+
+**The other layer — `evictionHard` — is separate.** kubeadm never wrote an
+eviction config, so kubelet's built-in default `memory.available<100Mi` applies:
+it only fires when the node is nearly dead. That checks "we already ran out",
+whereas the reservation checks "you never get to run out". The script does not
+touch it, and the reservation does not affect it.
+
+```sh
+bash apply-master-reservations.sh --dry-run   # 先看会改什么
+bash apply-master-reservations.sh            # 应用（幂等，可重复执行）
+```
+
+Values live in `cluster_config.sh` as `KUBELET_SYSTEM_RESERVED` /
+`KUBELET_KUBE_RESERVED`, and `debian_begin.sh` writes them after `kubeadm init`
+so a rebuilt master keeps them.
+
+> ⚠️ **The taint removal has a cost that no mechanism covers.** Priority only
+> governs memory; nothing governs disk I/O, and etcd fsyncs on every write.
+> **Do not put write-heavy workloads on the master** (databases, Ceph OSDs,
+> chatty loggers) — that is a convention, not a guardrail. The taint used to
+> guarantee it by keeping the disk free of neighbours; removing it removed that.

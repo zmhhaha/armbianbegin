@@ -48,5 +48,15 @@ export K8S_API_PORT="6443"
 # 重建节点会悄悄回到 110。
 export KUBELET_MAX_PODS="200"
 
+# 控制面节点的内存保底。kubeadm 默认给 master 打 control-plane:NoSchedule
+# 污点，业务 Pod 全落到工作节点上；本集群已于 2026-09-22 摘掉该污点，让同规格
+# 16 GiB 的 master 分担 orangepi5-max-server1 的压力（当时 132/200 个 Pod）。
+# 摘掉之后控制面就只剩 system-node-critical 优先级这一层保护，所以必须再给
+# kubelet 留出预留：systemReserved/kubeReserved 会从节点 allocatable 里扣掉，
+# 调度器看不到整块内存，工作负载挤不掉 etcd / kube-apiserver。
+# 由 debian_begin.sh 写入 master 的 /var/lib/kubelet/config.yaml。
+export KUBELET_SYSTEM_RESERVED="3Gi"   # 操作系统 + 系统守护进程
+export KUBELET_KUBE_RESERVED="2Gi"     # kubelet + 容器运行时
+
 # ---- 基础服务端口 ----
 export COREDNS_HOSTS_FILE="/etc/hosts"  # CoreDNS hosts 插件用的 hosts 文件

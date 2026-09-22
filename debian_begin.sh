@@ -376,6 +376,17 @@ sed -i 's/ --pod-infra-container-image=[^ ]*//' /var/lib/kubelet/kubeadm-flags.e
 sed -i '/^maxPods:/d' /var/lib/kubelet/config.yaml
 printf 'maxPods: %s\n' "${KUBELET_MAX_PODS:-200}" >> /var/lib/kubelet/config.yaml
 
+# 控制面的内存保底。摘掉 kubeadm 默认的 control-plane 污点之后（见下方），master
+# 也会跑业务 Pod，控制面就只剩 system-node-critical 优先级这一层保护 —— 而优先级
+# 只管内存、不管磁盘 I/O（etcd 每次写都 fsync，同盘上有写盘邻居就会拖慢整个 API）。
+# systemReserved/kubeReserved 会被 kubelet 从节点 allocatable 里扣掉，调度器因此
+# 看不到整块内存，工作负载从数学上挤不掉 etcd / kube-apiserver。属"构造保证"：
+# 对以后新建的服务自动生效，也不会因为重新 apply manifest 而丢失。
+# 幂等：先删同名键及其缩进行，再追加。
+sed -i '/^systemReserved:$/,+1d; /^kubeReserved:$/,+1d' /var/lib/kubelet/config.yaml
+printf 'systemReserved:\n  memory: %s\nkubeReserved:\n  memory: %s\n' \
+    "${KUBELET_SYSTEM_RESERVED:-3Gi}" "${KUBELET_KUBE_RESERVED:-2Gi}" >> /var/lib/kubelet/config.yaml
+
 systemctl restart kubelet
 sleep 5
 
@@ -403,6 +414,18 @@ if ! kubectl --kubeconfig=/etc/kubernetes/super-admin.conf get ds -n kube-system
         --skip-phases=preflight,certs,kubeconfig,kubelet-start,control-plane,etcd,wait-control-plane \
         --v=3
 fi
+
+# 主节点不参与调度是浪费。kubeadm init 默认给 master 打
+# node-role.kubernetes.io/control-plane:NoSchedule，业务 Pod 只能落到工作节点；
+# 而本集群的 NanoPC 只有 4 GiB 且大部分被宿主机进程（ceph-osd/mysqld/gitea）吃掉了，
+# 于是 Pod 全堆到 orangepi5-max-server1（2026-09-22 实测 132/200 个，而同规格
+# 16 GiB 的 master 只跑 8 个、内存用了 22%）。摘掉该污点，让调度器把 master
+# 当普通节点用 —— 摘除前实测：3 个无亲和性的 Pod 有 2 个会选 master。
+#
+# 控制面自身的保护不依赖这个污点：etcd / kube-apiserver 等静态 Pod 属于
+# system-node-critical，kubelet 在内存压力下最后才驱逐它们。
+kubectl --kubeconfig=/etc/kubernetes/super-admin.conf \
+    taint nodes ${MASTER_HOSTNAME} node-role.kubernetes.io/control-plane:NoSchedule- 2>/dev/null || true
 
 #systemctl status kubelet
 #journalctl -xefu kubelet
