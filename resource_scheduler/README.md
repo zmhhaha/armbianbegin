@@ -46,12 +46,33 @@ together. Measured: server3 at 38% and server2 at 64% are just as closed to new
 Pods as server1 at 78%.
 
 **Before re-enabling, do this first:** give the three NanoPCs kubelet
-reservations (`systemReserved` / `kubeReserved` — the same mechanism already
-applied to the master, see `apply-master-reservations.sh`). That shrinks
-allocatable from 3.76 GiB to something close to what is genuinely available, so
-the scheduler **sees** how small these machines are. The race window disappears
-at the root, because there is no longer an invisible 2.2 GB for it to misjudge.
-Only then decide whether the guard is still wanted as a second layer.
+reservations (`systemReserved` / `kubeReserved`, see
+`apply-kubelet-reservations.sh`). **Done 2026-09-23: 2.2Gi + 0.5Gi, which moved
+the cgroup cap from 3.76 GiB to 1.062 GiB.**
+
+Be precise about what that did and did not do, because it is easy to expect the
+wrong thing — this file said the wrong thing for a day:
+
+- It did **not** make the scheduler treat the NanoPCs as small. Every pod there
+  declares **zero** memory requests (`calico-node` has only `cpu: 250m`;
+  `kube-proxy` and every CSI pod have `{}`). The scheduler's fit check
+  `sum(requests) <= allocatable` is therefore satisfied no matter how small
+  allocatable gets, and scoring still rates the nodes as *empty*. **A reservation
+  cannot repel the scheduler.** Only a taint or `nodeAffinity` can.
+- It **did** put a hard kernel ceiling on total pod memory, and that is what
+  guards the host. `mysqld`, `ceph-osd`, `gitea` and `radosgw` live *outside*
+  the `kubepods` cgroup and can no longer be reached by the OOM killer. On
+  2026-09-21 that is exactly what went wrong: the OOM killer shot `mysqld`, and
+  because Casdoor's database ran on that node, 40 oauth2-proxy pods fell into
+  CrashLoopBackOff. The cap turns that failure mode into "a pod dies".
+- Infra pods stay safe inside the cap because they sit at
+  `priority=2000001000` (`system-node-critical`, the top tier) and are picked
+  last. Verified after applying: all 14 infra pods across the three NanoPCs,
+  `restarts=0`.
+
+**So the static taint stays.** The reservation is a safety net, not a capacity
+switch — measured headroom for pods is 0.52–0.70 GiB per node. That number is the
+honest answer to "can these machines host workloads": no, not meaningfully.
 
 ⚠️ Two traps if you just re-enable it:
 - the unit file's **PRESET is still `enabled`** — `systemctl preset-all` will
@@ -132,10 +153,18 @@ node, but it is a trade, not a free win.
 
 ---
 
-## `apply-master-reservations.sh` — reserve memory for the control plane
+## `apply-kubelet-reservations.sh` — reserve memory on a node
 
-This directory also holds the counterpart script for the **master**, because the
-two mechanisms are easy to confuse and one of them was removed on 2026-09-22.
+Runs on any node (it edits that node's own `/var/lib/kubelet/config.yaml`), and
+now covers both node types with different values:
+
+| Node | systemReserved + kubeReserved | cgroup cap moves |
+|---|---|---|
+| `arm-cluster-master` | 3Gi + 2Gi = 5 GiB | 15.58 → 10.58 GiB |
+| `nanopct4-server1/2/3` | 2.2Gi + 0.5Gi = 2.7 GiB | 3.76 → 1.062 GiB |
+
+The master's case exists because of the taint removed on 2026-09-22 (below); the
+NanoPC case is the safety net described in the current-state section above.
 
 **What changed.** kubeadm's default
 `node-role.kubernetes.io/control-plane:NoSchedule` taint was removed from
@@ -178,13 +207,20 @@ whereas the reservation checks "you never get to run out". The script does not
 touch it, and the reservation does not affect it.
 
 ```sh
-bash apply-master-reservations.sh --dry-run   # 先看会改什么
-bash apply-master-reservations.sh            # 应用（幂等，可重复执行）
+bash apply-kubelet-reservations.sh --dry-run   # 先看会改什么
+bash apply-kubelet-reservations.sh             # 应用（幂等，可重复执行）
+
+# NanoPC 上要显式传值（不传则用 master 的 3Gi + 2Gi）：
+SYSTEM_RESERVED=2.2Gi KUBE_RESERVED=0.5Gi bash apply-kubelet-reservations.sh
 ```
 
-Values live in `cluster_config.sh` as `KUBELET_SYSTEM_RESERVED` /
-`KUBELET_KUBE_RESERVED`, and `debian_begin.sh` writes them after `kubeadm init`
-so a rebuilt master keeps them.
+Values live in `cluster_config.sh` as `MASTER_SYSTEM_RESERVED` /
+`MASTER_KUBE_RESERVED` and `NANOPC_SYSTEM_RESERVED` / `NANOPC_KUBE_RESERVED`.
+`debian_begin.sh` writes the master pair right after `kubeadm init`, and the
+NanoPC pair inside the worker join loop (guarded by membership in
+`LOW_RESOURCE_NODES`), so a rebuilt cluster keeps them. If the new config fails
+to start kubelet, the script restores its backup and restarts rather than leaving
+the node `NotReady`.
 
 > ⚠️ **The taint removal has a cost that no mechanism covers.** Priority only
 > governs memory; nothing governs disk I/O, and etcd fsyncs on every write.

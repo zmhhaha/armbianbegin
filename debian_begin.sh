@@ -376,16 +376,18 @@ sed -i 's/ --pod-infra-container-image=[^ ]*//' /var/lib/kubelet/kubeadm-flags.e
 sed -i '/^maxPods:/d' /var/lib/kubelet/config.yaml
 printf 'maxPods: %s\n' "${KUBELET_MAX_PODS:-200}" >> /var/lib/kubelet/config.yaml
 
-# 控制面的内存保底。摘掉 kubeadm 默认的 control-plane 污点之后（见下方），master
-# 也会跑业务 Pod，控制面就只剩 system-node-critical 优先级这一层保护 —— 而优先级
-# 只管内存、不管磁盘 I/O（etcd 每次写都 fsync，同盘上有写盘邻居就会拖慢整个 API）。
-# systemReserved/kubeReserved 会被 kubelet 从节点 allocatable 里扣掉，调度器因此
-# 看不到整块内存，工作负载从数学上挤不掉 etcd / kube-apiserver。属"构造保证"：
-# 对以后新建的服务自动生效，也不会因为重新 apply manifest 而丢失。
+# master 的内存保底。它是 **cgroup 硬顶**，不是调度信号：allocatable 决定
+# kubepods.slice/memory.max，于是给"所有 Pod 加起来"设了内核层面的边界。本集群的
+# Pod 几乎都不写 memory requests（master 上 12 个合计 0.23 GiB），requests 全为 0
+# 时调度器对 allocatable 根本不敏感 —— 所以别指望它去挡调度。详见 cluster_config.sh
+# 那段注释和 resource_scheduler/apply-kubelet-reservations.sh 的头部。
+# 摘掉 control-plane 污点（见下方）之后 master 会跑业务 Pod，控制面就只剩
+# system-node-critical 优先级这一层保护；而优先级只管内存、不管磁盘 I/O
+# （etcd 每次写都 fsync，同盘上有写盘邻居就会拖慢整个 API）。
 # 幂等：先删同名键及其缩进行，再追加。
 sed -i '/^systemReserved:$/,+1d; /^kubeReserved:$/,+1d' /var/lib/kubelet/config.yaml
 printf 'systemReserved:\n  memory: %s\nkubeReserved:\n  memory: %s\n' \
-    "${KUBELET_SYSTEM_RESERVED:-3Gi}" "${KUBELET_KUBE_RESERVED:-2Gi}" >> /var/lib/kubelet/config.yaml
+    "${MASTER_SYSTEM_RESERVED:-3Gi}" "${MASTER_KUBE_RESERVED:-2Gi}" >> /var/lib/kubelet/config.yaml
 
 systemctl restart kubelet
 sleep 5
@@ -584,6 +586,18 @@ for i in "${hostnamearray[@]}"; do
 
     # 同上：join 生成的 config.yaml 也没有 maxPods，默认 110。
     ssh root@${i} "sed -i '/^maxPods:/d' /var/lib/kubelet/config.yaml; printf 'maxPods: ${KUBELET_MAX_PODS:-200}\n' >> /var/lib/kubelet/config.yaml; systemctl restart kubelet"
+
+    # 低资源节点的内存保底。只给 LOW_RESOURCE_NODES 写 —— orangepi5-max-server1 是
+    # 16 GiB，不需要。它是 **cgroup 硬顶**而不是调度信号（本集群 Pod 几乎不写
+    # memory requests，调度器对 allocatable 不敏感，详见 cluster_config.sh）。
+    # 宿主机进程（ceph-osd / mysqld / gitea）实测已占约 2.6 GiB，留 2.7 GiB 让
+    # kubepods.slice/memory.max 落在 ~1.06 GiB —— 超了先杀 Pod，而不是像
+    # 2026-09-21 那样杀掉 mysqld（Casdoor 的库就在那台上，连带 40 个
+    # oauth2-proxy 全部 CrashLoop）。
+    if printf '%s\n' "${LOW_RESOURCE_NODES[@]}" | grep -qx "$i"; then
+        ssh root@${i} "sed -i '/^systemReserved:\$/,+1d; /^kubeReserved:\$/,+1d' /var/lib/kubelet/config.yaml; printf 'systemReserved:\n  memory: ${NANOPC_SYSTEM_RESERVED:-2.2Gi}\nkubeReserved:\n  memory: ${NANOPC_KUBE_RESERVED:-0.5Gi}\n' >> /var/lib/kubelet/config.yaml; systemctl restart kubelet"
+        echo "${i}: 已写入内存预留 ${NANOPC_SYSTEM_RESERVED:-2.2Gi} + ${NANOPC_KUBE_RESERVED:-0.5Gi}"
+    fi
 done
 
 ########################################################

@@ -16,9 +16,12 @@ set -euo pipefail
 # 现状：timer 停用，三台 NanoPC 靠**静态**的 `memory.guard/over-80:NoSchedule`
 # 污点拦着新 Pod（不驱逐、不循环，但也不看内存水位 —— server3 才 38% 也锁着）。
 #
-# **重新启用前先读 README.md 的「当前状态」一节。** 正确顺序是先给 NanoPC 设
-# kubelet 预留（把 allocatable 压到贴近真实可用的容量，让调度器自己看见这些机器
-# 很小，竞态窗口从根上消失），再决定守卫要不要作为第二层兜底。
+# **重新启用前先读 README.md 的「当前状态」一节。** 2026-09-23 已给三台 NanoPC 加了
+# 2.7 GiB 的 kubelet 预留（kubepods cgroup 顶从 3.76 压到 1.062 GiB），但那**挡不住
+# 调度** —— 这些节点上所有 Pod 的 memory requests 都是 0（calico-node 只有 cpu，
+# kube-proxy/CSI 全空），requests 全为 0 时调度器对 allocatable 完全不敏感。预留挡的
+# 是 OOM（把失败模式从"打挂 mysqld/ceph-osd"改成"打挂 Pod"），挡调度只能靠污点。
+# 所以要以 NoExecute 重开的话，先想清楚这个循环凭什么不会重演。
 #
 # ---------------------------------------------------------------------------
 # Protect the small NanoPC workers from memory exhaustion.

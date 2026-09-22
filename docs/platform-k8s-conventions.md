@@ -246,11 +246,25 @@ spec:
 
 > 🔴 **这个集群的 requests 不能当容量信号用。** master 上 12 个 Pod 的 memory requests 合计只有 **0.23 GiB** —— 控制面静态 Pod 全部是 BestEffort、一个 requests 都没声明。调度器按 requests 算容量时看到的几乎是"空节点"，**光靠调度器挡不住它们**。真正拦得住 BestEffort Pod 的是上表那个 cgroup 硬限额，而它由 `systemReserved` / `kubeReserved` 决定。
 
-因此 master 上设了 **5 GiB 预留**：`cluster_config.sh` 的 `KUBELET_SYSTEM_RESERVED=3Gi` + `KUBELET_KUBE_RESERVED=2Gi`，由 `debian_begin.sh` 在 `kubeadm init` 后写入 `/var/lib/kubelet/config.yaml`。效果是把 `kubepods.slice/memory.max` 从 15.58 GiB 压到 10.58 GiB —— 与 Pod 有没有写 requests 无关，是内核层面的硬边界。属**构造保证**：对以后新建的服务自动生效，也不会因为重新 apply manifest 而丢失（这一点和 CSI DaemonSet 丢 tolerations 是同一类坑，但方向相反）。已有集群上用 `resource_scheduler/apply-master-reservations.sh` 应用（幂等，支持 `--dry-run`）。
+因此 master 上设了 **5 GiB 预留**：`cluster_config.sh` 的 `MASTER_SYSTEM_RESERVED=3Gi` + `MASTER_KUBE_RESERVED=2Gi`（三台 NanoPC 另有一套 `NANOPC_*`，见 8.2）。效果是把 `kubepods.slice/memory.max` 从 15.58 GiB 压到 10.58 GiB —— 与 Pod 有没有写 requests 无关，是内核层面的硬边界。属**构造保证**：对以后新建的服务自动生效，也不会因为重新 apply manifest 而丢失（这一点和 CSI DaemonSet 丢 tolerations 是同一类坑，但方向相反）。已有集群上用 `resource_scheduler/apply-kubelet-reservations.sh` 应用（幂等，支持 `--dry-run`；master 用默认值，NanoPC 显式传值）。
+
+> ⚠️ **预留不是调度信号 —— 这一点 2026-09-22 我先搞反过一次，写在这里免得再犯。** 调度器的适配检查是 `sum(requests) <= allocatable`，而本集群的 Pod 几乎都不写 memory requests（master 上 12 个合计 0.23 GiB；NanoPC 上 calico-node 只有 `cpu: 250m`，kube-proxy 和所有 CSI 全是空的）。requests 全为 0 时，allocatable 压到多小都判定"放得下"，打分还按 requests 算、认为这些节点**最空**。所以**预留挡不住调度，只能挡 OOM**；劝退调度器只能靠污点 / `nodeAffinity`。
 
 **另一层是 `evictionHard`**：kubeadm 没写过驱逐设置，走 kubelet 内置默认 `memory.available<100Mi` —— 几乎要撑爆才动手。它管的是"真没内存了才驱逐"，与预留互补（预留是"根本不让你堆那么满"），且**不受预留影响**。
 
 > ⚠️ 摘污点不是没有代价：优先级机制**只管内存、不管磁盘 I/O**，而 etcd 每次写都要 fsync 落盘。**不要把写盘重的服务（数据库、Ceph OSD、狂写日志的）放到 master 上** —— 这一条没有任何机制兜底，只能靠约定。污点原本起的作用正是"让那块盘上根本没有邻居"。
+
+### 8.2 三台 NanoPC：静态污点 + 内存硬顶
+
+三台各 3.76 GiB，其中约 **2.6 GiB 已被宿主机进程占用**（ceph-osd / mysqld / gitea / radosgw）—— 它们不归 k8s 管，调度器看不见。
+
+**调度上**靠静态的 `memory.guard/over-80:NoSchedule` 污点不接业务 Pod。守卫（`resource_scheduler/k8s-node-memory-guard.sh`）**已停用**（timer `systemctl disable`）：它原先用 `NoExecute`，2026-09-22 引发了驱逐循环 —— 调度器按 requests 算（这些节点看起来 10–38% 空），守卫按 kubelet 实际用量判定（60–83%），差的 40 多个点正是上面那 2.6 GiB。于是"塞满 → 80% 全驱逐 → 又塞 → 循环"。代价是静态污点不看水位，server3 才 38% 也一起锁着。
+
+**内存上**2026-09-23 加了 2.7 GiB 预留，把 `kubepods.slice/memory.max` 从 3.76 GiB 压到 **1.062 GiB**。它是**安全网**而不是容量开关：`mysqld` / `ceph-osd` / `gitea` 都在 `kubepods` cgroup **之外**，从此 OOM killer 碰不到它们。2026-09-21 那次的真实杀伤正是这个 —— OOM killer 打死了 `mysqld`，而 Casdoor 的数据库在那台上，于是 40 个 oauth2-proxy 全部 CrashLoop。硬顶把失败模式从"打挂宿主机"变成"打挂 Pod"。
+
+**基础设施 Pod 不会因此被误杀**：施加后实测三台 NanoPC 上 14 个基础设施 Pod 全部 `restarts=0`。它们不写 requests 是**正确设计**（calico-node 若因 allocatable 变小而 Pending，那台节点就没网络了），安全来自**优先级** —— 实测 calico-node / kube-proxy / CSI node plugin 都是 `priority=2000001000`（`system-node-critical`，最高档），`csi-provisioner` 是 `2000000000`，OOM killer 最后才轮到它们。
+
+**给 Pod 留下的余量实测 0.52–0.70 GiB/台** —— 这就是"这三台能不能承载业务"的诚实答案：不能。
 
 ## 九、新增服务的检查清单
 
