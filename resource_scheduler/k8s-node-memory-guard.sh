@@ -1,6 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ⚠️⚠️ 本守卫当前**未启用** —— timer 已被 `systemctl disable`（2026-09-22）⚠️⚠️
+#
+# NoExecute 模式在本集群引发了驱逐循环。根因是**两个"内存"口径不一致**：
+#
+#     调度器看 Pod 的 requests        -> NanoPC 看起来 10-38% 空 ->「还能塞」
+#     守卫看 kubelet 实际用量          -> 60-83%                  ->「超了，全赶走」
+#
+# 差的这 40 多个点，是每台 NanoPC 上约 2.2 GB 的**宿主机进程**（ceph-osd /
+# mysqld / gitea / radosgw）—— 它们不归 k8s 管，调度器完全看不见。
+# 结果是：塞满 -> 守卫到 80% 全部驱逐 -> 空出来 -> 又塞 -> 循环。用户当时的描述：
+# "三个 server 不停被调度 pod，然后满了之后重新被全部驱逐"。
+#
+# 现状：timer 停用，三台 NanoPC 靠**静态**的 `memory.guard/over-80:NoSchedule`
+# 污点拦着新 Pod（不驱逐、不循环，但也不看内存水位 —— server3 才 38% 也锁着）。
+#
+# **重新启用前先读 README.md 的「当前状态」一节。** 正确顺序是先给 NanoPC 设
+# kubelet 预留（把 allocatable 压到贴近真实可用的容量，让调度器自己看见这些机器
+# 很小，竞态窗口从根上消失），再决定守卫要不要作为第二层兜底。
+#
+# ---------------------------------------------------------------------------
 # Protect the small NanoPC workers from memory exhaustion.
 #
 # The guard uses a NoExecute taint so that pods ALREADY on an over-watermark
@@ -11,9 +31,14 @@ set -euo pipefail
 #
 # IMPORTANT: NoExecute evicts every pod that does not tolerate it, INCLUDING
 # infrastructure DaemonSets. calico-node and kube-proxy tolerate all effects
-# already; the two Ceph CSI DaemonSets do NOT and must be given
-# `memory.guard/over-80:NoExecute` first, or storage mounts break on the node
-# the guard is trying to relieve. See README.md.
+# already; the Ceph CSI DaemonSets and provisioners must be given the toleration
+# FIRST or storage mounts break on the node the guard is trying to relieve.
+#
+# 注意：那个容忍**不要写 effect**（`operator: Exists` 即可）—— 容忍里的 effect 是
+# 精确匹配的，写 NoExecute 就匹配不上 NoSchedule 污点，反之亦然。详见
+# apply-guard-prerequisites.sh 的头部注释（2026-09-22 因此弄丢过 server1 的
+# CSI node plugin）。
+# ---------------------------------------------------------------------------
 
 KUBECTL="${KUBECTL:-/usr/bin/kubectl}"
 KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"

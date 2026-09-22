@@ -22,7 +22,47 @@ The active installation uses `/usr/local/sbin/k8s-node-memory-guard` and
 `/etc/systemd/system/k8s-node-memory-guard.{service,timer}` so source updates
 can be deployed without changing the runtime paths.
 
+## ⚠️ Current state: the guard is DISABLED (2026-09-22)
+
+**The timer has been `systemctl disable`d — the guard is not running.** The three
+NanoPCs are held clear of new Pods by a **static** `memory.guard/over-80:NoSchedule`
+taint instead.
+
+Why it was switched off: `NoExecute` produced an eviction loop. The cause is a
+mismatch between two different definitions of "memory":
+
+| Who | Looks at | Sees |
+|---|---|---|
+| Scheduler | Pod **requests** | NanoPCs 10–38% empty → "room for more" |
+| Guard | kubelet **actual usage** | 60–83% → "over the line, evict everything" |
+
+The 40-point gap is ~2.2 GB of **host processes** per NanoPC (ceph-osd, mysqld,
+gitea, radosgw) that Kubernetes does not manage and the scheduler cannot see. So:
+fill → evict everything at 80% → empty → fill again. In the user's words at the
+time: *"三个 server 不停被调度 pod，然后满了之后重新被全部驱逐"*.
+
+**What the static taint costs:** it ignores actual memory, so all three are shut
+together. Measured: server3 at 38% and server2 at 64% are just as closed to new
+Pods as server1 at 78%.
+
+**Before re-enabling, do this first:** give the three NanoPCs kubelet
+reservations (`systemReserved` / `kubeReserved` — the same mechanism already
+applied to the master, see `apply-master-reservations.sh`). That shrinks
+allocatable from 3.76 GiB to something close to what is genuinely available, so
+the scheduler **sees** how small these machines are. The race window disappears
+at the root, because there is no longer an invisible 2.2 GB for it to misjudge.
+Only then decide whether the guard is still wanted as a second layer.
+
+⚠️ Two traps if you just re-enable it:
+- the unit file's **PRESET is still `enabled`** — `systemctl preset-all` will
+  bring the timer back on its own;
+- `taint_effect` in the script **is still `NoExecute`** — a bare
+  `systemctl enable --now` replays that day's loop verbatim.
+
 ## ⚠️ It used to be NoSchedule, and that was not enough
+
+*(Superseded by the current-state section above: NoExecute turned out to be worse
+in practice, because of the request-vs-usage mismatch it could not see.)*
 
 Until 2026-09-21 the guard used `NoSchedule`. That only blocks *new* Pods — it
 leaves whatever is already resident. The result on that date:
