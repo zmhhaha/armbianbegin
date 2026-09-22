@@ -8,6 +8,8 @@
 >
 > 从 `dsh-runner` 容器内探测，`llm-service`、`rag-service`、`embedding-service`、`postgres`、`redis`、**`kubernetes.default.svc:443`**、**`vault`** —— 7/7 全部 **CONNECTED**。
 >
+> **🟡 2026-09-22 补充**：引擎已换成 **Calico**（2026-09-21 迁移完成），DSH 策略里那条 `198.18.0.0/15` 也已删除。**但端到端复验尚未执行**，所以上面这条结论继续有效——按「截至 2026-09-20」读，别当成今天的现状。复验执行材料：[../panghu_chat/dsh/verify-network-boundary.sh](../panghu_chat/dsh/verify-network-boundary.sh)。
+>
 > **受影响的本目录文档**：[platform-k8s-conventions.md](platform-k8s-conventions.md) 第三节与 [platform-reusable-capabilities.md](platform-reusable-capabilities.md) 中"调用方 Pod 必须打 `llm-client` / `rag-client` / `embedding-client` 标签，否则连不上"的说法**在本集群上没有依据**，已就地加注更正。那条"最高频的坑"看起来是文档间相互引用，不是实测经验。
 >
 > 完整结论与证据见 [panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
@@ -46,4 +48,4 @@
 | 文档 | 记录了什么 |
 |---|---|
 | [../panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) | 服务器上全部服务的汇总评估。2026-08-07 初版，**2026-09-20 全面复核**：45 个命名空间 / 164 个 Pod、已部署服务、缺失清单、Ceph/Vault/备份/监控现状，以及第 8.0 节的 NetworkPolicy 未生效实测结论。**动手改集群或设计新服务前先读它。** |
-| [network-policy-engine.md](network-policy-engine.md) | 网络策略引擎的选型与启用清单（2026-09-20）。**Calico 策略-only 官方不支持**（附 issue 证据），采用 kube-router `--run-firewall` 模式；生效范围只框 dsh/hermes，含启用前必须修的三处与分三步的铺开方案。可执行材料在同名目录 [../network-policy/](../network-policy/README.md)（build/deploy/verify 三个脚本 + 清单模板）。 |
+| [network-policy-engine.md](network-policy-engine.md) | 网络策略引擎的选型与启用清单（2026-09-20）。**选型过程与结论已过期**：文中"Calico 策略-only 官方不支持，采用 kube-router `--run-firewall`"是当时的判断，**实际落地的是完整 Calico**（2026-09-21 迁移，见 [calico-migration-run.md](calico-migration-run.md)），文中"kube-router 不支持 `except`"更是**误判**（顶部横幅已更正）。**保留价值**：三种方案的取舍论证、启用范围只框 dsh/hermes 的理由、启用前必须修的标签与端口三处。kube-router 的部署代码按所有者决定保留作备用路线，可执行材料在同名目录 [../network-policy/](../network-policy/README.md)。 |

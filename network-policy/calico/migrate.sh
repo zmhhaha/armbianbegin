@@ -26,15 +26,31 @@
 #        masquerade rule SNATs cross-node pod traffic and breaks service routing.
 #
 # Stages 4-5 below exist to catch exactly those.
+#
+# One more consequence of the same imbalance: the job will probably NOT reach
+# "1/1 completions" here. Measured 2026-09-21 -- it ended `Failed 0/1` after ~10 h,
+# the controller's own pod evicted repeatedly by DiskPressure on the 4 GiB nodes,
+# and the last node was labelled by hand. So the acceptance criterion for the
+# migration stage is PER-NODE LABEL COVERAGE, not job completion: waiting for 1/1
+# hangs forever. The stage below watches coverage, and says so when the
+# controller dies without finishing.
+#
+# `cleanup` removes the controller afterwards. It is the fourth thing the
+# controller does not do for itself, and the one with a security edge -- see the
+# stage for the cluster-wide RBAC it leaves behind.
 set -Eeuo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 
 STAGE="${1:-all}"
 case "$STAGE" in
-    all|preflight|install|migrate|recover|verify) ;;
-    --help|-h) sed -n '2,30p' "$0"; exit 0 ;;
-    *) echo "Unknown stage: $STAGE (all|preflight|install|migrate|recover|verify)" >&2; exit 2 ;;
+    all|preflight|install|migrate|recover|verify|cleanup) ;;
+    --help|-h) sed -n '2,40p' "$0"; exit 0 ;;
+    *) echo "Unknown stage: $STAGE (all|preflight|install|migrate|recover|verify|cleanup)" >&2; exit 2 ;;
 esac
+
+# Every stage talks to the cluster, and without this the failure is silent: the
+# assignment below swallows stderr, so a missing kubectl exits 127 saying nothing.
+command -v kubectl >/dev/null || { echo 'kubectl is required.' >&2; exit 1; }
 
 NODES=$(kubectl get nodes --no-headers -o custom-columns=:metadata.name 2>/dev/null)
 
@@ -90,7 +106,47 @@ if [[ "$STAGE" == "all" || "$STAGE" == "migrate" ]]; then
     echo
     echo "  ⚠️  每个节点会经历 drain → Pod 重建 → 重新就绪，在小集群上很慢（每台可能 10 分钟以上）。"
     echo "     不要因为'看起来卡住'就删 Job——它可能仍在推进。"
-    read -r -p "  等到 1/1 完成后按回车继续..." _ || true
+    echo
+    echo "  ❗ 判据不是 Job 的 1/1，而是【每个节点都带上 migration 标签】。"
+    echo "     本集群上 Job 大概率到不了 1/1：orangepi5-max-server1 上有 94/164 个 Pod，"
+    echo "     drain 后无处可去，小节点触发 DiskPressure 把控制器自己的 Pod 反复驱逐。"
+    echo "     实测 2026-09-21 最终停在 Failed 0/1，最后一个节点是手工打的标签。"
+    echo "     标签由谁打的都一样——验收只看覆盖。（见 ../../docs/calico-migration-run.md）"
+    echo
+
+    WATCH_MIN="${MIGRATE_WATCH:-45}"     # 有界观察，不做死等
+    total="$(kubectl get nodes --no-headers 2>/dev/null | wc -l)"
+    waited=0
+    said_stall=0
+    while :; do
+        cal="$(kubectl get nodes -l projectcalico.org/node-network-during-migration=calico \
+               --no-headers 2>/dev/null | wc -l)"
+        active="$(kubectl -n kube-system get job flannel-migration \
+                  -o jsonpath='{.status.active}' 2>/dev/null || true)"
+        [[ -n "$active" ]] && job_state="在跑(${active})" || job_state="不在跑"
+        printf '  [%3s min] 已带 calico 标签：%s/%s   控制器 Pod：%s\n' \
+            "$((waited / 60))" "$cal" "$total" "$job_state"
+
+        [[ "$cal" == "$total" ]] && { echo "  ✓ 全部节点已迁移。"; break; }
+        [[ "$waited" -ge $((WATCH_MIN * 60)) ]] && {
+            echo "  ⏱  已观察 ${WATCH_MIN} 分钟仍未覆盖全部节点，交回人工。"; break; }
+
+        if [[ -z "$active" && "$said_stall" == 0 ]]; then
+            said_stall=1
+            echo "  ❗ 控制器已不在跑，标签却没打齐——它不会自己恢复。手工兜底："
+            echo "       kubectl get nodes -L projectcalico.org/node-network-during-migration"
+            echo "       kubectl label node <没标签的节点> projectcalico.org/node-network-during-migration=calico --overwrite"
+            echo "     打完标签再看该节点上 calico-node 是否起来（desired 会自己跟到 $total）。"
+        fi
+        sleep 30
+        waited=$((waited + 30))
+    done
+
+    echo
+    echo "  当前覆盖（标签值在最后一列）："
+    kubectl get nodes -L projectcalico.org/node-network-during-migration --no-headers 2>/dev/null \
+        | sed 's/^/    /' || true
+    read -r -p "  确认全部节点都已迁移后按回车进入收尾（没打齐就 Ctrl-C 停下）..." _ || true
 fi
 
 # ------------------------------------------------------------------ recover --
@@ -149,4 +205,83 @@ if [[ "$STAGE" == "all" || "$STAGE" == "verify" ]]; then
     echo
     echo "  ⚠️  若公网通不了，先查 except 列表里有没有 198.18.0.0/15——"
     echo "     软路由若跑 OpenClash fake-ip，所有外部域名都解析到那个段。"
+    echo
+    echo "  验收通过后收尾： bash migrate.sh cleanup   （删掉迁移控制器及其 RBAC）"
+fi
+
+# ------------------------------------------------------------------ cleanup --
+# The fourth thing the controller does not do for itself: it does not remove
+# itself. What it leaves in kube-system is a Failed Job, its ConfigMap, and --
+# the part that matters -- a ServiceAccount, ClusterRole and ClusterRoleBinding
+# named flannel-migration-controller. That ClusterRole can patch/update every
+# node, exec into any pod, evict any pod, delete DaemonSets, and delete
+# ippools/ipamconfigs/blockaffinities/ipamblocks/ipamhandles. Nothing needs that
+# once the migration is finished; a cluster-wide grant left standing for a job
+# that does not run is worse than the job itself.
+#
+# `kubectl delete -f rendered/migration-job.yaml` would remove all five, but
+# rendered/ is a gitignored build artifact and may not exist on the machine this
+# runs from, so the objects are addressed by name instead.
+if [[ "$STAGE" == "cleanup" ]]; then
+    echo
+    echo "=== cleanup：删掉迁移控制器 ==="
+
+    total="$(kubectl get nodes --no-headers 2>/dev/null | wc -l)"
+    cal="$(kubectl get nodes -l projectcalico.org/node-network-during-migration=calico \
+           --no-headers 2>/dev/null | wc -l)"
+    active="$(kubectl -n kube-system get job flannel-migration \
+              -o jsonpath='{.status.active}' 2>/dev/null || true)"
+
+    # Two guards. Both are mistakes that were actually made on 2026-09-21 -- see
+    # the "执行过程中我犯的三个错误" section of ../../docs/calico-migration-run.md.
+    if [[ "$cal" != "$total" ]]; then
+        echo "  ❌ 只有 ${cal}/${total} 个节点带 migration 标签，迁移尚未完成。" >&2
+        echo "     控制器是唯一能把迁移跑完的工具，不能提前拆。" >&2
+        echo "     先补齐标签： kubectl get nodes -L projectcalico.org/node-network-during-migration" >&2
+        exit 1
+    fi
+    if [[ -n "$active" ]]; then
+        echo "  ❌ job/flannel-migration 仍在运行（active=${active}）。" >&2
+        echo "     删一个在跑的 Job 会中断控制器——2026-09-21 就是这么把集群停在" >&2
+        echo "     最坏的中间点上的。等它结束（哪怕结束成 Failed）再删。" >&2
+        exit 1
+    fi
+
+    echo "  迁移已完成（${cal}/${total} 节点带标签），控制器未在运行。将删除："
+    echo "    job/flannel-migration                              -n kube-system"
+    echo "    configmap/flannel-migration-config                 -n kube-system"
+    echo "    serviceaccount/flannel-migration-controller        -n kube-system"
+    echo "    clusterrole/flannel-migration-controller           (cluster 级)"
+    echo "    clusterrolebinding/flannel-migration-controller    (cluster 级)"
+    echo
+    echo "  最后两项是重点：那份 ClusterRole 允许 patch/update 所有节点、"
+    echo "  exec 进任意 Pod、驱逐任意 Pod、删除 DaemonSet，以及删除"
+    echo "  ippools/ipamconfigs/blockaffinities/ipamblocks/ipamhandles。"
+    echo "  迁移做完后没有东西需要它。"
+    echo
+
+    if [[ -n "$(kubectl get job flannel-migration -n kube-system --no-headers 2>/dev/null)" ]] \
+       || [[ -n "$(kubectl get clusterrole flannel-migration-controller --no-headers 2>/dev/null)" ]]; then
+        read -r -p "  按回车删除上述对象（Ctrl-C 取消）..." _ || true
+    fi
+
+    for spec in \
+        "job flannel-migration -n kube-system" \
+        "configmap flannel-migration-config -n kube-system" \
+        "serviceaccount flannel-migration-controller -n kube-system" \
+        "clusterrolebinding flannel-migration-controller" \
+        "clusterrole flannel-migration-controller"
+    do
+        # Unquoted on purpose: $spec is a word list. Not fatal on error, so all
+        # five are attempted and the check below shows whatever survived.
+        # shellcheck disable=SC2086
+        out="$(kubectl delete $spec --ignore-not-found 2>&1 || true)"
+        printf '  %-58s %s\n' "$spec" "$(tr '\n' ' ' <<<"$out" | sed 's/  */ /g')"
+    done
+
+    echo
+    echo "  核对（应全部为空）："
+    kubectl get job,cm,sa -n kube-system 2>/dev/null | grep -i migration | sed 's/^/    /' || true
+    kubectl get clusterrole,clusterrolebinding 2>/dev/null | grep -i migration | sed 's/^/    /' || true
+    echo "  完成。flannel 的 DaemonSet 与 kube-flannel.yml 保持不变，回退路径仍然可用。"
 fi

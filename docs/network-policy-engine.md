@@ -22,6 +22,12 @@
 > **教训**：`except` 里写"保留段"之前，先确认本网络的 DNS 不做 fake-ip。这个仓库有 fake-ip，而且已经写过一次。
 >
 > 完整过程见 [calico-migration-run.md](calico-migration-run.md)。
+>
+> ### 🟡 2026-09-22 状态：三件事要说清
+>
+> - **Calico 是在位的引擎。** 本文第三节那套 kube-router `--run-firewall` 方案**已不适用**。kube-router 的目录与脚本按所有者 2026-09-22 的决定**保留作历史记录与备用路线**（`network-policy/k8s/20-kube-router.yaml`、`deploy.sh`、`build.sh`），**不是当前选型**：它的 `--enable-cni=false` 和 `br_netfilter` 前提都建立在"flannel 继续做数据面"之上，而在 Calico 底下再叠一个写 iptables 的策略组件正是 2026-09-21 踩过的坑（当时 kube-router 与 Calico 并行写 iptables）。
+> - **DSH 边界尚未复验。** 引擎到位、策略已修，但端到端复验还没跑过。执行材料：[../panghu_chat/dsh/verify-network-boundary.sh](../panghu_chat/dsh/verify-network-boundary.sh)（从**真实项目容器**里探测）；判据与期望值见 [../panghu_chat/dsh/docs/boundaries.md](../panghu_chat/dsh/docs/boundaries.md) 末节。
+> - 所以**本文第一行「集群当前没有任何 NetworkPolicy 生效」请按「截至 2026-09-20」读**，不要当作今天的结论。同理，[infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节与第 11 节那条验收项也还是未通过状态。
 
 - 调查日期：2026-09-20
 - 调查方式：SSH 到 `arm-cluster-master` 只读查询 + 从 `dsh-runner` 容器内 TCP 探测
