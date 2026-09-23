@@ -10,9 +10,7 @@ data:
     provider = "oidc"
     oidc_issuer_url = "https://auth.panghuer.top"
     redirect_url = "https://obsidian.panghuer.top/oauth2/callback"
-    upstreams = ["https://127.0.0.1:3001/"]
-    ssl_upstream = true
-    ssl_insecure_skip_verify = true
+    upstreams = ["http://127.0.0.1:3001/"]
     pass_host_header = true
     set_xauthrequest = true
     request_logging = false
