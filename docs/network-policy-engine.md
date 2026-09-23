@@ -28,6 +28,18 @@
 > - **Calico 是在位的引擎。** 本文第三节那套 kube-router `--run-firewall` 方案**已不适用**。kube-router 的目录与脚本按所有者 2026-09-22 的决定**保留作历史记录与备用路线**（`network-policy/k8s/20-kube-router.yaml`、`deploy.sh`、`build.sh`），**不是当前选型**：它的 `--enable-cni=false` 和 `br_netfilter` 前提都建立在"flannel 继续做数据面"之上，而在 Calico 底下再叠一个写 iptables 的策略组件正是 2026-09-21 踩过的坑（当时 kube-router 与 Calico 并行写 iptables）。
 > - **DSH 边界尚未复验。** 引擎到位、策略已修，但端到端复验还没跑过。执行材料：[../panghu_chat/dsh/verify-network-boundary.sh](../panghu_chat/dsh/verify-network-boundary.sh)（从**真实项目容器**里探测）；判据与期望值见 [../panghu_chat/dsh/docs/boundaries.md](../panghu_chat/dsh/docs/boundaries.md) 末节。
 > - 所以**本文第一行「集群当前没有任何 NetworkPolicy 生效」请按「截至 2026-09-20」读**，不要当作今天的结论。同理，[infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节与第 11 节那条验收项也还是未通过状态。
+>
+> ### ⚠️ 另一个读数陷阱：本网络对任意公网地址都回 CONNECTED（实测 2026-09-23）
+>
+> 这是**第二个会把网络测量读歪**的本网络特性，和上面的 fake-ip 同源（都在软路由那一层）。
+>
+> 实测：TCP 连 `192.0.2.1`、`198.51.100.7`、`203.0.113.55`（RFC 5737 的三个不可路由测试段）**全部 CONNECTED**，端口换 80 / 81 / 1234 / 9999 都一样。`curl http://192.0.2.1/` 拿不到 HTTP 响应（`http_code=000`）但 TCP 握手成功。软路由在做**透明代理**，任何目标都由它先应答。
+>
+> **影响**：任何"可达性"测量里，**REACHABLE 这一侧的证据是弱的**——它只证明包离开了 Pod、策略放行了它，**不证明对端真的应答了**。
+>
+> **不受影响**：**DENY 这一侧仍然是硬的**。NetworkPolicy 的丢弃发生在节点上、包还没离开节点，代理根本看不到它，所以**造不出假的可达**。反过来也成立：如果被策略拦掉的目标显示了 CONNECTED，那一定是策略没生效，不是代理的锅。
+>
+> ⇒ 写验收脚本时把**"必须被拒"当主判据**，"必须可达"只当烟雾测试。两份真实负载的验收脚本都按这个原则写了并就地注明：[../panghu_chat/dsh/verify-network-boundary.sh](../panghu_chat/dsh/verify-network-boundary.sh)（公网那组期望**可达**，证据弱）与 [../panghu_chat/hermes/verify-network-boundary.sh](../panghu_chat/hermes/verify-network-boundary.sh)（公网那组期望**被拒**，证据硬）。
 
 - 调查日期：2026-09-20
 - 调查方式：SSH 到 `arm-cluster-master` 只读查询 + 从 `dsh-runner` 容器内 TCP 探测
