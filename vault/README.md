@@ -62,7 +62,8 @@ vault/
     ├── 02-panghu-agent.md
     ├── 03-gitops.md
     ├── elasticsearch-externalsecret.yaml ← Elasticsearch 密码同步及部署说明
-    └── panghu-chat-s3-externalsecret.yaml ← 虎博 S3 凭据同步及部署说明
+    ├── panghu-chat-s3-externalsecret.yaml ← 虎博 S3 凭据同步及部署说明
+    └── obsidian-externalsecret.yaml ← Obsidian OIDC 凭据同步（不保存知识内容）
 ```
 
 ---

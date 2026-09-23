@@ -286,3 +286,15 @@ spec:
   tunnelRef: main
   hostname: hublog.panghuer.top
   backend: oauth2-proxy-hublog.oauth.svc.cluster.local:4180
+---
+# Obsidian: planned route; configure Public Hostname in Cloudflare separately.
+# This entry does not confirm that the public route is active.
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: obsidian
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: obsidian.panghuer.top
+  backend: obsidian.obsidian.svc.cluster.local:4180
