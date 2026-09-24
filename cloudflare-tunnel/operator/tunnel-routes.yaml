@@ -287,14 +287,21 @@ spec:
   hostname: hublog.panghuer.top
   backend: oauth2-proxy-hublog.oauth.svc.cluster.local:4180
 ---
-# Obsidian: planned route; configure Public Hostname in Cloudflare separately.
-# This entry does not confirm that the public route is active.
+# Obsidian note synchronization. Replaces the obsidian.panghuer.top
+# browser-workbench route.
+#
+# Removing the entry below is not enough to retire the old hostname: the
+# Public Hostname in the Cloudflare dashboard is what actually serves traffic,
+# and it must be deleted there or the retired hostname stays routable.
+#
+# Configure the Public Hostname in Cloudflare separately; this entry is a
+# record and does not confirm that the public route is active.
 apiVersion: cf.armbianbegin.io/v1
 kind: TunnelRoute
 metadata:
-  name: obsidian
+  name: obsidian-sync
   namespace: default
 spec:
   tunnelRef: main
-  hostname: obsidian.panghuer.top
-  backend: obsidian.obsidian.svc.cluster.local:4180
+  hostname: obsidian-sync.panghuer.top
+  backend: obsidian-couchdb.obsidian.svc.cluster.local:5984
