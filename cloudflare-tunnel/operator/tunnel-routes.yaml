@@ -287,21 +287,31 @@ spec:
   hostname: hublog.panghuer.top
   backend: oauth2-proxy-hublog.oauth.svc.cluster.local:4180
 ---
-# Obsidian note synchronization. Replaces the obsidian.panghuer.top
-# browser-workbench route.
+# Obsidian note synchronization (Self-hosted LiveSync -> CouchDB).
 #
-# Removing the entry below is not enough to retire the old hostname: the
-# Public Hostname in the Cloudflare dashboard is what actually serves traffic,
-# and it must be deleted there or the retired hostname stays routable.
+# Reuses obsidian.panghuer.top rather than taking a new name. The hostname is
+# already delegated, and the browser workbench that used it has been retired,
+# so a second name would only add a DNS record for no benefit.
 #
-# Configure the Public Hostname in Cloudflare separately; this entry is a
-# record and does not confirm that the public route is active.
+# ⚠️ This entry is a RECORD, not the effective configuration.
+#
+# Verified 2026-09-24: the cloudflared pod runs
+#   cloudflared tunnel --loglevel info run --token eyJ...
+# i.e. token mode, which takes its ingress from the Cloudflare dashboard
+# (remotely-managed). No ConfigMap is mounted into that pod -- its only volume
+# is the service-account token.
+#
+# The operator writes default/cf-tunnel-cfg-main from these CRs and restarts
+# the Deployment, and the operator never calls the Cloudflare API (grep the
+# controller: only kopf and kubernetes clients are imported). So the ConfigMap
+# is not in the serving path, and editing this file changes nothing on its own.
+# The Public Hostname in the Cloudflare dashboard must be changed too.
 apiVersion: cf.armbianbegin.io/v1
 kind: TunnelRoute
 metadata:
-  name: obsidian-sync
+  name: obsidian
   namespace: default
 spec:
   tunnelRef: main
-  hostname: obsidian-sync.panghuer.top
+  hostname: obsidian.panghuer.top
   backend: obsidian-couchdb.obsidian.svc.cluster.local:5984

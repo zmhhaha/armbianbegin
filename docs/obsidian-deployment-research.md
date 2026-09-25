@@ -2,6 +2,15 @@
 
 日期：2026-09-21
 
+> ## ⚡ 2026-09-24 后续：本方案已实施，两处与本文不同
+>
+> 本文推荐的 **CouchDB + Self-hosted LiveSync** 就是最终落地的方案（中间的 Selkies 浏览器工作台弯路由 `add-obsidian-browser-workbench` 走了一遭，已于同日废弃）。实施后有两处与本文不一致：
+>
+> 1. **域名改为复用 `obsidian.panghuer.top`，不再新开 `obsidian-sync.panghuer.top`。** 本文说的"不要挂子路径"指的是 URL 路径，独立子域即可满足；旧域名 DNS 已存在，浏览器工作台下线后空了出来，另起名字只多一条记录。
+> 2. **"TunnelRoute 只是后台配置备份"这条已实测确认，且比原文更彻底**：cloudflared 进程是 `run --token`（远端托管模式），Pod 里**没有挂载任何 ConfigMap**，operator 也**从不调用 Cloudflare API**。所以 operator 写的 `cf-tunnel-cfg-main` 完全不在服务链路上，仓库里的路由文件纯属记录。
+>
+> 实施细节与实际踩到的坑见 [../panghu_chat/obsidian/implementation-record.md](../panghu_chat/obsidian/implementation-record.md)，运维步骤见 [../panghu_chat/obsidian/README.md](../panghu_chat/obsidian/README.md)。
+
 ## 结论
 
 如果目标是“在自己的基础设施里使用 Obsidian，并让桌面和移动端同步”，推荐优先部署 **CouchDB + Self-hosted LiveSync**。它和当前仓库的 K8s、Cloudflare Tunnel、Vault、ExternalSecret、PVC 模式最贴合，成本低，数据留在自有集群里。
