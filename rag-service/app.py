@@ -27,6 +27,8 @@ LLM_TOKEN = os.getenv("LLM_SERVICE_TOKEN", "")
 # 索引版本：换 embedding 模型/维度时改这个值并重建（见 README「索引版本与重建」）
 INDEX_VERSION = os.getenv("INDEX_VERSION", "v1")
 JOBS_INDEX = "rag-ingest-jobs"
+# 列出一个 collection 已摄入文档时的上限，防止调用方一次拉出整个 job store。
+MAX_LIST_SIZE = int(os.getenv("MAX_LIST_SIZE", "2000"))
 
 es = Elasticsearch(ES_URL, basic_auth=(ES_USER, ES_PASSWORD) if ES_PASSWORD else None)
 app = FastAPI(title="rag-service", version="1.0.0")
@@ -304,6 +306,40 @@ async def ingest(req: IngestRequest, authorization: str | None = Header(default=
             chunk_count=len(records), index_version=INDEX_VERSION, error=None)
     return {"document_id": doc_id, "collection": col, "status": "ready",
             "chunk_count": len(records), "index_version": INDEX_VERSION}
+
+
+@app.get("/v1/ingest")
+def list_ingested(agent: str | None = None, limit: int = MAX_LIST_SIZE,
+                  authorization: str | None = Header(default=None)):
+    """列出调用方有权读取的那个 collection 里已摄入的文档。
+
+    用途一是删除检测：外部索引器拿当前文件列表和这里返回的 document_id 做差，
+    对已消失的发 DELETE；这样它不需要自己维护一份会漂移的"上次见过哪些路径"清单。
+    用途二是人工核对「我给这个 collection 推过什么」。
+
+    鉴权与其它接口完全一致：kind 用 read，agent 同样只是收窄提示，
+    不在授权范围内按不存在处理（404）—— 不引入任何跨 collection 的可见性。
+    """
+    identity = identify(authorization)
+    col = target_collection(identity, "read", agent)
+    if not es.indices.exists(index=JOBS_INDEX):
+        return {"collection": col, "count": 0, "returned": 0, "documents": []}
+
+    resp = es.search(
+        index=JOBS_INDEX,
+        query={"term": {"collection": col}},
+        size=max(1, min(limit, MAX_LIST_SIZE)),
+        sort=[{"document_id": "asc"}],
+        _source=["document_id", "status", "checksum", "chunk_count", "index_version"],
+    )
+    hits = resp["hits"]
+    total = hits["total"]
+    return {
+        "collection": col,
+        "count": total["value"] if isinstance(total, dict) else total,
+        "returned": len(hits["hits"]),
+        "documents": [hit["_source"] for hit in hits["hits"]],
+    }
 
 
 @app.get("/v1/ingest/{document_id}")
