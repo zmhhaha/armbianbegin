@@ -148,6 +148,8 @@
 
 K8s 侧用 `nodeSelector: kubernetes.io/arch: arm64` 钉架构（`llm-service/k8s.yaml:91`、`embedding-service/k8s.yaml:26`、`rag-service/k8s.yaml:29`）。
 
+**上游镜像（非自建）走同一条私有 registry 路径，只是没有 Dockerfile**——两个先例：`network-policy/calico/mirror.sh`（源 `quay.io`）与 `metrics-server/mirror.sh`（源 `registry.k8s.io`）。两者的共同做法是：抓上游清单 → 把镜像地址改写到 `${REGISTRY}` → `docker pull --platform linux/arm64` → **断言 `.Architecture == arm64`** → 打标推出，产物落在各自 `rendered/`（该目录逐目录 gitignore，根 `.gitignore` 不管）。架构断言是这里的关键：上游镜像默认是多架构的，不验就可能在别的机器上静默拉成 amd64。
+
 ## 七、定时任务：CronJob 是唯一约定
 
 **CronJob（唯一一处，7 个）**：`panghu_agent/content_agents/k8s/cronjobs.yaml`，namespace `content-agents`：
@@ -225,7 +227,7 @@ spec:
 | orangepi5-max-server1 | worker | 8C | 15.5G | **RK3588** | ES/PG/Redis 所在，带 NPU |
 | nanopct4-server1/2/3 | worker ×3 | 6C | 3.66G | RK3399 | **内存极紧** |
 
-合计约 34 核 / 44 GiB。无 Metrics Server，资源观测需直接 SSH。
+合计约 34 核 / 44 GiB。无 Metrics Server，资源观测需直接 SSH（**可执行材料已就绪：[../metrics-server/](../metrics-server/README.md)，2026-09-27 写就，尚未执行**）。
 
 调度靠 `nodeSelector` 钉死节点（llm、embedding、es 都钉 `orangepi5-max-server1`；rag 只钉 `kubernetes.io/arch: arm64`）。低资源节点靠 taint + `resource_scheduler` 守卫；tolerations 目前只有 Ceph CSI 的 DaemonSet/provisioner 在用（`memory.guard/over-80:NoExecute`，见 `resource_scheduler/README.md`）。
 

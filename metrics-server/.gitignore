@@ -1,0 +1,3 @@
+# mirror.sh downloads the official HA manifest and rewrites its image registry,
+# and pushes the image into the private one. Everything here is derived.
+rendered/
