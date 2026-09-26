@@ -148,6 +148,9 @@ spec:
   ```bash
   kubectl top nodes
   # 确认低资源节点负载较低
+  # 2026-09-27 注：本步此前跑不了（集群当时没有 Metrics Server）；现已可用。
+  # 注意三台 NanoPC 的 MEMORY% 会显示 >100%，那是 allocatable 被刻意压缩所致，
+  # 不是异常 —— 见 metrics-server/README.md 的验收记录。
   ```
 
 ---

@@ -86,7 +86,7 @@
 
 ### 6. 监控和日志
 
-- [ ] 安装 Metrics Server，验证 `kubectl top nodes/pods -A`
+- [x] 安装 Metrics Server，验证 `kubectl top nodes/pods -A` —— **2026-09-27 完成**（`metrics-server/`，`verify.sh` 退出码 0；5 节点、`top pods -A` 164 行）
 - [ ] 为 OpenSpec 服务暴露 Prometheus metrics
 - [ ] 将 API、Git 操作、校验失败、冲突和归档计数接入监控，并覆盖 MCP 工具调用
 - [ ] 部署集中式日志采集（Loki + Fluent Bit/Vector，或现有日志方案）

@@ -105,7 +105,11 @@
 
 ### 🔴 不要加 tolerations
 
-上游清单**没有** tolerations，三台 NanoPC 带静态污点 `memory.guard/over-80:NoSchedule`，所以 replica 自然落在 **master / orangepi5-max-server1 / orangepi5-plus-server1** 这三个可调度节点上（master 的 control-plane 污点已于 2026-09-22 摘除，见 `platform-k8s-conventions.md` §8.1）。
+上游清单**没有** tolerations，三台 NanoPC 带静态污点 `memory.guard/over-80:NoSchedule`，所以 replica 只能落在**未打污点的两台**：`arm-cluster-master` 与 `orangepi5-max-server1`（master 的 control-plane 污点已于 2026-09-22 摘除，见 `platform-k8s-conventions.md` §8.1）。
+
+> ⚠️ **候选只有两台，而 `replicas: 2` + `required` 反亲和正好把两台都用满。** 2026-09-27 实测确认落在两个不同节点上。**任一台变得不可调度时，另一个 replica 会 Pending**——服务不中断（一个 replica 足够提供 Metrics API），但冗余就没了。
+>
+> ⚠️ **集群里没有 `orangepi5-plus-server1`。** `cluster_config.sh` 的 `ALL_NODES` 列了 6 个名字，但 `kubectl get nodes` 只有 **5** 台。这条是 2026-09-27 跑 metrics-server 时才被发现的（早先的推断写反了：错的是 `cluster_config.sh`，不是 `platform-k8s-conventions.md` 的节点表）。
 
 **为了"跑起来"而加 tolerations，等于把 metrics-server 塞进三台 3.66 GiB 的机器**——而那正是 `resource_scheduler/` 那套守卫要挡的方向。
 
@@ -131,6 +135,37 @@ bash verify.sh            # 验收，退出码 0 才算过
 | `verify.sh` | **退出码 0**；`kubectl top nodes` 与 `kubectl top pods -A` 都返回真实数字 |
 
 > **首次可用有 15–75 秒延迟**：`--metric-resolution=15s` 才产生第一个指标点，聚合层还要等后端就绪。这期间 `kubectl top` 会显示 `<unknown>`——那是正常的，`verify.sh` 把它算**警告**而不是失败，等一会儿重跑即可。
+
+### 验收记录（2026-09-27，通过）
+
+`verify.sh` **退出码 0**：
+
+| 检查 | 结果 |
+|---|---|
+| Deployment | `metrics-server 2/2 Ready` |
+| 反亲和 | 2 个 replica 在 2 个不同节点上 |
+| APIService | `v1beta1.metrics.k8s.io` `Available=True` |
+| Metrics API | 返回 **5** 个节点的指标（集群共 5 台） |
+| `kubectl top nodes` / `kubectl top pods -A` | 均可用（后者 164 行） |
+
+> ### 🔴 读 `kubectl top nodes` 必看：三台 NanoPC 的 `MEMORY%` 长期 >100%
+>
+> 验收当天原样输出：
+>
+> ```text
+> NAME                    CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%
+> arm-cluster-master      1044m        13%    5866Mi          54%
+> nanopct4-server1        485m         8%     2755Mi          278%
+> nanopct4-server2        580m         9%     2022Mi          204%
+> nanopct4-server3        457m         7%     1796Mi          181%
+> orangepi5-max-server1   2780m        34%    13200Mi         83%
+> ```
+>
+> **278% / 204% / 181% 不是异常，也不是 bug。** 百分比的分母是 **allocatable**，而 `cluster_config.sh` **刻意**把这三台 3.66 GiB 机器的 allocatable 压到约 **1.06 GiB**（`NANOPC_SYSTEM_RESERVED=2.2Gi` + `NANOPC_KUBE_RESERVED=0.5Gi`）——目的是给 `kubepods.slice` 一个内核层面的硬顶，超了先杀 Pod，而不是像 2026-09-21 那样杀掉宿主机的 mysqld 连带 40 个 oauth2-proxy。
+>
+> ⇒ **这三行的百分比按定义就不可能低于 100%**：实际占用 2.7 / 2.0 / 1.8 GiB，分母约 1.06 GiB。
+>
+> ⇒ **不要拿它当容量指标读。** 它的正确读法是"宿主机上用了多少"，不是"Kubernetes 还剩多少"。判断这三台还能不能放东西，看 `resource_scheduler/README.md` 那套硬顶逻辑，不是看这个百分比。
 
 ---
 

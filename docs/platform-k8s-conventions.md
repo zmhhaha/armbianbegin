@@ -227,7 +227,7 @@ spec:
 | orangepi5-max-server1 | worker | 8C | 15.5G | **RK3588** | ES/PG/Redis 所在，带 NPU |
 | nanopct4-server1/2/3 | worker ×3 | 6C | 3.66G | RK3399 | **内存极紧** |
 
-合计约 34 核 / 44 GiB。无 Metrics Server，资源观测需直接 SSH（**可执行材料已就绪：[../metrics-server/](../metrics-server/README.md)，2026-09-27 写就，尚未执行**）。
+合计约 34 核 / 44 GiB。~~无 Metrics Server，资源观测需直接 SSH。~~ **2026-09-27 起 `kubectl top` 可用**（可执行材料见 [../metrics-server/](../metrics-server/README.md)）。
 
 调度靠 `nodeSelector` 钉死节点（llm、embedding、es 都钉 `orangepi5-max-server1`；rag 只钉 `kubernetes.io/arch: arm64`）。低资源节点靠 taint + `resource_scheduler` 守卫；tolerations 目前只有 Ceph CSI 的 DaemonSet/provisioner 在用（`memory.guard/over-80:NoExecute`，见 `resource_scheduler/README.md`）。
 
