@@ -1,0 +1,3 @@
+# collect-load.sh dumps raw kubectl output here so the summary can be
+# re-checked. Derived, and it contains cluster state -- not source.
+collected/

@@ -22,7 +22,12 @@ spec:
     spec:
       automountServiceAccountToken: false
       nodeSelector:
-        kubernetes.io/hostname: orangepi5-max-server1
+        # 2026-09-27 由 orangepi5-max-server1 挪到 master。本服务**没有任何卷挂载**
+        # （无 PVC / emptyDir / hostPath），移动无数据风险；而 orangepi5-max 实测内存
+        # 83%（13200Mi）是全体最紧的一台，master 只有 13% CPU / 54% 内存。
+        # ⚠️ 三个被挪的服务里它最重（limit 4 CPU / 1Gi），且摄入时 CPU 突发——
+        # master 上跑着 etcd/apiserver，挪完留意控制面延迟。若异常，把这一条改回去即可。
+        kubernetes.io/hostname: arm-cluster-master
         kubernetes.io/arch: arm64
       securityContext:
         runAsNonRoot: true

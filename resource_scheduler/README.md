@@ -227,3 +227,23 @@ the node `NotReady`.
 > **Do not put write-heavy workloads on the master** (databases, Ceph OSDs,
 > chatty loggers) — that is a convention, not a guardrail. The taint used to
 > guarantee it by keeping the disk free of neighbours; removing it removed that.
+
+## 看负载：`collect-load.sh`（2026-09-27 新增）
+
+Metrics Server 就位之后（见 `../metrics-server/`）`kubectl top` 可用了，但**node 汇总数不足以决定"该挪谁"**：本集群大多数工作负载是被 `kubernetes.io/hostname` 显式钉住的，不是调度器摆的。所以真正要问的是"**哪些还动得了、它们各花多少**"。
+
+```sh
+bash collect-load.sh            # 只读；明细写到 collected/（已 gitignore）
+bash collect-load.sh --top 60   # 多看几个 Pod
+```
+
+它把**用量、落点、requests、是否被钉住、是否挂 RWO 卷**并成一张表——少任何一列都会得出错的结论：
+
+- **`CPU_REQ` / `MEM_REQ` 才是调度依据**，`CPU_USE` / `MEM_USE` 是实际用量。**两者差得远时先改 requests，别急着挪 Pod。**
+- **`钉住` 列为"是"的，改清单之前调度器不会把它放到别处。**
+- **`RWO` 列为"是"的，是卷把 Pod 钉在了一个节点上**（Ceph RBD RWO 只能挂一处）。
+- 没有指标的 Pod 显示 `?` 而不是 0——**缺失不等于零**，脚本不会把两者混起来。
+
+> ⚠️ 判断"往 master 挪"之前，先读上面那条：**master 的磁盘 I/O 没有保护**（etcd fsync）。ES 那类写重的不该往那儿放；能挪的是**轻的、无状态的**那些。
+>
+> ⚠️ 三台 NanoPC 由静态污点 `memory.guard/over-80:NoSchedule` 挡着，**不在候选之列**——把它们算进"可调度节点"就等于把守卫关掉。它们的 `MEMORY%` 显示 >100% 也是同一个原因（allocatable 被刻意压缩），不是容量告警。
