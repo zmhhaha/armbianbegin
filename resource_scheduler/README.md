@@ -247,3 +247,26 @@ bash collect-load.sh --top 60   # 多看几个 Pod
 > ⚠️ 判断"往 master 挪"之前，先读上面那条：**master 的磁盘 I/O 没有保护**（etcd fsync）。ES 那类写重的不该往那儿放；能挪的是**轻的、无状态的**那些。
 >
 > ⚠️ 三台 NanoPC 由静态污点 `memory.guard/over-80:NoSchedule` 挡着，**不在候选之列**——把它们算进"可调度节点"就等于把守卫关掉。它们的 `MEMORY%` 显示 >100% 也是同一个原因（allocatable 被刻意压缩），不是容量告警。
+
+## 动负载：`rebalance-load.sh`
+
+看到不均之后，**别靠改 pin 去修**。这个集群的不均是**历史遗留**，不是当前的调度决定：`8c32b0e`（2026-09-22 主节点参与调度）当时实测 orangepi5-max 上有 **132** 个 Pod；2026-09-28 用 `collect-load.sh` 再测是 **131**。**六天里一个都没挪**——跑着的 Pod 永远不会被重新调度。
+
+而同一份提交已经把办法记下来了：
+
+> 摘除后实测：**3 个无任何亲和性的 Pod 有 2 个选了 master**
+
+⇒ **新建的、没有亲和性的 Pod 会自己选 master**，因为那台在调度器眼里空得多：请求比 **21%/14%**（master）对 **92%/90%**（orangepi5-max）。
+
+```sh
+bash rebalance-load.sh --dry-run   # 先看候选与判据，什么都不动
+bash rebalance-load.sh             # 分批重启；每批之后打印两侧 top，超阈值就停
+```
+
+**候选判据全部取自活对象，不看清单文件**（清单可能已经和线上漂移）：Pod 在源节点上 Running、所属 Deployment **完全没有挂载任何卷**、**没有 hostname pin**、命名空间不在排除列表里。**带卷的一律不碰**——那需要受控的卸挂，数据库还要维护窗口。
+
+> ⚠️ **高危共享服务默认排除**：`casdoor`（所有人登录中断）、`ingress-nginx`（所有入口中断）、`content-llm-service` 等。它们和"重启某个 agent 的 UI"的爆炸半径差一个量级，要动必须显式加 `--include-shared`。
+>
+> ⚠️ `strategy: Recreate` 的 Deployment 重启会有**短暂中断**——脚本会把策略列打出来，滚动更新的则不会。
+>
+> ⚠️ 新 Pod 若因目标节点没地方而 Pending，脚本会在 rollout 超时后停下；**此时旧 Pod 仍在跑，并没有中断服务**。
