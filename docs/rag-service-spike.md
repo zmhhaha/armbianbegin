@@ -22,7 +22,7 @@
 | nanopct4-server1/2/3 | worker ×3 | 6C | 3.66G | RK3399 | 内存极紧，不适合放 embedding |
 
 - ES 单副本、固定在 `orangepi5-max-server1`，`nodeSelector` 已钉死。
-- 无 metrics-server，资源观测需直接 SSH。
+- ~~无 metrics-server，资源观测需直接 SSH。~~ **2026-09-27 起 `kubectl top` 可用**（`metrics-server/`）；本文下面的实测数字仍是当时 SSH 取的。
 
 ## 二、Elasticsearch 侧实测
 
