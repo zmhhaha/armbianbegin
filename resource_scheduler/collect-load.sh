@@ -48,38 +48,78 @@ def load(name):
         return json.load(fh)
 
 
+BINARY = (("Ki", 1024), ("Mi", 1024 ** 2), ("Gi", 1024 ** 3),
+          ("Ti", 1024 ** 4), ("Pi", 1024 ** 5), ("Ei", 1024 ** 6))
+DECIMAL = (("k", 1e3), ("M", 1e6), ("G", 1e9), ("T", 1e12), ("P", 1e15), ("E", 1e18))
+
+
+def base(v):
+    """Kubernetes quantity -> float in base units (cores for cpu, bytes for memory).
+
+    Returns None when the value cannot be parsed. **This must never raise.**
+    It did on the first real run: a node reported `memory: 1035776819200m`, the
+    suffix was not in the table, and the `float()` fallback killed the whole
+    report after one line. A quantity format we did not anticipate is a thing to
+    report, not a reason to lose every other number.
+    """
+    if v is None or v == "":
+        return 0.0
+    s = str(v).strip()
+    try:
+        if s.endswith("m"):                      # milli, valid for any resource
+            return float(s[:-1]) / 1000
+        for suf, mult in BINARY + DECIMAL:
+            if s.endswith(suf):
+                return float(s[: -len(suf)]) * mult
+        return float(s)                          # plain number, or 129e6
+    except ValueError:
+        return None
+
+
 def cpu(v):
-    """Kubernetes CPU quantity -> millicores."""
-    if not v:
-        return 0
-    if v.endswith("m"):
-        return int(v[:-1])
-    return int(float(v) * 1000)
+    """-> millicores, or None."""
+    b = base(v)
+    return None if b is None else b * 1000
 
 
 def mem(v):
-    """Kubernetes memory quantity -> MiB."""
-    if not v:
-        return 0
-    units = {"Ki": 1 / 1024, "Mi": 1, "Gi": 1024, "K": 1 / 1000, "M": 1 / 1.048576, "G": 1000 / 1.048576}
-    for suf, mult in units.items():
-        if v.endswith(suf):
-            return float(v[: -len(suf)]) * mult
-    return float(v) / 1048576
+    """-> MiB, or None."""
+    b = base(v)
+    return None if b is None else b / 1048576
+
+
+def total(vals):
+    """Sum, but None when any value is unparseable -- an unreadable quantity must
+    show as '?', never silently count as zero."""
+    vals = list(vals)
+    return None if any(v is None for v in vals) else sum(vals)
+
+
+def fmt(v, unit):
+    return "?" if v is None else "%g%s" % (v, unit)
 
 
 print("=" * 78)
 print("节点")
 print("=" * 78)
-print("%-24s %8s %7s  %-18s %-22s" % ("NAME", "MEM_ALLOC", "CPU_ALLOC", "TAINTS", "可调度"))
+# Raw and parsed side by side on purpose: the first real run hit a value whose
+# shape was not what we expected, and a parsed column alone would have hidden it.
+print("%-24s %16s %9s %8s %7s %-16s %-6s"
+      % ("NAME", "MEM(raw)", "MEM_GiB", "CPU(raw)", "CORES", "TAINTS", "可调度"))
 for node in load("nodes.json")["items"]:
     name = node["metadata"]["name"]
     alloc = node["status"].get("allocatable", {})
     taints = node["spec"].get("taints", []) or []
     tstr = ",".join("%s:%s" % (t["key"], t["effect"]) for t in taints) or "-"
     schedulable = "是" if not any(t["effect"] in ("NoSchedule", "NoExecute") for t in taints) else "否"
-    print("%-24s %7.1fGi %6sm  %-18s %-22s"
-          % (name, mem(alloc.get("memory")) / 1024, cpu(alloc.get("cpu")), tstr[:18], schedulable))
+    m, c = mem(alloc.get("memory")), cpu(alloc.get("cpu"))
+    print("%-24s %16s %9s %8s %7s %-16s %-6s"
+          % (name,
+             alloc.get("memory", "?"),
+             "?" if m is None else "%.1f" % (m / 1024),
+             alloc.get("cpu", "?"),
+             "?" if c is None else "%.1f" % (c / 1000),
+             tstr[:16], schedulable))
 
 # Usage by node, from `kubectl top`.
 usage = {}
@@ -128,14 +168,15 @@ for pod in pods:
     spec = pod["spec"]
     node = spec.get("nodeName", "?")
     pin = spec.get("nodeSelector", {}).get("kubernetes.io/hostname")
-    cpu_r = mem_r = 0
-    cpu_l = mem_l = 0
-    for c in spec.get("containers", []):
-        res = c.get("resources", {})
-        cpu_r += cpu(res.get("requests", {}).get("cpu"))
-        mem_r += mem(res.get("requests", {}).get("memory"))
-        cpu_l += cpu(res.get("limits", {}).get("cpu"))
-        mem_l += mem(res.get("limits", {}).get("memory"))
+    conts = spec.get("containers", [])
+
+    def rq(c, kind, key):
+        return c.get("resources", {}).get(kind, {}).get(key)
+
+    cpu_r = total(cpu(rq(c, "requests", "cpu")) for c in conts)
+    mem_r = total(mem(rq(c, "requests", "memory")) for c in conts)
+    cpu_l = total(cpu(rq(c, "limits", "cpu")) for c in conts)
+    mem_l = total(mem(rq(c, "limits", "memory")) for c in conts)
     uc, um = pod_usage.get((ns, name), ("?", "?"))
     rows.append({
         "ns": ns, "name": name, "node": node,
@@ -152,21 +193,25 @@ print("Pod：按内存用量降序（前 %d 个）" % TOP)
 print("=" * 78)
 print("%-34s %-22s %8s %8s %8s %8s %4s %4s" %
       ("NS/NAME", "NODE", "CPU_REQ", "MEM_REQ", "CPU_USE", "MEM_USE", "钉住", "RWO"))
-for r in sorted(rows, key=lambda r: -mem(r["um"]) if r["um"] != "?" else 0)[:TOP]:
-    print("%-34s %-22s %7sm %7.0fMi %8s %8s %4s %4s" %
-          ((r["ns"] + "/" + r["name"])[:34], r["node"][:22], r["cpu_r"], r["mem_r"],
+for r in sorted(rows, key=lambda r: -(mem(r["um"]) or 0))[:TOP]:
+    print("%-34s %-22s %8s %8s %8s %8s %4s %4s" %
+          ((r["ns"] + "/" + r["name"])[:34], r["node"][:22],
+           fmt(r["cpu_r"], "m"), fmt(r["mem_r"], "Mi"),
            r["uc"], r["um"], "是" if r["pinned"] else "", "是" if r["rwo"] else ""))
 
 print()
 print("=" * 78)
-print("按节点汇总（只算有指标的 Pod）")
+print("按节点汇总（用量只算有指标的 Pod；? 表示有值读不出来）")
 print("=" * 78)
-print("%-24s %6s %10s %10s %10s" % ("NODE", "PODS", "CPU_REQ", "MEM_REQ", "MEM_USE"))
+print("%-24s %6s %10s %10s %12s" % ("NODE", "PODS", "CPU_REQ", "MEM_REQ", "MEM_USE"))
 for node in sorted({r["node"] for r in rows}):
     sub = [r for r in rows if r["node"] == node]
-    used = sum(mem(r["um"]) for r in sub if r["um"] != "?")
-    print("%-24s %6d %9dm %9.0fMi %9.0fMi"
-          % (node, len(sub), sum(r["cpu_r"] for r in sub), sum(r["mem_r"] for r in sub), used))
+    measured = [m for m in (mem(r["um"]) for r in sub) if m is not None]
+    print("%-24s %6d %10s %10s %12s"
+          % (node, len(sub),
+             fmt(total(r["cpu_r"] for r in sub), "m"),
+             fmt(total(r["mem_r"] for r in sub), "Mi"),
+             fmt(sum(measured), "Mi") if measured else "?"))
 
 print()
 pinned = [r for r in rows if r["pinned"]]
