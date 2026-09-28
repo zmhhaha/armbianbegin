@@ -15,15 +15,23 @@
 #   bash deploy-agent-proxy.sh bingbichunqiu-agent
 #
 # 不传参数时默认重新部署 research-agent。
+#
+# 第二个参数是 upstream，不传则沿用历史默认值 ui.<target>:7860：
+#   bash deploy-agent-proxy.sh bingbichunqiu-agent \
+#     http://baijiazhengming-ui.baijiazhengming.svc.cluster.local:7860
+# 共享运行时（百家争鸣）就是这么把八个人格的代理都指到同一个 UI 的 —— 代理名字不变，
+# 所以 Cloudflare 后台与 Casdoor 回调都不用动。
 set -euo pipefail
 
 target="${1:-research-agent}"
+upstream="${2:-http://ui.${target}.svc.cluster.local:7860}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ "${target}" == "txt2img" ]]; then
     kubectl apply -f "${script_dir}/txt2img-proxy-configmap.yaml"
 else
-    sed "s/__TARGET_NAME__/${target}/g" "${script_dir}/proxy-configmap.yaml" | kubectl apply -f -
+    sed -e "s/__TARGET_NAME__/${target}/g" -e "s|__UPSTREAM__|${upstream}|g" \
+        "${script_dir}/proxy-configmap.yaml" | kubectl apply -f -
 fi
 sed "s/__TARGET_NAME__/${target}/g" "${script_dir}/proxy-deployment.yaml" | kubectl apply -f -
 

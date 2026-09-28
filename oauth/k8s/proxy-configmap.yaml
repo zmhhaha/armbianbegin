@@ -30,7 +30,7 @@ data:
       upstreams:
         - id: __TARGET_NAME__-ui
           path: /
-          uri: http://ui.__TARGET_NAME__.svc.cluster.local:7860
+          uri: __UPSTREAM__
           passHostHeader: true
           proxyWebSockets: true
 
