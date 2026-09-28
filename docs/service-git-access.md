@@ -1,6 +1,8 @@
 # 受控 Git 访问调研：让 DSH 与 Hermes 能改代码并推送
 
 > **需求（2026-09-25，所有者提出）**：DSH 与 Hermes 后续都要能**修改代码并推送到 Git 仓库**。本文回答三件事——给到什么权限、以什么形状给、以及**能不能不把凭据交给它们**。
+>
+> 🟢 **2026-09-28 实测回填：SSH 通道已在 DSH 容器内打通并端到端验证。** §四 的两条"欠账"与 §七 的两条未定项已关闭，**见 §八**（其中 §8.3 有一条与本文推荐的**不一致**，需所有者核对）。
 
 - 调研日期：2026-09-25
 - 代码基准：`armbianbegin` HEAD `0efb256`；`panghu_chat` 子模块 HEAD `94f8dc4`
@@ -123,11 +125,13 @@
 | HTTPS HEAD 到 GitHub／npm mirror | 项目容器（`closeout-2026-09-23.md`） | 301 / 302 |
 | 任意公网地址:端口 | 工作站（同网络） | CONNECTED（连 `192.0.2.1` 等不可路由测试段也是）——**软路由透明代理**，所以"可达"只证明包离开了容器 |
 
-> ⚠️ **还欠一条**：容器内的**公开仓库 HTTPS clone 在修掉那个错误 URL 之后尚未重跑**。上文"HTTPS 可用"在工作站成立、在容器内有旁证（HEAD 返回 301），但**没有一次端到端的容器内成功记录**。这与 `add-dsh-private-k8s-workbench` 里"公开仓库克隆、依赖安装…"那条验收项是同一件事。
+> ✅ **已关闭（2026-09-28）**：容器内端到端 HTTPS clone 成功——`git clone https://github.com/zmhhaha/armbianbegin.git` 连同三个子模块全部拉下。原欠账："容器内的**公开仓库 HTTPS clone 在修掉那个错误 URL 之后尚未重跑**。上文"HTTPS 可用"在工作站成立、在容器内有旁证（HEAD 返回 301），但**没有一次端到端的容器内成功记录**。" 实测见 §8.1。
 
 **建议走 HTTPS + credential helper**，理由：不走 SSH 就不需要 `known_hosts`、不需要 `~/.ssh/config`，而且吃的是**已经实测可用**的 443。
 
-> ⚠️ **未验证的外部推断**：普遍经验是**大陆链路上 GitHub 的 22 端口不稳**，常见绕法是 `~/.ssh/config` 里把 `github.com` 指到 `ssh.github.com:443`。**本仓库没有对这个网络做过这项实测**，所以仅作为"若坚持 SSH 时的备选"，不作为结论。
+> ✅ **已实测（2026-09-28）**：`ssh.github.com:443` 在本网络**可用**（`Hi zmhhaha! You've successfully authenticated`），且已落地为默认配置（§8.2）。原未验证推断："普遍经验是**大陆链路上 GitHub 的 22 端口不稳**，常见绕法是 `~/.ssh/config` 里把 `github.com` 指到 `ssh.github.com:443`。**本仓库没有对这个网络做过这项实测**。"
+>
+> ⚠️ 但**实测同时表明 22 端口是通的**（TCP 连接成功且 SSH 握手完整走完），所以"22 端口不稳"在本网络**未复现**——443 是冗余保险，不是唯一通道。
 
 ### 4.1 子模块配的是 SSH URL：会挡住容器里的**读**，但不需要凭据就能修
 
@@ -194,9 +198,47 @@ git config --global url."https://github.com/".insteadOf "git@github.com:"
 | 项 | 状态 |
 |---|---|
 | 推哪些仓库、Hermes 推什么 | **待所有者确认**（决定范围，范围定不下来无法实施） |
-| 走 A（deploy key，SSH）／B（细粒度 PAT，HTTPS）／C（隔离推送路径） | **待定**；§三、§四、§五 给了取舍依据 |
+| 走 A（deploy key，SSH）／B（细粒度 PAT，HTTPS）／C（隔离推送路径） | **已按 A 落地**（直挂，2026-09-28）。但**挂上去的密钥疑似账号级**，半径大于 §三 推荐——**待所有者核对**，见 §8.3 |
 | 是否要 "Verified" 徽章 | 待定。要就得单独引入 GPG 签名私钥，**那本身也是一条 agent 可读的凭据** |
-| 大陆链路 22 端口是否真的不稳 | **未在本仓库实测**，需要时按 §四 的备选处理 |
+| 大陆链路 22 端口是否真的不稳 | **2026-09-28 实测：22 端口通，未复现"不稳"**；`ssh.github.com:443` 亦可用并已落地为默认配置，见 §8.1 |
+
+## 八、实测回填（2026-09-28，全部在 DSH 容器内执行）
+
+> 本节关闭 §四 的两条欠账与 §七 的两条未定项。**所有命令都在 `dsh-runner` 容器里跑，不是工作站**——这个区分正是本仓库反复踩过的那类错误。
+
+### 8.1 传输实测
+
+| 项 | 结果 |
+|---|---|
+| `/dev/tcp/github.com/22` | ✅ 通；SSH 握手完整走完 |
+| `ssh -T git@ssh.github.com -p 443` | ✅ `Hi zmhhaha! You've successfully authenticated, but GitHub does not provide shell access.` |
+| `git ls-remote git@github.com:zmhhaha/armbianbegin.git` | ✅ 返回 refs |
+| `git clone --depth 1 git@github.com:zmhhaha/panghu_chat.git` | ✅ 成功（1.7 M） |
+| `git clone https://github.com/zmhhaha/armbianbegin.git` | ✅ 成功，**含三个子模块** |
+| 无凭据 + 私有/不存在仓库（HTTPS） | ❌ `could not read Username ... terminal prompts disabled` |
+
+⇒ **HTTPS 与 SSH 两条路现在都通**，SSH 需要 §8.2 的挂载。§四 那条"端到端容器内记录"的欠账已补上。
+
+### 8.2 落地的形状：直挂（§五 的第一种）
+
+已入库：`6ebb5e4 dsh和hermes添加git ssh公私钥配置`。
+
+| 项 | 值 |
+|---|---|
+| ExternalSecret | `vault/inventory/dsh-github-externalsecret.yaml`；ns `dsh-runners`；取自 `secret/data/dsh/github` 的 `id_ed25519` + `known_hosts`；`refreshInterval: 5m` |
+| 挂载点 | `/run/github-ssh/` —— **tmpfs、只读**（`/var/run` 是 `/run` 的软链） |
+| 文件权限 | `-r--r----- root:dev`（0440） |
+| 客户端配置 | `~/.ssh/config`：`Host github.com` → `HostName ssh.github.com`、`Port 443`、`IdentityFile /run/github-ssh/id_ed25519`、`UserKnownHostsFile /run/github-ssh/known_hosts`、`IdentitiesOnly yes` |
+
+> **一条与常见说法相反的经验**：0440（组可读）**没有**触发 OpenSSH 的 `UNPROTECTED PRIVATE KEY FILE`。原因是该文件**属主是 `root`**，而使用它的进程是 uid 10000 —— **OpenSSH 的权限检查只在"密钥属于当前用户"时才执行**，属主不同则直接信任。所以"挂载密钥必须 chmod 600"只在密钥归当前用户所有时才成立；一旦把密钥 `cp` 到 `/workspace/.ssh/`（变成 `dev` 所有），就**必须** `chmod 600`。
+
+### 8.3 ⚠️ 与本文推荐不一致的一点（待所有者核对）
+
+`ssh -T` 返回的问候语是 **`Hi zmhhaha!`** —— 这是 **GitHub 账号级 SSH key** 的形式；若是仓库 Deploy key，问候语会是 `Hi <owner>/<repo>!`。
+
+若确为账号级，则它与本文件 **§三（"账号级 SSH key ❌ 不用"）** 与 **§五（压缩半径）** 的推荐**相反**：半径不是"一个仓库"，而是**账号下所有仓库**，通常还能改仓库设置。建议核对它在 GitHub 上的归属，并考虑换成逐仓 Deploy key（A）或细粒度 PAT（B）。
+
+**另**：`known_hosts` 里只有 `[ssh.github.com]:443` 一条。若改回默认 22 端口，该文件不会命中，需补一条 `github.com` 记录；保持走 443 则无碍。
 
 ---
 
