@@ -1,0 +1,327 @@
+# ============================================================
+#  共享 oauth2-proxy：八个二级域名共用一个实例
+#
+#  前提：**Cloudflare 隧道不动** —— 8 条 Public Hostname 的 backend 仍指向
+#    oauth2-proxy-<slug>-agent.oauth.svc.cluster.local:4180
+#  所以下面保留这 8 个 Service 的**名字**当"壳"，只把 spec.selector 指向共享 Pod。
+#  域名依旧由请求的 Host 头携带，经 passHostHeader 透传给 UI，UI 的 _resolve()
+#  据此选人格 —— 隧道、Casdoor、应用代码都不用改。
+#
+#  部署（会替换 __CANONICAL_HOST__ / __UPSTREAM__）：
+#    bash deploy-shared-agent-proxy.sh
+#  手工渲染：
+#    sed -e "s/__CANONICAL_HOST__/bingbichunqiu-agent.panghuer.top/g" \
+#        -e "s|__UPSTREAM__|http://baijiazhengming-ui.baijiazhengming.svc.cluster.local:7860|g" \
+#        shared-agent-proxy.yaml | kubectl apply -f -
+#
+#  ⚠️ --redirect-url 只能有一个值，所以 canonical 取现有八个域名之一。好处是
+#     Casdoor 里那条回调**已经注册过**，认证侧零改动。
+#  ⚠️ --whitelist-domain 是本方案最容易漏的一条：不配它，从其余七个域名登录会被
+#     弹回 canonical 域名（症状：「我在 A 域名登录，却落在 B 域名」）。
+#  ⚠️ metadata.labels 保持与旧 Service 一致，只是为了减少无谓 diff；生效的只有
+#     spec.selector。
+# ============================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth2-proxy-config-baijiazhengming
+  namespace: oauth
+data:
+  alpha-config.yaml: |
+    providers:
+      - id: oidc
+        provider: oidc
+        clientID: ${OIDC_CLIENT_ID}
+        clientSecret: ${OIDC_CLIENT_SECRET}
+        scope: "openid email profile"
+        oidcConfig:
+          issuerURL: ${OIDC_ISSUER_URL}
+          userIDClaim: "sub"
+          emailClaim: "email"
+          groupsClaim: "groups"
+          audienceClaims: ["aud"]
+    upstreamConfig:
+      upstreams:
+        - id: baijiazhengming-ui
+          path: /
+          uri: __UPSTREAM__
+          # 关键：把原始 Host 透给 UI。少了它，UI 只看得到 Service 的 DNS 名，
+          # 八个域名会一起退化成「当前域名未登记」。
+          passHostHeader: true
+          proxyWebSockets: true
+    injectRequestHeaders:
+      - name: X-Forwarded-User
+        values:
+          - claim: user
+      - name: X-Forwarded-Email
+        values:
+          - claim: email
+      - name: X-Forwarded-Preferred-Username
+        values:
+          - claim: preferred_username
+    server:
+      BindAddress: "0.0.0.0:4180"
+    metricsServer:
+      BindAddress: "0.0.0.0:44180"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy-baijiazhengming
+  namespace: oauth
+  labels:
+    app: oauth2-proxy-baijiazhengming
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: oauth2-proxy-baijiazhengming
+  template:
+    metadata:
+      labels:
+        app: oauth2-proxy-baijiazhengming
+    spec:
+      containers:
+      - name: oauth2-proxy
+        image: arm-cluster-master:5000/oauth2-proxy:v7.8.0
+        imagePullPolicy: Always
+        args:
+          - "--alpha-config=/etc/oauth2-proxy/alpha-config.yaml"
+          - "--cookie-secret=$(COOKIE_SECRET)"
+          # 保持 .panghuer.top：会话本来就跨子域通用，切共享代理后用户无需重新登录
+          - "--cookie-domain=.panghuer.top"
+          - "--cookie-secure=true"
+          - "--cookie-samesite=lax"
+          # 每次登录请求用独立 CSRF Cookie：一个代理服务八个域名/多个标签页，更需要它
+          - "--cookie-csrf-per-request=true"
+          - "--cookie-csrf-expire=5m"
+          - "--custom-templates-dir=/etc/oauth2-proxy/templates"
+          - "--cookie-expire=720h"
+          - "--cookie-refresh=24h"
+          - "--cookie-name=_oauth2_proxy"
+          - "--email-domain=$(ALLOWED_DOMAINS)"
+          # 唯一的 canonical 回调（现有八个域名之一）
+          - "--redirect-url=https://__CANONICAL_HOST__/oauth2/callback"
+          # 允许登录后跳回**原始**域名；默认只允许 redirect-url 自己的 host
+          - "--whitelist-domain=.panghuer.top"
+          - "--reverse-proxy=true"
+          - "--skip-provider-button=true"
+          - "--silence-ping-logging=true"
+          - "--ssl-insecure-skip-verify=true"
+        ports:
+        - containerPort: 4180
+          name: http
+        - containerPort: 44180
+          name: metrics
+        envFrom:
+        - secretRef:
+            name: oauth2-proxy-secret
+        volumeMounts:
+        - name: config
+          mountPath: /etc/oauth2-proxy
+          readOnly: true
+        - name: error-template
+          mountPath: /etc/oauth2-proxy/templates
+          readOnly: true
+        resources:
+          requests: {cpu: 10m, memory: 32Mi}
+          limits: {cpu: 200m, memory: 256Mi}
+        livenessProbe:
+          httpGet: {path: /ping, port: 4180}
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet: {path: /ping, port: 4180}
+          initialDelaySeconds: 5
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: oauth2-proxy-config-baijiazhengming
+      # 全集群共用一份错误页模板，由 proxy-deployment.yaml 提供（已存在，不重复定义）
+      - name: error-template
+        configMap:
+          name: oauth2-proxy-error-template
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-baijiazhengming
+  namespace: oauth
+  labels:
+    app: oauth2-proxy-baijiazhengming
+spec:
+  selector:
+    app: oauth2-proxy-baijiazhengming
+  ports:
+  - port: 4180
+    targetPort: 4180
+    name: http
+  - port: 44180
+    targetPort: 44180
+    name: metrics
+---
+# 单点缓解：2 副本 + 至少 1 个可用，节点驱逐/滚动时不断服。
+# 只合并认证层（业务层本来就共享一个 UI/API），不需要可以删掉这段。
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: oauth2-proxy-baijiazhengming
+  namespace: oauth
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: oauth2-proxy-baijiazhengming
+---
+# 名字壳：name 必须与 Cloudflare 后台那条 Public Hostname 的 backend 一致
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-bingbichunqiu-agent
+  namespace: oauth
+  labels:
+    app: oauth2-proxy-bingbichunqiu-agent
+spec:
+  selector:
+    app: oauth2-proxy-baijiazhengming
+  ports:
+  - port: 4180
+    targetPort: 4180
+    name: http
+  - port: 44180
+    targetPort: 44180
+    name: metrics
+---
+# 名字壳：name 必须与 Cloudflare 后台那条 Public Hostname 的 backend 一致
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-daofaziran-agent
+  namespace: oauth
+  labels:
+    app: oauth2-proxy-daofaziran-agent
+spec:
+  selector:
+    app: oauth2-proxy-baijiazhengming
+  ports:
+  - port: 4180
+    targetPort: 4180
+    name: http
+  - port: 44180
+    targetPort: 44180
+    name: metrics
+---
+# 名字壳：name 必须与 Cloudflare 后台那条 Public Hostname 的 backend 一致
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-fofawubian-agent
+  namespace: oauth
+  labels:
+    app: oauth2-proxy-fofawubian-agent
+spec:
+  selector:
+    app: oauth2-proxy-baijiazhengming
+  ports:
+  - port: 4180
+    targetPort: 4180
+    name: http
+  - port: 44180
+    targetPort: 44180
+    name: metrics
+---
+# 名字壳：name 必须与 Cloudflare 后台那条 Public Hostname 的 backend 一致
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-xiaotanrenjian-agent
+  namespace: oauth
+  labels:
+    app: oauth2-proxy-xiaotanrenjian-agent
+spec:
+  selector:
+    app: oauth2-proxy-baijiazhengming
+  ports:
+  - port: 4180
+    targetPort: 4180
+    name: http
+  - port: 44180
+    targetPort: 44180
+    name: metrics
+---
+# 名字壳：name 必须与 Cloudflare 后台那条 Public Hostname 的 backend 一致
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-yimaneili-agent
+  namespace: oauth
+  labels:
+    app: oauth2-proxy-yimaneili-agent
+spec:
+  selector:
+    app: oauth2-proxy-baijiazhengming
+  ports:
+  - port: 4180
+    targetPort: 4180
+    name: http
+  - port: 44180
+    targetPort: 44180
+    name: metrics
+---
+# 名字壳：name 必须与 Cloudflare 后台那条 Public Hostname 的 backend 一致
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-zhenzhuzhida-agent
+  namespace: oauth
+  labels:
+    app: oauth2-proxy-zhenzhuzhida-agent
+spec:
+  selector:
+    app: oauth2-proxy-baijiazhengming
+  ports:
+  - port: 4180
+    targetPort: 4180
+    name: http
+  - port: 44180
+    targetPort: 44180
+    name: metrics
+---
+# 名字壳：name 必须与 Cloudflare 后台那条 Public Hostname 的 backend 一致
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-zhongkuifumo-agent
+  namespace: oauth
+  labels:
+    app: oauth2-proxy-zhongkuifumo-agent
+spec:
+  selector:
+    app: oauth2-proxy-baijiazhengming
+  ports:
+  - port: 4180
+    targetPort: 4180
+    name: http
+  - port: 44180
+    targetPort: 44180
+    name: metrics
+---
+# 名字壳：name 必须与 Cloudflare 后台那条 Public Hostname 的 backend 一致
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy-zhougongjiemeng-agent
+  namespace: oauth
+  labels:
+    app: oauth2-proxy-zhougongjiemeng-agent
+spec:
+  selector:
+    app: oauth2-proxy-baijiazhengming
+  ports:
+  - port: 4180
+    targetPort: 4180
+    name: http
+  - port: 44180
+    targetPort: 44180
+    name: metrics
