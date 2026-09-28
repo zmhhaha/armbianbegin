@@ -215,9 +215,12 @@ git config --global url."https://github.com/".insteadOf "git@github.com:"
 | `git ls-remote git@github.com:zmhhaha/armbianbegin.git` | ✅ 返回 refs |
 | `git clone --depth 1 git@github.com:zmhhaha/panghu_chat.git` | ✅ 成功（1.7 M） |
 | `git clone https://github.com/zmhhaha/armbianbegin.git` | ✅ 成功，**含三个子模块** |
+| SSH `git push` | ✅ 成功（`6ebb5e4..4c19932  main -> main`） |
 | 无凭据 + 私有/不存在仓库（HTTPS） | ❌ `could not read Username ... terminal prompts disabled` |
 
-⇒ **HTTPS 与 SSH 两条路现在都通**，SSH 需要 §8.2 的挂载。§四 那条"端到端容器内记录"的欠账已补上。
+⇒ **HTTPS 与 SSH 两条路现在都通**，SSH 需要 §8.2 的挂载。§四 那条"端到端容器内记录"的欠账已补上；**写权限（push）同样实测通过**。
+
+⚠️ **但归属未解决**：本次推送的作者是占位身份 `dsh-runner <dsh-runner@local>`，**不是所有者账号下已验证的邮箱，因此不会归属到账号**（见 §一）。正式启用前按 §六 把 `user.name` / `user.email` 配成约定值。
 
 ### 8.2 落地的形状：直挂（§五 的第一种）
 
