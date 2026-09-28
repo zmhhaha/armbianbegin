@@ -71,7 +71,12 @@ spec:
           - "--cookie-refresh=24h"
           - "--cookie-name=_oauth2_proxy"
           - "--email-domain=$(ALLOWED_DOMAINS)"
-          - "--redirect-url=https://__TARGET_NAME__.panghuer.top/oauth2/callback"
+          # 回调参数由 deploy-agent-proxy.sh 决定：
+          #   按服务的代理 → --redirect-url=https://<target>.panghuer.top/oauth2/callback
+          #   多域名共享实例（target=baijiazhengming）→ --whitelist-domain=.panghuer.top，
+          #     让 oauth2-proxy 按请求的 Host 生成回调（写死的话，从别的域名登录会被绕到
+          #     被写死的那一个。八个回调在 Casdoor 都注册过了）
+          - "__CALLBACK_ARG__"
           - "--reverse-proxy=true"
           - "--skip-provider-button=true"
           - "--silence-ping-logging=true"

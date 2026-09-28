@@ -21,10 +21,19 @@
 #     http://baijiazhengming-ui.baijiazhengming.svc.cluster.local:7860
 # 共享运行时（百家争鸣）就是这么把八个人格的代理都指到同一个 UI 的 —— 代理名字不变，
 # 所以 Cloudflare 后台与 Casdoor 回调都不用动。
+#
+# 特例：target=baijiazhengming 是**多域名共享实例**（一个代理服务八个域名）。它的回调
+# 不能写死，改用 --whitelist-domain，由 oauth2-proxy 按请求的 Host 生成回调 ——
+# 写死的话，从别的域名登录会被绕到被写死的那一个。
 set -euo pipefail
 
 target="${1:-research-agent}"
 upstream="${2:-http://ui.${target}.svc.cluster.local:7860}"
+if [[ "${target}" == "baijiazhengming" ]]; then
+    callback_arg="--whitelist-domain=.panghuer.top"
+else
+    callback_arg="--redirect-url=https://${target}.panghuer.top/oauth2/callback"
+fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ "${target}" == "txt2img" ]]; then
@@ -33,7 +42,8 @@ else
     sed -e "s/__TARGET_NAME__/${target}/g" -e "s|__UPSTREAM__|${upstream}|g" \
         "${script_dir}/proxy-configmap.yaml" | kubectl apply -f -
 fi
-sed "s/__TARGET_NAME__/${target}/g" "${script_dir}/proxy-deployment.yaml" | kubectl apply -f -
+sed -e "s/__TARGET_NAME__/${target}/g" -e "s|__CALLBACK_ARG__|${callback_arg}|g" \
+    "${script_dir}/proxy-deployment.yaml" | kubectl apply -f -
 
 # 必加：oauth2-proxy 在**启动时**读 alpha-config。只改 ConfigMap 的话 Deployment 的
 # spec 没变，apply 不会触发滚动更新，Pod 会一直用着旧 upstream —— 表现是
