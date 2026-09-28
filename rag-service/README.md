@@ -200,6 +200,8 @@ NetworkPolicy 只允许带 `rag-client: "true"` 标签的 Pod 访问 RAG；出�
 以通过 llm-service 的入站策略。
 
 > 🔴 **2026-09-20 更正**：这两条策略在本集群**均未生效**——CNI 是 `kube-flannel`，不实现 NetworkPolicy；`rag-client` / `llm-client` 标签不产生任何准入效果。从 `dsh-runner` 容器直连 `rag-service.data.svc:8080` 实测 **CONNECTED**。另注意：`embedding-service` 的入站策略要求 `embedding-client: "true"`，而**全集群带该标签的 Pod 数量为 0**——一旦启用策略引擎，RAG 会立刻断在这里。见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
+>
+> 🗓️ **2026-09-29 更正**：上述"未生效"状态已于 **2026-09-21** 结束——集群 CNI 当天从 `kube-flannel` 迁到 **Calico**，NetworkPolicy 随之真正生效（`calico-node` 5/5）。所以 `rag-client: "true"` 不再是空转的标签，而是**当前正在承重**的准入条件：实测不带该标签的 Pod 连 `rag-service.data.svc:8080` 会被拒。另，上面提到的 `embedding-service` 入站策略**已被删除**（`data` 命名空间现在只剩 `rag-service` 这一条策略），"RAG 会断在 embedding-service"的风险不再存在。见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)、[../docs/calico-migration-run.md](../docs/calico-migration-run.md)。
 
 ## 本地运行与测试
 

@@ -3,6 +3,8 @@
 > 评审时间：2026-09-16；**2026-09-17 修订**（代码在评审后大幅改动，且已部署）。
 > 评审对象：`panghu_chat/hermes/`（子模块）+ `oauth/k8s/hermes-*`、`vault/inventory/hermes-*`、`cloudflare-tunnel/operator/hermes-*`。
 > 配套：[hermes-intelligence-review.md](hermes-intelligence-review.md)（方案层评审）、[platform-auth-ingress-survey.md](platform-auth-ingress-survey.md)、[platform-k8s-conventions.md](platform-k8s-conventions.md)。
+>
+> 🗓️ **2026-09-29 更正（行号全面失效）**：本文所有 `pipeline.py:NNN` 行号引用**一律作废**——`panghu_chat/hermes/app/pipeline.py` 已不存在，照旧行号定位不到任何代码。现网代码在 `app/delivery.py`、`app/native_publisher.py`、`scripts/intelligence_gate.py`、`scripts/intelligence_publish.py`，**行号需按这些文件重新推导，勿沿用旧数字**。受影响处：修订记录表（`pipeline.py:191-199`）、H1 表（`app/pipeline.py:211`）、M1–M5、L3——各条保留原文以存历史。见 [../panghu_chat/hermes/README.md](../panghu_chat/hermes/README.md)、[../panghu_chat/hermes/docs/2026-09-22-report-audit.md](../panghu_chat/hermes/docs/2026-09-22-report-audit.md)。
 
 ## 修订记录（2026-09-17）
 
@@ -29,6 +31,8 @@
 > 2. **但本条从未"发作"过，因为策略根本没生效**：集群 CNI 是 `kube-flannel`，不实现 NetworkPolicy。下面"Hublog 发布会被拦"的推论**在当时的集群上不成立**（发布任务实际跑过并 Completed）。
 >
 > 所以这条的准确定性是**清单内部不一致**，不是一次实际故障。它仍然值得修——策略引擎一旦启用，它就是第一个会炸的点。见 [network-policy-engine.md](network-policy-engine.md)。
+>
+> 🗓️ **2026-09-29 更正**：CNI 已于 **2026-09-21** 从 `kube-flannel` 迁到 **Calico**，NetworkPolicy 随之真正生效（`calico-node` 5/5）。所以上面"策略根本没生效""在当时的集群上不成立"**只适用于 2026-09-21 之前**；今天 H1 是**真实风险**——`hublog-publisher` 若只放行 8080 而实际连 80，会被真的拦掉。缓解仍在：清单层已同时放行 80 与 8080（见上"清单层已修"），故当前应无事，但**启用发布路径前必须确认集群里跑的是修后的策略**。见 [network-policy-engine.md](network-policy-engine.md)、[calico-migration-run.md](calico-migration-run.md)。
 
 修改后**两处都变明确**了，但方向相反：
 
@@ -67,6 +71,8 @@ kubectl -n hermes run hermes-netcheck --rm -it --restart=Never \
 通了 → 规则改成 80（或保留两者）。超时 → 当前 CNI 是 DNAT 后匹配，现规则可用。
 
 > ⚠️ 时序：这三个 CronJob 初始全部 `suspend: true`，所以**发布路径至今没有被执行过**。这条必须在启用 `hermes-publish` 之前解决，否则第一次发布会在 20:10 静默失败，而失败要等 `failedJobsHistoryLimit` 里看到 Job 才知道。
+>
+> 🗓️ **2026-09-29 更正**：`hermes` 命名空间现在**没有任何 CronJob**——三个定时任务已迁到 **Hermes 自带的原生调度器**（首次启动经 `cron.jobs.create_job` 注册，`hermes cron status` 显示 live ticker）。所以"三个 CronJob 初始全部 suspend"的时序描述已过期；但**要旨不变**：H1 必须在启用发布路径前处理。见 [../panghu_chat/hermes/README.md](../panghu_chat/hermes/README.md)。
 
 ### H2. CLI 契约 —— 镜像部分已解决，契约部分仍无门禁
 
@@ -164,4 +170,4 @@ limits 只在争抢时生效，requests 合计约 5.5 GiB 调度上没问题。�
 
 - **H1** —— 启用 publish 前必须处理
 - **成本记账**：`MAX_DAILY_ATTEMPTS=2`（`core.yaml:48`）限的是**模型调用次数**，不是金额。README 也承认"Token 轮数限制不等于金额硬上限"，需确保供应商侧真设了每日额度
-- **"看到第一份产出"的路径**：三个 CronJob 仍全部 suspend，需先完成验收清单
+- **"看到第一份产出"的路径**：~~三个 CronJob 仍全部 suspend，需先完成验收清单~~ 🗓️ **2026-09-29 更正**：`hermes` 命名空间已无 CronJob，任务改由 Hermes 原生调度器驱动（见 [../panghu_chat/hermes/README.md](../panghu_chat/hermes/README.md)）；"需先完成验收清单"这一结论需按新调度器重新评估。

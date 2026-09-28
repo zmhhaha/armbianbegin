@@ -10,6 +10,8 @@
 >
 > **🟡 2026-09-22 补充**：引擎已换成 **Calico**（2026-09-21 迁移完成），DSH 策略里那条 `198.18.0.0/15` 也已删除。**但端到端复验尚未执行**，所以上面这条结论继续有效——按「截至 2026-09-20」读，别当成今天的现状。复验执行材料：[../panghu_chat/dsh/verify-network-boundary.sh](../panghu_chat/dsh/verify-network-boundary.sh)。
 >
+> **✅ 2026-09-29 更正：这次复验已经执行，「尚未执行」不再成立。** 2026-09-23 用上面那个脚本在**真实项目容器**里跑通，**退出码 0**；2026-09-29 又实测复现：`llm-service.llm.svc:80`、`kubernetes.default.svc:443`、`vault.vault.svc:8200`、`169.254.169.254:80`、`192.168.137.211:22` 全部 **BLOCKED**，`github.com:443`、`auth.panghuer.top:443` **CONNECTED**。Calico 的 `calico-node` 现在 5/5，**NetworkPolicy 确实在生效**。⇒ 上面两条更正保留作过程记录，但**本目录文档不应再按「边界未生效」读**。证据：[../panghu_chat/dsh/docs/closeout-2026-09-23.md](../panghu_chat/dsh/docs/closeout-2026-09-23.md)。
+>
 > **受影响的本目录文档**：[platform-k8s-conventions.md](platform-k8s-conventions.md) 第三节与 [platform-reusable-capabilities.md](platform-reusable-capabilities.md) 中"调用方 Pod 必须打 `llm-client` / `rag-client` / `embedding-client` 标签，否则连不上"的说法**在本集群上没有依据**，已就地加注更正。那条"最高频的坑"看起来是文档间相互引用，不是实测经验。
 >
 > 完整结论与证据见 [panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
