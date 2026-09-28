@@ -35,4 +35,9 @@ else
 fi
 sed "s/__TARGET_NAME__/${target}/g" "${script_dir}/proxy-deployment.yaml" | kubectl apply -f -
 
+# 必加：oauth2-proxy 在**启动时**读 alpha-config。只改 ConfigMap 的话 Deployment 的
+# spec 没变，apply 不会触发滚动更新，Pod 会一直用着旧 upstream —— 表现是
+# 「ConfigMap 看是对的、日志里却在 dial 一个早就删掉的旧地址」，浏览器拿到 502。
+# （2026-09-28 实测踩过：七个代理都停在 ui.<target>，只有更早重启过的那个是好的。）
+kubectl rollout restart "deployment/oauth2-proxy-${target}" -n oauth
 kubectl rollout status "deployment/oauth2-proxy-${target}" -n oauth --timeout=180s

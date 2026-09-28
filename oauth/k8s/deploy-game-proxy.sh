@@ -16,4 +16,8 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 sed "s/__TARGET_NAME__/${target}/g" "${script_dir}/game-proxy-configmap.yaml" | kubectl apply -f -
 sed "s/__TARGET_NAME__/${target}/g" "${script_dir}/game-proxy-deployment.yaml" | kubectl apply -f -
 
+# 必加：oauth2-proxy 在启动时读 alpha-config，只改 ConfigMap 不会让 Deployment 滚动，
+# Pod 会一直用旧 upstream（症状是日志里 dial 一个早就没了的地址、浏览器 502）。
+# 见 deploy-agent-proxy.sh 里的同一处注释（2026-09-28 实测踩过）。
+kubectl rollout restart "deployment/oauth2-proxy-${target}" -n oauth
 kubectl rollout status "deployment/oauth2-proxy-${target}" -n oauth --timeout=180s
