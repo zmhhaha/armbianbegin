@@ -84,6 +84,8 @@ tier 策略在 `llm-service/config.py:44-57`。**上限只在调用方自己传�
 两个前提：Pod 必须带 `rag-client: "true"` 标签过 NetworkPolicy（`rag-service/k8s.yaml:103-107`）；改环境变量后需重启 Deployment。
 
 > 🔴 **2026-09-20 更正**：该 NetworkPolicy **在本集群未生效**（CNI 是 `kube-flannel`，不实现 NetworkPolicy）。从 `dsh-runner` 容器直连 `rag-service.data.svc.cluster.local:8080` 实测 **CONNECTED**。打标签仍应保留（策略生效后即为准入条件），但**当前它不提供任何隔离**。同类问题同时影响 `embedding-service` 与 `llm-service`。证据见 [../panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
+>
+> ✅ **2026-09-29 更正：上面这条已作废——策略现在真的在生效，`rag-client` 是真门槛。** 集群 CNI 已于 2026-09-21 换成 **Calico**（`calico-node` 5/5），`data/rag-service` 这条策略**已在生效**，缺 `rag-client: "true"` 的 Pod 实测被拒（2026-09-23 端到端复验退出码 0，2026-09-29 复现，见 [../panghu_chat/dsh/docs/closeout-2026-09-23.md](../panghu_chat/dsh/docs/closeout-2026-09-23.md)）。⇒ 上文「两个前提」里的这一个**是真前提**。⚠️ 但只对 `rag-client` 成立：`llm-client` / `embedding-client` 在集群里**仍然没有任何策略**在选它们，那句"同类问题同时影响 `embedding-service` 与 `llm-service`"要按「那两条策略今天已不存在」读。当前清单见 [network-policy-engine.md](network-policy-engine.md)。
 
 **索引与别名**：`index_name` = `rag-<collection>-<INDEX_VERSION>`（`app.py:68-70`），`alias_name` = `rag-<collection>`（`app.py:73-75`）。检索只认别名，写入时原子改指向（`app.py:78-94`）。同 source_id + 同 checksum 幂等返回 ready（`app.py:284-290`）；checksum 变化时写临时索引再原子替换（`app.py:251-271`）。`doc_type=knowledge` 时由服务端按 H2 小节切分（`app.py:227-246`，逻辑在 `chunking.py:34-62`）。
 
@@ -92,6 +94,7 @@ tier 策略在 `llm-service/config.py:44-57`。**上限只在调用方自己传�
 - 模型 `bge-small-zh-v1.5`，ONNX Runtime CPU，CLS 池化 + L2 归一化，**512 维**（`app.py:11-17,52-56`；`README.md:3`）。
 - 部署：单副本，`nodeSelector: orangepi5-max-server1`，`ORT_INTRA_OP_THREADS=4`（`k8s.yaml:11-52`）。NetworkPolicy 只放行 `embedding-client: "true"` 标签（`k8s.yaml:54-68`）。模型随镜像发布，构建时从 hf-mirror 下载（`README.md:5-14`）。
   - 🔴 **2026-09-20 更正**：该策略**未生效**（CNI 是 `kube-flannel`）。更要紧的是：**实测全集群带 `embedding-client: "true"` 标签的 Pod 数量为 0**，而 `rag-service` 是本服务唯一调用方 —— 策略引擎一旦启用，RAG 会立刻断在这里。见 [network-policy-engine.md](network-policy-engine.md)。
+  - ✅ **2026-09-29 更正：这条策略在集群里已经不存在，上面那个「RAG 会立刻断」的预测没有发生。** 当前全集群 **13 条** NetworkPolicy 里没有 `data/embedding-service`（`data` 命名空间只剩 `rag-service` 一条），`embedding-client` 标签**今天不是准入门槛**。当年它就是被当作范围外策略、按 [../network-policy/README.md](../network-policy/README.md) 第②节优先删掉的那几条之一。当前清单见 [network-policy-engine.md](network-policy-engine.md)。
 - 接口：`POST /v1/embeddings`，body `{model, input(1-16 条，每条≤8192 字符), input_type(passage|query)}`（`app.py:21-24`）；`query` 会加中文检索指令前缀（`app.py:47-48`）。
 - 地址 `http://embedding-service.data.svc.cluster.local:8080`（`README.md:28`）。
 

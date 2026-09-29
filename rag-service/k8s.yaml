@@ -22,8 +22,11 @@ spec:
       labels:
         app: rag-service
         # llm-service 的 NetworkPolicy 只放行带此标签的 Pod（注 2026-09-20 实测：本集群 CNI 不实现 NetworkPolicy，该策略当前未生效；缺标签不会被拦、也不会表现为超时。见 docs/network-policy-engine.md）
-        # ⚠️ 2026-09-29 更正：CNI 已于 2026-09-21 迁到 Calico，NetworkPolicy 随之真正生效——上面"该策略当前未生效"已不成立，
-        # 本标签现在是承重的（缺 `llm-client: "true"` 会被拦）。见 docs/network-policy-engine.md、docs/calico-migration-run.md
+        # ⚠️ 2026-09-29 更正：CNI 已于 2026-09-21 迁到 Calico，NetworkPolicy 随之真正生效 ——
+        # 上面那条注的**前提**变了，但结论要分清：本标签对应的策略**在 `llm` 命名空间里至今不存在**
+        # （实测 `kubectl -n llm get networkpolicy` 为空），所以 `llm-client` 仍然不是承重的、
+        # 缺它不会被拦。真正承重的是 `rag-client` —— `data/rag-service` 那条策略确实生效。
+        # 见 docs/network-policy-engine.md、docs/calico-migration-run.md、rag-service/README.md 的 09-29 更正
         llm-client: "true"
     spec:
       automountServiceAccountToken: false

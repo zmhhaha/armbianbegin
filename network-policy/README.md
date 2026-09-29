@@ -23,6 +23,8 @@
 
 **这个组件本来唯一要做的事**：让集群里的 NetworkPolicy 对象**真的生效**。原来的 CNI 是 `kube-flannel`，不实现 NetworkPolicy，所以它们全部空转——完整证据见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md) 与 [../panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
 
+> ✅ **2026-09-29 更正：这个"本来唯一要做的事"已经由 Calico 完成了，本目录的 kube-router 路线彻底退为备用。** 集群 CNI 已于 2026-09-21 换成 **Calico**（`calico-node` 5/5），NetworkPolicy 不再空转；2026-09-23 端到端边界复验退出码 0（2026-09-29 复现，见 [../panghu_chat/dsh/docs/closeout-2026-09-23.md](../panghu_chat/dsh/docs/closeout-2026-09-23.md)）。⚠️ **因此下文"部署步骤""动 orangepi5 之前必须做的两件事"里那些以"引擎还没装"为前提的话（例如 `apply` 是零风险、`kube-flannel` 集群里策略不执行）在今天是错的**——集群上策略已经在执行，动手前请按当前清单核实。当前清单见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
+
 ## 为什么不选 Calico
 
 Calico 的策略-only 模式**不支持装在已有 flannel 的集群上**（[projectcalico/calico#8866](https://github.com/projectcalico/calico/issues/8866)，维护者明确回复；原因之一是 flannel 网桥会破坏 Calico 的同节点策略）。Calico 官方唯一的 flannel 组合是 `canal.yaml`，那等于**替换掉现有 flannel**，需要重建全部 164 个 Pod。
@@ -91,7 +93,7 @@ kubectl -n hermes get networkpolicy hublog-publisher -o jsonpath='{.spec.egress[
 # 期望同时含 80 与 8080；只有 8080 会让发布断掉。
 ```
 
-不匹配就 apply（**当前引擎还没生效，apply 是零风险的**）：
+不匹配就 apply（**当前引擎还没生效，apply 是零风险的**）——⚠️ **2026-09-29 作废：集群已迁 Calico、策略正在执行，"引擎还没生效"不再成立**（见本节顶部 ✅ 更正）：
 
 ```sh
 kubectl apply -f ../panghu_chat/dsh/k8s/networkpolicies.yaml

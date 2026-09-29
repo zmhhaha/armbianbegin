@@ -70,6 +70,10 @@
 > 🔴 **2026-09-20 更正：以上整段在本集群上没有依据。** 实测确认集群 CNI 是 `kube-flannel`（无 Calico/Cilium/kube-router），**flannel 不实现 NetworkPolicy**，因此这 3 个策略**从未生效**。从 `dsh-runner` 容器直连 `rag-service` / `embedding-service` / `llm-service` 全部 **CONNECTED**。
 >
 > 打标签仍是**正确的写法**（策略生效后它就是准入条件），但**不要再用"表现为超时"去诊断连通性问题**——现在的超时一定是别的原因。那"约 15 处记录"经查大多是注释与 README 相互引用，**不是本集群的实测经验**。证据见 [../panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
+>
+> ✅ **2026-09-29 更正：NetworkPolicy 现在真的生效了，但上面那句「三个标签都必须打」只对了三分之一。** 集群 CNI 已于 **2026-09-21 换成 Calico**（`calico-node` 5/5），2026-09-23 端到端边界复验**退出码 0**（2026-09-29 复现，见 [../panghu_chat/dsh/docs/closeout-2026-09-23.md](../panghu_chat/dsh/docs/closeout-2026-09-23.md)）⇒ 上一段「三个策略从未生效」**已作废**。
+>
+> **但只有 `rag-client` 是真正的准入门槛**：全集群现有 **13 条** NetworkPolicy，其中 `data/rag-service` 仍在、仍按 `rag-client: "true"` 选人，缺这个标签的 Pod 实测被拒。**`llm-client` 与 `embedding-client` 不是**——`llm` 命名空间里没有任何 NetworkPolicy，集群里也没有 `data/embedding-service` 这条（`data` 只剩 `rag-service`）。上表列的三条**只剩第三条还在集群里**；`llm-service/k8s.yaml`、`embedding-service/k8s.yaml` 里的策略对象只是清单残留，未在集群生效。别再把三者并列描述成"都要打标签才能连上"。当前完整清单见 [network-policy-engine.md](network-policy-engine.md)。
 
 `llm-guard-report-agent` 的 CronJob 演示了正确写法（`panghu_agent/content_agents/k8s/cronjobs.yaml:271-273`）。
 

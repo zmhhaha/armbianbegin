@@ -14,6 +14,8 @@
 >
 > **受影响的本目录文档**：[platform-k8s-conventions.md](platform-k8s-conventions.md) 第三节与 [platform-reusable-capabilities.md](platform-reusable-capabilities.md) 中"调用方 Pod 必须打 `llm-client` / `rag-client` / `embedding-client` 标签，否则连不上"的说法**在本集群上没有依据**，已就地加注更正。那条"最高频的坑"看起来是文档间相互引用，不是实测经验。
 >
+> **✅ 2026-09-29 再更正：上面这句「没有依据」，现在只对三分之二成立。** 它把三个标签一锅端了，但 Calico 迁移（2026-09-21）后 **`rag-client` 已经有依据**——`data/rag-service` 这条策略真的在执行，缺 `rag-client: "true"` 的 Pod 实测被拒。**`llm-client` 与 `embedding-client` 仍然没有依据**：集群里既没有 `llm/llm-service`、也没有 `data/embedding-service` 这两条策略（全集群 13 条清单见 [network-policy-engine.md](network-policy-engine.md)）。⇒ 既别再把三者并列读成"都无依据"，也别反过来读成"三者都已生效"。
+>
 > 完整结论与证据见 [panghu_chat/docs/infrastructure-assessment.md](../panghu_chat/docs/infrastructure-assessment.md) 第 8.0 节。
 
 ## 平台现状调查（动手前先读）

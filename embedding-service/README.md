@@ -29,6 +29,8 @@ bash build.sh --push
 > 2. **一旦接入策略引擎，`rag-service` 会立刻断连**——实测全集群带 `embedding-client: "true"` 标签的 Pod 数量为 **0**，而 rag-service 是本服务唯一的调用方。届时需先给它补标签；另需处理本服务 `egress: []`（连 DNS 都禁）是否有影响。
 >
 > 见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
+>
+> ✅ **2026-09-29 更正：这条 NetworkPolicy 在集群里已经不存在了，上面那个"接上引擎 RAG 立刻断"的预测没有发生。** 集群 CNI 已于 2026-09-21 换成 **Calico**、NetworkPolicy 全面生效（`calico-node` 5/5），但当前全集群 **13 条**策略里**没有** `data/embedding-service`（`data` 命名空间只剩 `rag-service` 一条）。所以结论要改：任何 Pod 现在仍能访问本服务，**原因不是"策略未生效"，而是根本没有这条策略**；`embedding-client` 标签今天**不是**准入门槛。注意上文那句"NetworkPolicy 只允许带 … 标签的 Pod 访问"描述的是 `k8s.yaml` 里残留的清单，不是集群现状。当前清单见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
 
 ## API
 

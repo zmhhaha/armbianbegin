@@ -40,6 +40,23 @@
 > **不受影响**：**DENY 这一侧仍然是硬的**。NetworkPolicy 的丢弃发生在节点上、包还没离开节点，代理根本看不到它，所以**造不出假的可达**。反过来也成立：如果被策略拦掉的目标显示了 CONNECTED，那一定是策略没生效，不是代理的锅。
 >
 > ⇒ 写验收脚本时把**"必须被拒"当主判据**，"必须可达"只当烟雾测试。两份真实负载的验收脚本都按这个原则写了并就地注明：[../panghu_chat/dsh/verify-network-boundary.sh](../panghu_chat/dsh/verify-network-boundary.sh)（公网那组期望**可达**，证据弱）与 [../panghu_chat/hermes/verify-network-boundary.sh](../panghu_chat/hermes/verify-network-boundary.sh)（公网那组期望**被拒**，证据硬）。
+>
+> ### ✅ 2026-09-29 状态：复验已执行、策略确认生效，本文第一行不再成立
+>
+> - **引擎在位并确认生效**：Calico（2026-09-21 迁移），`calico-node` DaemonSet **5/5**。
+> - **端到端复验已经执行**：2026-09-23 用 [../panghu_chat/dsh/verify-network-boundary.sh](../panghu_chat/dsh/verify-network-boundary.sh) 在**真实项目容器**里跑通，**退出码 0**（2026-09-29 实测复现）。矩阵：`llm-service.llm.svc:80`、`kubernetes.default.svc:443`、`vault.vault.svc:8200`、`169.254.169.254:80`、`192.168.137.211:22` 全部 **BLOCKED**；`github.com:443`、`auth.panghuer.top:443` **CONNECTED**。证据：[../panghu_chat/dsh/docs/closeout-2026-09-23.md](../panghu_chat/dsh/docs/closeout-2026-09-23.md)。
+> - ⇒ 故上面 2026-09-22 那条「DSH 边界尚未复验」**已作废**；**本文第一行「集群当前没有任何 NetworkPolicy 生效」请按「截至 2026-09-20」读，不是今天的现状。**
+>
+> **当前实际策略清单（全集群共 13 条，2026-09-29 实测）** —— 下方第一节末尾那张 2026-09-20 的分布表已对不上，以此为准：
+>
+> | 命名空间 | 策略 |
+> |---|---|
+> | `data` | `rag-service` |
+> | `dsh` | `default-deny`、`tunnel-ingress`、`web-egress` |
+> | `dsh-runners` | `default-deny`、`runner-egress`、`runner-ingress` |
+> | `hermes` | `default-deny`、`hublog-publisher`、`native-publication-client`、`native-publication-trigger`、`research-egress`、`tunnel-ingress` |
+>
+> ⚠️ **关键差别：`llm` 与 `data/embedding-service` 今天都没有 NetworkPolicy**（旧表里的 `llm-service`、`embedding-service` 两条已不在集群）。所以"调用方必须打 `llm-client` / `embedding-client` 标签"这类说法**至今仍无依据**；**只有 `rag-client` 是真正生效的准入门槛**——`data/rag-service` 按它选人，缺标签的 Pod 实测被拒。描述边界时不要把三者并列。
 
 - 调查日期：2026-09-20
 - 调查方式：SSH 到 `arm-cluster-master` 只读查询 + 从 `dsh-runner` 容器内 TCP 探测
@@ -73,6 +90,8 @@
 | `hermes` | `default-deny`、`tunnel-ingress`、`research-egress`、`hublog-publisher` |
 | `data` | `embedding-service`、`rag-service` |
 | `llm` | `llm-service` |
+
+> ✅ **2026-09-29 更正：这张表是 2026-09-20 的分布，今天已不准确**（`hermes` 现有 6 条、`data` 只剩 `rag-service`、`llm` 已无策略）。以顶部横幅里的「当前实际策略清单」为准；下面第三节、第四节里凡是把 `data/embedding-service` / `llm/llm-service` 当作"已存在的策略"来推断的地方，都已随之过时。
 
 ## 二、选型
 

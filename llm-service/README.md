@@ -229,6 +229,8 @@ bash deploy.sh           # 应用 Vault ExternalSecret + k8s，重启并等待�
 部署到命名空间 `llm`。NetworkPolicy 只允许带 `llm-client: "true"` 标签的 Pod 访问；出站只放行 DNS 与 443。
 
 > 🔴 **2026-09-20 更正**：该 NetworkPolicy 在本集群**未生效**——CNI 是 `kube-flannel`，不实现 NetworkPolicy。从 `dsh-runner` 容器直连 `llm-service.llm.svc:80` 实测 **CONNECTED**。打标签仍应保留（策略生效后即为准入条件），但**当前它不提供任何隔离**。见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
+>
+> ✅ **2026-09-29 更正：策略引擎现在生效了，但 `llm` 命名空间里根本没有这条策略——`llm-client` 标签至今不是门槛。** 集群 CNI 已于 2026-09-21 换成 **Calico**（`calico-node` 5/5）、NetworkPolicy 全面生效，端到端边界复验 2026-09-23 **退出码 0**（见 [../panghu_chat/dsh/docs/closeout-2026-09-23.md](../panghu_chat/dsh/docs/closeout-2026-09-23.md)）。但当前全集群 **13 条**策略里**没有** `llm/llm-service`，所以任何 Pod 仍能访问本服务，**缺 `llm-client: "true"` 也不会被拒**（与 `rag-client` 不同：`data/rag-service` 才是真正生效的那一条）。上文那句"NetworkPolicy 只允许带标签的 Pod 访问"描述的是 `k8s.yaml` 里的残留清单，不是集群现状。当前清单见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
 
 ## 迁移现有服务
 

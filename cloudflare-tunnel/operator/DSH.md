@@ -30,6 +30,8 @@ Cloudflare Access 可另加 Self-hosted application 与精确邮箱 Allow 策略
 > 🔴 **2026-09-20 更正，这条已作废，且原因有两层：**
 > 1. **不再需要这个标签了。** `dsh/tunnel-ingress` 已改为直接选择 cloudflared 固有的 `app: cloudflared, tunnel: main` 标签，不再依赖 `dsh-ingress: "true"`。重建 Deployment 丢失自加标签不再有影响。
 > 2. **原句的因果也不成立。** 集群 CNI 是 `kube-flannel`，不实现 NetworkPolicy —— 策略当前**不会**拒绝任何连接，标签丢失也拦不住什么。见 [../../docs/network-policy-engine.md](../../docs/network-policy-engine.md)。
+>
+> ✅ **2026-09-29 更正：第 2 层的理由已作废，但第 1 层的结论不变。** 集群 CNI 已于 2026-09-21 换成 **Calico**（`calico-node` 5/5），NetworkPolicy 现在**确实会拒绝**连接（2026-09-23 端到端边界复验退出码 0，见 [../../panghu_chat/dsh/docs/closeout-2026-09-23.md](../../panghu_chat/dsh/docs/closeout-2026-09-23.md)）。不过 `dsh/tunnel-ingress` 已改为选择 cloudflared 固有的 `app: cloudflared, tunnel: main` 标签，**不再依赖 `dsh-ingress: "true"`**，所以"重建 Deployment 丢失自加标签会让策略拒绝连接"仍**不会**发生——结论对，理由换了一个。当前策略清单见 [../../docs/network-policy-engine.md](../../docs/network-policy-engine.md)。
 
 回滚时先在 Cloudflare 仅移除 DSH 路由，再停止 DSH；不要删除共享 main Tunnel 或覆盖其他 Public Hostname。
 
