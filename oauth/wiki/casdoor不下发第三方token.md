@@ -8,7 +8,8 @@
 ## 一、实测现象：不止 GitHub token
 
 拿一个真实签发的 JWT 解 base64（**JWT 是 base64，不是加密**），payload 顶层有 **86 个 claim** ——
-等于把整个 User 结构原样搬了进去。其中值得警惕的：
+约等于把整个 User 结构原样搬了进去（确切说，是 §5.0 里那个 **75 字段的
+`UserWithoutThirdIdp`**，默认格式 `JWT` 走的就是它）。其中值得警惕的：
 
 | claim | 内容 | 风险 |
 |---|---|---|
@@ -34,8 +35,8 @@
 改应用的 **Token format = `JWT-Custom`**，再在 **Token fields** 里只勾需要的字段
 （**不要勾 `Properties`**）。
 
-> ⚠️ **版本前提**：`JWT-Custom` 与 UI 上的 **Token fields** 是较新版本才有的。**先按 §5.0
-> 确认你的版本有没有** —— 老版本做任何配置都关不掉。没有的话看 §5.4 的三条退路。
+> ✅ **版本前提**：本集群的 Casdoor **v3.113.0 已确认支持**（§5.0 有源码级核对）。
+> 换成别的实例时按 §5.0 复核一遍；确实没有这个功能的，看 §5.4 的退路。
 
 Casdoor 支持的四种格式（官方文档 [Token overview](https://casdoor.ai/zh/docs/token/overview/)）：
 
@@ -86,30 +87,40 @@ IsAdmin, Roles, Permissions, Groups
 
 ## 五、操作步骤
 
-### 5.0 先确认你的版本有没有这个功能（重要）
+### 5.0 版本前提：本集群的 Casdoor（v3.113.0）**支持**
 
-`JWT-Custom` 与 UI 上的 **Token fields** 是较新版本才有的（后端 2024-01 的 #2594 引入；
-**前端控件可能更晚**）。老版本的后端只会区分 `JWT-Empty` 与"其它"，**没有字段白名单**，
-所以在老版本上做任何配置都关不掉 `Properties`。
+已按运行中版本核对（`curl -s https://auth.panghuer.top/api/get-version-info` →
+`v3.113.0`，commit `8f7b4ff`）。该 commit 的源码里：
 
-两个判据，任选其一：
+- `object/token_jwt.go` 有 `JWT-Custom` 分支，调用 `getClaimsCustom(claims, application.TokenFields, …)`；
+- `object/application.go` 有 `TokenFormat string` 与 `TokenFields []string`；
+- 前端 `web/src/ApplicationEditPage.js` 有 **Token format** 与 **Token fields** 两个控件。
+
+所以**不需要升级**。若换到别的 Casdoor 实例，再按下面的办法确认一遍即可
+（`JWT-Custom` 由 #2594 于 2024-01 引入，前端控件可能更晚；老版本没有字段白名单，
+做任何配置都关不掉 `Properties`）：
 
 ```bash
-# ① 直接问服务版本（这个接口是公开的，无需凭据）
-curl -s https://auth.panghuer.top/api/get-version-info
+curl -s https://auth.panghuer.top/api/get-version-info     # 任一版本都能问
 ```
 
-② 或者看 **Token format 下拉里有没有 `JWT-Custom` 这个选项** —— 没有就是版本太老，
-   下面的 5.1 不用找了，直接看 5.4。
+或者看 **Token format 下拉里有没有 `JWT-Custom` 这个选项**；没有就是版本太老，直接看 5.4。
 
-> 实测佐证：本项目当前签发的 token 有 **86 个 claim**（含 `properties`、`passwordSalt`），
-> 说明它**既不是** 任何白名单格式、**也不是** master 上 `JWT` 那种"剥掉第三方 IdP"的结果
-> —— 与"版本较老、默认吐出整个 User 结构"一致。
+> **为什么现在会带出去**：默认格式是 `JWT`（`tokenFormat` 为空时代码会置为 `"JWT"`），
+> 它走 `getClaimsWithoutThirdIdp()`，而那个结构体 **`UserWithoutThirdIdp` 有 75 个字段、
+> 其中就包含 `Properties`**（连带 `PasswordSalt`、以及启用 2FA 后的 `TotpSecret`/`RecoveryCodes`）。
+> 实测本集群签发的 token 有 86 个 claim —— 与此吻合。
 
-### 5.1 UI（版本支持时最省事）
+### 5.1 UI（最省事，但控件藏在不容易找的位置）
 
-Casdoor 后台 → Applications → `panghu-suite` → **Token format** 选 `JWT-Custom`
-→ **Token fields** 按 §四 勾选（不要勾 `Properties`）→ 保存。
+**Applications → 选中 `panghu-suite` → 打开编辑页 → 找到 `Custom scopes` 这一项，
+`Token format` 就在它下面一行，`Token fields` 再下面一行。**
+
+⚠️ **`Token fields` 在 `Token format` 选成 `JWT-Custom` 之前是灰的**（源码里
+`disabled={tokenFormat !== "JWT-Custom"}`）—— 这多半就是"找不到"的原因：先在上一行选
+`JWT-Custom`，下面那个框才会亮。
+
+然后按 §四 勾选字段（**不要勾 `Properties`**）→ 保存。
 
 ### 5.2 API（不依赖 UI 是否有控件）
 
@@ -140,9 +151,12 @@ curl -s -X POST "$BASE/api/update-application?id=admin/panghu-suite" \
 `oauth/k8s/casdoor-configmap.yaml` 只有 10 行，不重启会继续用旧值。
 ⚠️ `token_fields` 是 `varchar(1000)` 存 JSON 数组，手写容易写坏，改完**务必用 5.2 的 get 读回验证**。
 
-### 5.4 版本太老、根本没有这个功能怎么办
+### 5.4 只有在版本真的不支持时才用到
 
-结构性修法是**升级**，而你们成本可控 —— `oauth/build.sh` 的 tag 本来就是参数化的：
+**本集群不需要这一节**（v3.113.0 支持，见 5.0）。留着是为了换实例 / 换版本时能查。
+
+若某个实例的 Token format 下拉里没有 `JWT-Custom`，结构性修法只有**升级** ——
+`oauth/build.sh` 的 tag 本来就是参数化的：
 
 ```bash
 CASDOOR_TAG=v4.11.0 bash oauth/build.sh     # 具体版本按需选
