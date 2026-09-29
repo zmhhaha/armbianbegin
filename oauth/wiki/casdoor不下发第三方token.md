@@ -34,6 +34,9 @@
 改应用的 **Token format = `JWT-Custom`**，再在 **Token fields** 里只勾需要的字段
 （**不要勾 `Properties`**）。
 
+> ⚠️ **版本前提**：`JWT-Custom` 与 UI 上的 **Token fields** 是较新版本才有的。**先按 §5.0
+> 确认你的版本有没有** —— 老版本做任何配置都关不掉。没有的话看 §5.4 的三条退路。
+
 Casdoor 支持的四种格式（官方文档 [Token overview](https://casdoor.ai/zh/docs/token/overview/)）：
 
 | 格式 | payload 内容 |
@@ -83,12 +86,78 @@ IsAdmin, Roles, Permissions, Groups
 
 ## 五、操作步骤
 
-**UI（推荐）**：Casdoor 后台 → Applications → `panghu-suite` → **Token format** 选 `JWT-Custom`
-→ **Token fields** 按上面勾选（不要勾 `Properties`）→ 保存。
+### 5.0 先确认你的版本有没有这个功能（重要）
 
-**DB（备选）**：`application` 表的 `token_format` / `token_fields`（字段定义见
-`object/application.go` 的 `TokenFormat` / `TokenFields []string`）。改完**记得重启 casdoor 刷新缓存**
-—— `oauth/k8s/casdoor-configmap.yaml` 只有 10 行，改 DB 后不重启会继续用旧值。
+`JWT-Custom` 与 UI 上的 **Token fields** 是较新版本才有的（后端 2024-01 的 #2594 引入；
+**前端控件可能更晚**）。老版本的后端只会区分 `JWT-Empty` 与"其它"，**没有字段白名单**，
+所以在老版本上做任何配置都关不掉 `Properties`。
+
+两个判据，任选其一：
+
+```bash
+# ① 直接问服务版本（这个接口是公开的，无需凭据）
+curl -s https://auth.panghuer.top/api/get-version-info
+```
+
+② 或者看 **Token format 下拉里有没有 `JWT-Custom` 这个选项** —— 没有就是版本太老，
+   下面的 5.1 不用找了，直接看 5.4。
+
+> 实测佐证：本项目当前签发的 token 有 **86 个 claim**（含 `properties`、`passwordSalt`），
+> 说明它**既不是** 任何白名单格式、**也不是** master 上 `JWT` 那种"剥掉第三方 IdP"的结果
+> —— 与"版本较老、默认吐出整个 User 结构"一致。
+
+### 5.1 UI（版本支持时最省事）
+
+Casdoor 后台 → Applications → `panghu-suite` → **Token format** 选 `JWT-Custom`
+→ **Token fields** 按 §四 勾选（不要勾 `Properties`）→ 保存。
+
+### 5.2 API（不依赖 UI 是否有控件）
+
+Casdoor 的 update 接口要求提交**整个应用对象**，所以先读再改再回写：
+
+```bash
+AUTH="Authorization: Bearer <Casdoor 管理凭据>"
+BASE=https://auth.panghuer.top
+
+curl -s "$BASE/api/get-application?id=admin/panghu-suite" -H "$AUTH" -o app.json   # id 格式是 <owner>/<name>
+
+jq '.tokenFormat="JWT-Custom"
+    | .tokenFields=["Name","DisplayName","Email","Avatar","Id","Owner","Type",
+                    "SignupApplication","IsAdmin","Roles","Permissions","Groups"]' \
+   app.json > app.new.json
+
+curl -s -X POST "$BASE/api/update-application?id=admin/panghu-suite" \
+     -H "$AUTH" -H 'Content-Type: application/json' -d @app.new.json
+```
+
+改完用同一条 `get-application` **读回来确认** `tokenFields` 是数组 —— 这一步也能顺便验证
+写进去的格式没被搞坏。
+
+### 5.3 DB（API 也不方便时）
+
+`application` 表的 `token_format` / `token_fields`（字段定义见 `object/application.go` 的
+`TokenFormat` / `TokenFields []string`）。改完**必须重启 casdoor 刷新缓存** ——
+`oauth/k8s/casdoor-configmap.yaml` 只有 10 行，不重启会继续用旧值。
+⚠️ `token_fields` 是 `varchar(1000)` 存 JSON 数组，手写容易写坏，改完**务必用 5.2 的 get 读回验证**。
+
+### 5.4 版本太老、根本没有这个功能怎么办
+
+结构性修法是**升级**，而你们成本可控 —— `oauth/build.sh` 的 tag 本来就是参数化的：
+
+```bash
+CASDOOR_TAG=v4.11.0 bash oauth/build.sh     # 具体版本按需选
+```
+
+⚠️ **升级前先处理 `oauth/casdoor_fix/`**：那份补丁是为阿里云 PKCS#8 私钥格式打的
+（`formatPrivateKey`），升级后要重新应用，否则会回到那个老坑。
+
+不想升级的话，有三条**不改 Casdoor token 逻辑**的退路（按性价比）：
+
+| 退路 | 做法 | 效果 |
+|---|---|---|
+| **收窄 GitHub scope** | Casdoor → Providers → github → **Scopes** 改成 `read:user user:email` | 被下发的那把 token 价值极低（字段确实存在：`Provider.Scopes`） |
+| 换掉 GitHub 登录 | 该应用不用 GitHub 登录 | 没有 provider token 可下发 |
+| 接受现状 | 7 天有效期 + 只有两个人用 | 风险有限；但**启用 2FA 后 `totpSecret` 会进 token**，那时必须回来处理 |
 
 **组织级兜底**：应用这两个字段留空时会回落到组织的
 `DefaultTokenFormat` / `DefaultTokenFields`（见 `object/organization.go`），所以**两处都要看一眼**，
