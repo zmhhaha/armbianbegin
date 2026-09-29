@@ -96,6 +96,28 @@ curl -s -X POST https://openspec.panghuer.top/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"0"}}}'
 ```
 
+### 命令行 / agent 直接调用（不装 MCP 客户端）
+
+MCP 这里是 **streamable HTTP + JSON-RPC**，任何 HTTP 客户端都能用，不必有 MCP 客户端。
+仓库里带了一个薄封装 `scripts/mcp-call.sh`（只要 `curl` + `python3`；凭据只从环境变量或
+`/tmp/casdoor.jwt` 读，**不进命令行参数、不落盘**）：
+
+```bash
+export CASDOOR_JWT='<Casdoor JWT>'
+bash openspec_service/scripts/mcp-call.sh --check          # initialize + tools/list
+bash openspec_service/scripts/mcp-call.sh --tools
+bash openspec_service/scripts/mcp-call.sh --call list_projects
+bash openspec_service/scripts/mcp-call.sh --call list_specs \
+  --args '{"projectId":"<uuid>"}'
+```
+
+它按协议走三步：`initialize` → 从响应头取 `Mcp-Session-Id` → `notifications/initialized`，
+之后的 `tools/call` 复用同一个 session。两个要点：
+
+- **session 不跨进程**：服务端单副本、session 在进程内存里（见 §9），所以每次运行都会重新
+  `initialize`。连续调多个工具就是多跑几次 —— 每次多一个往返，不影响正确性。
+- **写工具别忘 `expectedRevision`**：它必须是当前 HEAD SHA，见 §5 的关键规则。
+
 ## 4. 工具清单
 
 | 工具 | 必填参数 | 所需权限 | 说明 |
