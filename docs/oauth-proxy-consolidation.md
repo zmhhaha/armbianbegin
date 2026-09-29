@@ -3,7 +3,7 @@
 > **需求（2026-09-28，所有者提出）**：八个人格原本每个二级域名一个 oauth2-proxy，缩成八域名共用一个。
 >
 > 落地时间线：**2026-09-28 部署共享实例** → **2026-09-29 修正回调生成方式**（`182a78c`）。
-> 本文记录**最终落地的形态**；曾经提出但未采用的那套做法见 §六 —— **那段很重要，别误用**。
+> 本文记录**最终落地的形态**；曾经提出但未采用、**现已删除**的那套做法留档在 §六。
 
 ## 结论摘要（TL;DR）
 
@@ -85,23 +85,20 @@ bash oauth/k8s/deploy-agent-proxy.sh baijiazhengming \
 
 （口径见 `panghu_agent` 的 `3f3fd2d` 提交信息。）
 
-## 六、⚠️ 未采用的历史方案（别执行）
+## 六、已删除的历史方案（留档；没有文件可执行了）
 
 2026-09-28 曾提交过**另一套**做法，最终**没有采用**：
-
-| 文件 | 当时的思路 |
-|---|---|
-| [`shared-agent-proxy.yaml`](../oauth/k8s/shared-agent-proxy.yaml) | 保留 8 个 `<slug>-agent` Service 当"壳"，只改 `selector` 指向共享 Pod，声称"隧道 backend 字符串零改动" |
-| [`deploy-shared-agent-proxy.sh`](../oauth/k8s/deploy-shared-agent-proxy.sh) | 上述方案的部署/回滚脚本，并把 `--redirect-url` 写死成一个 canonical 域名 |
-
-**为什么没用**：
 
 1. 实际落地时隧道**改成了直接指向共享实例**，所以根本不需要"壳"Service；
 2. 那套把 `--redirect-url` 写死成 canonical —— 正是 `182a78c` 要修的问题。
 
-🔴 **不要执行 `deploy-shared-agent-proxy.sh`**：它与 `deploy-agent-proxy.sh` 渲染的是**同名
-Deployment**（`oauth2-proxy-baijiazhengming`），一旦执行就会把线上实例覆盖成**写死回调**的版本，
-把 `182a78c` 修好的坑重新挖开。
+🔴 当时那两个文件（`oauth/k8s/shared-agent-proxy.yaml` 与 `oauth/k8s/deploy-shared-agent-proxy.sh`）
+**已于 2026-09-29 删除**。原因是它们会**覆盖线上正在用的 Deployment 与 ConfigMap**
+（同为 `oauth2-proxy-baijiazhengming` / `oauth2-proxy-config-baijiazhengming` 之名），
+谁执行谁就会把实例换成**写死回调**的版本，把 `182a78c` 修好的坑重新挖开。
+
+**删掉而不是只写警告**，是为了让这个脚下雷**不存在**：留在仓库里，早晚会有人（或某个 agent）
+看到名字就 `kubectl apply` 一下。
 
 ## 七、当前仍存在的风险
 
