@@ -342,7 +342,13 @@ def list_ingested(agent: str | None = None, limit: int = MAX_LIST_SIZE,
     }
 
 
-@app.get("/v1/ingest/{document_id}")
+# ⚠️ 路径参数必须用 `:path` 转换器。document_id 是 vault 相对路径（如
+# `百家争鸣/秉笔春秋/史记.md`），普通 `{document_id}` 只匹配单个路径段；而 ASGI 在
+# 路由之前就把客户端编码的 `%2F` 解回 `/`，于是带目录层级的 id 一律匹配不上，
+# 路由层直接 404（响应体是 FastAPI 的 `{"detail":"Not Found"}`，与处理器里
+# “no ingestion record” 那条区分得开）。
+# 2026-09-29 实测代价：索引作业删除陈旧语料时 404，孤儿 chunk 留在索引里照常被召回。
+@app.get("/v1/ingest/{document_id:path}")
 def ingest_status(document_id: str, agent: str | None = None, authorization: str | None = Header(default=None)):
     """查询某文档的摄入状态：queued / processing / ready / failed（含失败原因）。"""
     identity = identify(authorization)
@@ -353,7 +359,7 @@ def ingest_status(document_id: str, agent: str | None = None, authorization: str
     return job
 
 
-@app.delete("/v1/ingest/{document_id}")
+@app.delete("/v1/ingest/{document_id:path}")   # `:path` 的理由同上一条
 def delete_document(document_id: str, agent: str | None = None, authorization: str | None = Header(default=None)):
     """删除某文档的全部 chunk（同时清掉它的摄入记录）。
 
