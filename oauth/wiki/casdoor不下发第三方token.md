@@ -5,7 +5,10 @@
 > 实测发现那个 JWT 的 payload 里裹着 **GitHub 的 access token**。
 > 本文给出根治办法，并记录改之前必须核对的东西。
 
-## 一、实测现象：不止 GitHub token
+## 一、改前的实测现象：不止 GitHub token
+
+> 📌 本集群已在 **2026-09-29** 改完并验证（结果见 §八）。本节记录的是**改前**的状态 ——
+> 保留下来是为了说明"为什么必须改"，以及新实例上线时怎么自查。
 
 拿一个真实签发的 JWT 解 base64（**JWT 是 base64，不是加密**），payload 顶层有 **86 个 claim** ——
 约等于把整个 User 结构原样搬了进去（确切说，是 §5.0 里那个 **75 字段的
@@ -192,7 +195,7 @@ PY
 ```
 
 期望：`properties` **不在**列表里；`sub` / `email` / `iss` / `aud` / `exp` 仍在；
-claim 总数从 86 掉到十几个。
+claim 总数从 86 掉到二十几个（本集群实测 **23**，见 §八）。
 
 改完请顺手验一遍**八个域名 + OpenSpec MCP**都能正常登录/调用 —— 字段白名单是全局生效的。
 
@@ -202,3 +205,48 @@ claim 总数从 86 掉到十几个。
 - 这份 JWT 已是"高价值密钥"，**别贴进聊天、日志、公开配置**（它的用途恰恰是交给各种 AI 工具）；
 - 已经流出去的那把 GitHub token，去 GitHub → Settings → Applications → Authorized OAuth Apps
   撤销 Casdoor 的授权即可立刻失效。
+
+## 八、本集群的实测结果（2026-09-29 已改并验证）
+
+`panghu-suite` 的 Token format 已切到 `JWT-Custom` + 字段白名单，**改前/改后各取一把真实
+token 对比**：
+
+| | 改前 | 改后 |
+|---|---|---|
+| claim 总数 | **86** | **23** |
+| `properties`（GitHub token 的家） | 有 | **已移除** |
+| `properties.oauth_GitHub_*` | 有 | **已移除** |
+| `password` / `passwordSalt` / `passwordType` | 有（salt 非空） | **已移除** |
+| `totpSecret` / `recoveryCodes` | 有（空值） | **已移除** |
+| `hash` / `preHash` / `lastSigninIp` 等 | 有 | **已移除** |
+| `sub` / `email` / `iss` / `aud` / `exp` | 有 | **都在** ✅ |
+| `name` / `displayName` / `roles` / `groups` | 有 | **都在** ✅ |
+
+改后的完整 claim 集合：
+
+```text
+aud, avatar, azp, displayName, email, exp, groups, iat, id, isAdmin, iss, jti,
+name, nbf, nonce, owner, permissionNames, roles, scope, signupApplication, sub,
+tokenType, type
+```
+
+### 验证方式（本地解 + 端到端调）
+
+1. **本地解 payload**（§六 那条命令）：86 → 23，危险字段全清、必需字段全在；
+2. **端到端调 OpenSpec MCP**（`scripts/mcp-call.sh`，走公网 HTTPS）：
+   `initialize` + `tools/list` ✅、`list_projects` ✅、`list_specs` ✅。
+   其中 `list_projects` 最关键 —— 它走 `subject()`（`sub`）+ `email → Gitea 用户名`
+   那条身份映射链，证明**瘦身没有打断认证**（即 §四 担心的那一点不成立）。
+
+### 仍待人工确认的一项
+
+`tokenFormat` 对 `panghu-suite` **全局生效**，八个人格与
+hublog / txt2img / game 等代理共用这一个应用。因此应**抽一个域名实测一次登录**
+（如 `daofaziran-agent.panghuer.top`）—— 需要浏览器，容器里验不了。
+理论上 `email`/`sub` 都在就没问题。
+
+### 附带收获
+
+改完之后这把 JWT **才真正适合交给 AI 工具**：不再包含任何第三方凭据，只剩必要的身份声明。
+原先的用法（贴进 Codex / Claude Code / Cursor 或对话里）等于连带交出 GitHub token，
+现在最坏只暴露邮箱与头像 URL —— 这才是这个设计本来该有的样子。
