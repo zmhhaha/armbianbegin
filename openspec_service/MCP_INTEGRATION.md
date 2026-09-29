@@ -33,6 +33,15 @@ AI 工具只需"加一个远程 MCP"即可，不需要在本地装任何 OpenSpe
 
 ## 2. 获取 JWT
 
+> ⚠️ **JWT 是明文可解的，别到处贴。** 它只是 base64 —— payload 里带着 Casdoor 记在用户记录
+> `Properties` 上的第三方凭据（用 GitHub 登录时就是 **`oauth_GitHub_accessToken`**），
+> 而默认的 `JWT` token 格式还会把**整个 User 结构**塞进去。贴进聊天、日志或公开配置，
+> 等于连带交出这些东西。
+>
+> 想从根上让 Casdoor 不下发：见
+> [`../oauth/wiki/casdoor不下发第三方token.md`](../oauth/wiki/casdoor不下发第三方token.md)
+> —— 把应用的 Token format 改成 `JWT-Custom`、只勾必需字段（别勾 `Properties`）即可。
+
 ### 2.1 网页版（推荐，浏览器里取 JWT）
 
 打开 **`https://openspec.panghuer.top/token`** → 用 Casdoor 登录（GitHub / 邮箱）→ 页面直接
