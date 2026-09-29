@@ -140,6 +140,11 @@ spec:
   selector: {app: llm-service}
   ports: [{name: http, port: 80, targetPort: http}]
 ---
+# ⚠️ 2026-09-29 实测：**这条策略在集群里不存在**。全集群共 13 条 NetworkPolicy，分布在
+# data（只有 rag-service）/ dsh / dsh-runners / hermes 四个命名空间，`llm` 命名空间里一条都没有。
+# 所以下面那句"只有显式打上 llm-client: "true" 的 Pod 能调用"目前不是事实——缺标签也不会被拦。
+# 要么把它应用上去（标签才真正成为门槛，但**先确认所有调用方都带了该标签**，否则会直接切
+# 断调用），要么删掉这段声明；这是所有者的决定，不是文档措辞问题。
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

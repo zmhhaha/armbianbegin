@@ -56,6 +56,10 @@ spec:
           livenessProbe:
             httpGet: {path: /health/live, port: 8080}
 ---
+# ⚠️ 2026-09-29 实测：**这条策略在集群里不存在**。全集群共 13 条 NetworkPolicy，`data`
+# 命名空间下只有 `rag-service` 那一条——本文件声明的 embedding-service 那条不在其中。
+# 也就是说上面「只允许带 embedding-client 标签的 Pod 调用」目前不成立，本服务实际是敞开的。
+# 要么应用它，要么删掉这段声明；这是所有者的决定（应用前同样要先确认调用方都带了标签）。
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
