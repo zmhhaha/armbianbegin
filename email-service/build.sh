@@ -4,8 +4,9 @@
 #  依赖 arm-cluster-master:5000/base:latest
 # ============================================================
 #  用法:
-#    ./build.sh              # 本地构建
-#    ./build.sh --push       # 构建 + 推送
+#    ./build.sh              # 构建 + 推送（默认）
+#    ./build.sh --no-push    # 仅本地构建，不推送
+#    ./build.sh --push       # 构建 + 推送（默认行为）
 #    ./build.sh --deploy     # 构建 + 推送 + 部署到 K8s
 # ============================================================
 set -euo pipefail
@@ -16,7 +17,7 @@ IMAGE="${REGISTRY}/email-service:latest"
 cd "$(dirname "$0")"
 
 case "${1:-}" in
-  --push)
+  --push|"")
     echo "=== 构建 + 推送: ${IMAGE} ==="
     docker build --build-arg REGISTRY="${REGISTRY}" -t "${IMAGE}" .
     docker push "${IMAGE}"
@@ -35,7 +36,7 @@ case "${1:-}" in
     echo "健康检查: kubectl exec -n email-service deploy/email -- curl -s http://localhost:8000/health"
     ;;
 
-  *)
+  --no-push|*)
     echo "=== 本地构建: ${IMAGE} ==="
     docker build --build-arg REGISTRY="${REGISTRY}" -t "${IMAGE}" .
     echo "完成! 运行: docker run -d -p 8000:8000 --env-file .env ${IMAGE}"

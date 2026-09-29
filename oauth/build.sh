@@ -3,8 +3,8 @@
 #  oauth2-proxy + Casdoor — 拉取镜像并推送到私有 registry
 #
 #  用法:
-#    ./build.sh              # 拉取全部镜像到本地
-#    ./build.sh --push       # 拉取 + 推送到私有 registry
+#    ./build.sh              # 拉取 + 推送到私有 registry（默认）
+#    ./build.sh --push       # 拉取 + 推送（默认行为）
 #    ./build.sh --deploy     # 拉取 + 推送 + 部署到 K8s
 #    ./build.sh --deploy-proxy  # 部署 oauth2-proxy 到 K8s
 #
@@ -136,12 +136,13 @@ case "${1:-}" in
     --deploy-proxy)
         deploy_proxy
         ;;
-    --push)
+    --push|"")
         pull_and_push_all
         ;;
     --help)
         echo "用法: $0 [--push|--deploy|--deploy-proxy]"
         echo ""
+        echo "  (无参数)        拉取 oauth2-proxy + Casdoor 镜像并推送到私有 registry（默认）"
         echo "  --push          拉取 oauth2-proxy + Casdoor 镜像并推送到私有 registry"
         echo "  --deploy        拉取镜像 + 部署 Casdoor + 部署 oauth2-proxy 多个实例"
         echo "  --deploy-proxy  仅部署/更新 oauth2-proxy 实例（research-agent + scientific-agent + daofaziran-agent + fofawubian-agent + zhongkuifumo-agent + yimaneili-agent + zhenzhuzhida-agent + zhougongjiemeng-agent + xiaotanrenjian-agent + txt2img）"

@@ -11,7 +11,8 @@ KEEPALIVED_IMAGE="${REGISTRY}/ceph-keepalived:${KEEPALIVED_TAG}"
 usage() {
     cat <<EOF
 用法:
-  bash build-ingress-images.sh --push
+  bash build-ingress-images.sh            # 构建并推送镜像（默认）
+  bash build-ingress-images.sh --no-push  # 仅构建镜像，不推送
 
 输出镜像:
   ${HAPROXY_IMAGE}
@@ -19,10 +20,19 @@ usage() {
 EOF
 }
 
-[[ "${1:-}" == "--push" ]] || {
-    usage >&2
-    exit 2
-}
+# 默认构建并推送；--no-push 仅构建（--push 为兼容保留，等价于默认）
+PUSH=true
+case "${1:-}" in
+    --no-push)
+        PUSH=false
+        ;;
+    --push|"")
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac
 
 command -v docker >/dev/null 2>&1 || {
     printf 'ERROR: 缺少命令: docker\n' >&2
@@ -57,7 +67,13 @@ for image in "${HAPROXY_IMAGE}" "${KEEPALIVED_IMAGE}"; do
         printf 'ERROR: 镜像 %s 的架构是 %s，不是 arm64\n' "${image}" "${architecture}" >&2
         exit 1
     }
-    docker push "${image}"
+    if [[ "${PUSH}" == true ]]; then
+        docker push "${image}"
+    fi
 done
 
-printf '%s\n' '[rgw-images] ARM64 ingress images pushed.'
+if [[ "${PUSH}" == true ]]; then
+    printf '%s\n' '[rgw-images] ARM64 ingress images pushed.'
+else
+    printf '%s\n' '[rgw-images] ARM64 ingress images built (--no-push).'
+fi

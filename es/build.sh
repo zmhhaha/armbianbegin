@@ -15,7 +15,8 @@ TARGET_IMAGE="${REGISTRY}/elasticsearch:latest"
 usage() {
     cat <<'EOF'
 用法:
-  bash build.sh --push
+  bash build.sh            # 构建并推送镜像（默认）
+  bash build.sh --no-push  # 仅构建镜像，不推送
   bash build.sh --help
 
 环境变量:
@@ -24,28 +25,37 @@ usage() {
 EOF
 }
 
+# 默认构建并推送；--no-push 仅构建（--push 为兼容保留，等价于默认）
+PUSH=true
 case "${1:-}" in
-    --push)
-        echo "Pulling ARM64 image: ${SOURCE_IMAGE}"
-        docker pull --platform linux/arm64 "${SOURCE_IMAGE}"
-        if [[ -z "${IK_SHA256:-}" ]]; then
-            archive="$(mktemp)"
-            trap 'rm -f "$archive"' EXIT
-            curl -fSL --retry 3 "https://release.infinilabs.com/analysis-ik/stable/elasticsearch-analysis-ik-${ES_VERSION}.zip" -o "$archive"
-            IK_SHA256="$(sha256sum "$archive" | cut -d ' ' -f 1)"
-            printf 'Downloaded IK SHA256: %s\n' "$IK_SHA256"
-        fi
-        docker build --platform linux/arm64 --build-arg ES_VERSION="${ES_VERSION}" \
-            --build-arg IK_SHA256="${IK_SHA256}" -t "${TARGET_IMAGE}" "${SCRIPT_DIR}"
-        echo "Pushing image: ${TARGET_IMAGE}"
-        docker push "${TARGET_IMAGE}"
-        echo "Image ready: ${TARGET_IMAGE}"
+    --no-push)
+        PUSH=false
+        ;;
+    --push|"")
         ;;
     --help|-h)
         usage
+        exit 0
         ;;
     *)
         usage >&2
         exit 2
         ;;
 esac
+
+echo "Pulling ARM64 image: ${SOURCE_IMAGE}"
+docker pull --platform linux/arm64 "${SOURCE_IMAGE}"
+if [[ -z "${IK_SHA256:-}" ]]; then
+    archive="$(mktemp)"
+    trap 'rm -f "$archive"' EXIT
+    curl -fSL --retry 3 "https://release.infinilabs.com/analysis-ik/stable/elasticsearch-analysis-ik-${ES_VERSION}.zip" -o "$archive"
+    IK_SHA256="$(sha256sum "$archive" | cut -d ' ' -f 1)"
+    printf 'Downloaded IK SHA256: %s\n' "$IK_SHA256"
+fi
+docker build --platform linux/arm64 --build-arg ES_VERSION="${ES_VERSION}" \
+    --build-arg IK_SHA256="${IK_SHA256}" -t "${TARGET_IMAGE}" "${SCRIPT_DIR}"
+if [[ "${PUSH}" == true ]]; then
+    echo "Pushing image: ${TARGET_IMAGE}"
+    docker push "${TARGET_IMAGE}"
+fi
+echo "Image ready: ${TARGET_IMAGE}"

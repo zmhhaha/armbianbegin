@@ -3,15 +3,15 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
-IMAGE="${REGISTRY}/rag-service:latest"
+IMAGE="${REGISTRY}/armbianbegin-mcp-server:latest"
 
 # 默认构建并推送；--no-push 仅构建（--push 为兼容保留，等价于默认）
 PUSH=true
 if [[ "${1:-}" == "--no-push" ]]; then
-  PUSH=false
+    PUSH=false
 fi
 
-docker build --platform linux/arm64 -t "${IMAGE}" "${SCRIPT_DIR}"
+docker build -t "${IMAGE}" "${SCRIPT_DIR}"
 if [[ "${PUSH}" == true ]]; then
-  docker push "${IMAGE}"
+    docker push "${IMAGE}"
 fi

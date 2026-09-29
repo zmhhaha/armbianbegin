@@ -16,8 +16,8 @@ MODEL_BASE_URL="${MODEL_BASE_URL:-https://hf-mirror.com/Qdrant/bge-small-zh-v1.5
 usage() {
     cat <<'EOF'
 用法:
-  bash build.sh            # 构建镜像
-  bash build.sh --push     # 构建并推送
+  bash build.sh            # 构建并推送镜像（默认）
+  bash build.sh --no-push  # 仅构建镜像，不推送
   bash build.sh --help
 
 可选环境变量（一般不需要设置）:
@@ -29,10 +29,15 @@ usage() {
 EOF
 }
 
+# 默认构建并推送；--no-push 仅构建（--push 为兼容保留，等价于默认）
+PUSH=true
 case "${1:-}" in
     --help|-h)
         usage
         exit 0
+        ;;
+    --no-push)
+        PUSH=false
         ;;
     --push|"")
         ;;
@@ -49,7 +54,7 @@ docker build --platform linux/arm64 \
     --build-arg "TOKENIZER_SHA256=${TOKENIZER_SHA256:-}" \
     -t "${IMAGE}" "${SCRIPT_DIR}"
 
-if [[ "${1:-}" == "--push" ]]; then
+if [[ "${PUSH}" == true ]]; then
     echo "Pushing image: ${IMAGE}"
     docker push "${IMAGE}"
 fi
