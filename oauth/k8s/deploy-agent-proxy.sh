@@ -1,26 +1,23 @@
 #!/usr/bin/env bash
-# Agent/Gradio oauth2-proxy 重新部署命令：
-#   bash deploy-agent-proxy.sh daofaziran-agent
-#   bash deploy-agent-proxy.sh fofawubian-agent
-#   bash deploy-agent-proxy.sh game-review-agent
-#   bash deploy-agent-proxy.sh literature-downloader
+# 给「一个域名一个 oauth2-proxy 实例」的服务重新部署代理：
 #   bash deploy-agent-proxy.sh research-agent
 #   bash deploy-agent-proxy.sh scientific-agent
+#   bash deploy-agent-proxy.sh game-review-agent
+#   bash deploy-agent-proxy.sh literature-downloader
 #   bash deploy-agent-proxy.sh txt2img
-#   bash deploy-agent-proxy.sh yimaneili-agent
-#   bash deploy-agent-proxy.sh zhenzhuzhida-agent
-#   bash deploy-agent-proxy.sh zhongkuifumo-agent
-#   bash deploy-agent-proxy.sh zhougongjiemeng-agent
-#   bash deploy-agent-proxy.sh xiaotanrenjian-agent
-#   bash deploy-agent-proxy.sh bingbichunqiu-agent
+#
+# ⚠️ 八个人格（bingbichunqiu / daofaziran / fofawubian / xiaotanrenjian / yimaneili /
+# zhenzhuzhida / zhongkuifumo / zhougongjiemeng）**不在这里**：2026-09-28 起他们由共享实例
+# oauth2-proxy-baijiazhengming 服务（一个代理、八个域名），原来那八个 per-domain 代理已经删除。
+# 别为某个人格单独跑本脚本 —— 上游 ui.<slug>-agent 已经不存在，只会造出一个指不回任何
+# Service 的代理。其他家族各有自己的脚本：游戏系 deploy-game-proxy.sh，Hublog deploy-hublog-proxy.sh。
 #
 # 不传参数时默认重新部署 research-agent。
 #
-# 第二个参数是 upstream，不传则沿用历史默认值 ui.<target>:7860：
-#   bash deploy-agent-proxy.sh bingbichunqiu-agent \
+# 第二个参数是 upstream，不传则沿用历史默认值 ui.<target>:7860。共享运行时（百家争鸣）
+# 就是这么建的 —— 它的 target 是 baijiazhengming：
+#   bash deploy-agent-proxy.sh baijiazhengming \
 #     http://baijiazhengming-ui.baijiazhengming.svc.cluster.local:7860
-# 共享运行时（百家争鸣）就是这么把八个人格的代理都指到同一个 UI 的 —— 代理名字不变，
-# 所以 Cloudflare 后台与 Casdoor 回调都不用动。
 #
 # 特例：target=baijiazhengming 是**多域名共享实例**（一个代理服务八个域名）。它的回调
 # 不能写死，改用 --whitelist-domain，由 oauth2-proxy 按请求的 Host 生成回调 ——
