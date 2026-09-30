@@ -34,15 +34,20 @@ CASDOOR_TAG="${CASDOOR_TAG:-4.11.0}"
 # 国内加速前缀。默认已指向实测可用的源（2026-09-29 验证 casbin/casdoor:4.11.0 返回 200 且含 arm64）；
 # 传空串则改用服务器 Docker daemon 的 registry-mirrors（见 debian_begin.sh 的 daemon.json）。
 # 同一约定见 network-policy/build.sh、panghu_chat/hermes/build.sh。
-DOCKERHUB_MIRROR="${DOCKERHUB_MIRROR:-https://docker.m.daocloud.io}"
+#
+# ⚠️ 这里只能是**主机名**：docker 的镜像引用不接受 scheme，带 `https://` 会直接
+#    `invalid reference format`。下面顺手把误传的 scheme 去掉，降低踩坑概率。
+DOCKERHUB_MIRROR="${DOCKERHUB_MIRROR:-docker.m.daocloud.io}"
+DOCKERHUB_MIRROR="${DOCKERHUB_MIRROR#https://}"; DOCKERHUB_MIRROR="${DOCKERHUB_MIRROR#http://}"
 QUAY_MIRROR="${QUAY_MIRROR:-}"
+QUAY_MIRROR="${QUAY_MIRROR#https://}"; QUAY_MIRROR="${QUAY_MIRROR#http://}"
 
 pull_and_push() {
     local official="$1" local_img="$2" name="$3"
     echo "=== [${name}] Pulling ${official} ==="
     if ! docker pull "${official}"; then
         echo "‼️ 拉取失败：${official}" >&2
-        echo "   换源：DOCKERHUB_MIRROR=https://docker.1ms.run bash oauth/build.sh（QUAY 用 QUAY_MIRROR=）" >&2
+        echo "   换源（只填主机名，不要带 https://）：DOCKERHUB_MIRROR=docker.1ms.run bash oauth/build.sh（QUAY 用 QUAY_MIRROR=）" >&2
         return 1
     fi
     echo "=== [${name}] Pushing to ${local_img} ==="
