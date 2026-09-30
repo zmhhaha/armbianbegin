@@ -724,3 +724,36 @@ openssl rsa -in alipay_private.pem -pubout -out alipay_public.pem
 - 支付收款码已在页面底部展示
 
 如果未来修复此问题，可以尝试升级 Casdoor 到更新版本，或关注 Casdoor 官方 Issue #5118 的进展。
+
+---
+
+### 问题 10：升级到 Casdoor 4.x 后登录页 logo 变得很小
+
+**现象**：`auth.panghuer.top` 登录页的 logo 明显变小，方图尤其明显，观感很差。
+
+**原因**：v4 换 shadcn 前端时，把 logo 的缩放依据从「宽」改成了「高」：
+
+| | 3.113.0 | 4.11.0 |
+|---|---|---|
+| 写法 | `<img class="panel-logo" width={250}>` | `<img class="h-10 max-w-full object-contain">` |
+| 效果（883×885 方图） | 250 × 250 | **40 × 40** |
+
+作者是按 Casdoor 默认的长条 logo（1185×256）调的，方图会被压得很小。
+完整对比与证据见 [casdoor升级记录.md](casdoor升级记录.md) 的 §九。
+
+**解决**：**不用换图**。管理台 → **Applications** → 你的应用 → 标签页 **UI Customization**
+→ **Custom CSS** 与 **Custom CSS Mobile** **两个都填**：
+
+```css
+.login-logo-box img {
+  height: 160px;
+}
+```
+
+⚠️ 两个坑：
+
+1. 只写 `width` 无效。元素上有 `object-contain`，图会被按比例缩进框里居中，看着还是小。
+2. 只填 Custom CSS 的话**手机上仍是 40px** —— 两个字段是二选一，不是回退关系。
+
+管理台侧栏那处 logo（折叠 24px / 展开 32px，且优先取应用 favicon）**没有挂钩类名**，
+这段 CSS 只注入登录页，管不到它；要改只能换图。

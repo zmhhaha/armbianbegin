@@ -8,6 +8,9 @@
 **升级成功。** Casdoor 真的跑在 4.11.0 上；数据完整（表只增不减、用户/应用/证书计数不变）；
 13 个 oauth2-proxy 未被牵连；11 个域名的登录链路正常；**已签发的 token 不失效**（JWKS 的 kid 未变）。
 
+升级后唯一肉眼可见的回归是**登录页 logo 变小**：v4 换 shadcn 前端后，logo 的缩放依据从「宽」
+改成了「高」，方图会被压得很小。已用应用级 Custom CSS 修好，见本文 **§九**。
+
 ## 一、怎么证明"真的换版本了"
 
 只看 `kubectl get deploy -o yaml` 会被期望值骗——那只是清单里写的，不等于在跑。本次用了五条独立证据：
@@ -132,3 +135,68 @@ kubectl -n oauth rollout status deploy/casdoor --timeout=600s
 > `panghu_agent/baijiazhengming/registry.yaml` 的白名单，该 host 不在表里，
 > 指过去只会渲染「当前域名未登记」。要做统一入口，得先补 host 映射或做路径分段
 > （见 [../../docs/oauth-proxy-consolidation.md](../../docs/oauth-proxy-consolidation.md)）。
+
+## 九、升级后唯一可见的回归：登录页 logo 变小（已修）
+
+（2026-10-01 补记。§一~§八 是升级当天的复盘，本节是升级后暴露出来、当天没发现的外观问题。）
+
+**现象**：`https://auth.panghuer.top` 登录页的 logo 明显变小、观感很差。同一次升级的其他
+各项（§一~§三）都正常，**这是唯一一处肉眼可见的退化**。
+
+**根因**：v4 换 shadcn 前端时，把 logo 的缩放依据从「宽」改成了「高」。
+
+| | 3.113.0 | 4.11.0 |
+|---|---|---|
+| 登录页写法 | `<img class="panel-logo" width={250} src={logo}>` | `<img class="h-10 max-w-full object-contain" src={logo}>` |
+| 缩放依据 | **宽 250px**，高自适应 | **高 40px**，宽自适应 |
+| 我们的 logo（883×885 方图） | 250 × 250 | **40 × 40** |
+
+作者是按 Casdoor 默认 logo `casdoor-logo_1185x256.png`（约 4.6:1 长条）调的：40px 高时宽约
+185px，看着正常。**方图会被压成 40px 见方**，线性尺寸只剩 16%、面积只剩 2.5%。
+所以这不是谁把配置写错了，而是新前端的排版假设变了 —— 换成任意方图都会这样。
+
+**修法**：用应用级 Custom CSS 覆盖。不动图片、不动镜像、不用重启。
+
+管理台 → **Applications** → `panghu-suite` → 标签页 **UI Customization**
+（该分组里还有 Background URL 和一个 **Preview 实时预览**，改完当场能看效果）→
+**Custom CSS** 与 **Custom CSS Mobile** 两个框都填：
+
+```css
+.login-logo-box img {
+  height: 160px;
+}
+```
+
+本次写入的就是这段，两个字段内容相同（`application.form_css` / `form_css_mobile`）。
+`login-logo-box` 是登录页 logo 外面那层容器的类名：
+
+```jsx
+<div className="login-logo-box mb-6 flex justify-center">
+```
+
+### 三个坑
+
+1. **必须覆盖 `height`，只改 `width` 无效。** 元素上有 `object-contain`，写 `width: 200px`
+   只会让方图在 200×40 的框里按比例缩到 40×40 居中 —— 宽度是够了，图还是小。
+2. **桌面与移动是两个独立字段，不是回退关系。** 登录页的注入代码是
+   `jsx(V,{css: isMobile ? formCssMobile : formCss})`：只填 Custom CSS 的话，
+   **手机上仍然是 40px**。两个都要填。
+3. **`login-logo-box` 是唯一可用的挂钩点。** 新版 CSS 产物里**没有任何 `.logo` 规则**，
+   尺寸全部由 Tailwind 工具类（`h-10`）决定；`.login-logo-box img` 的优先级 (0,1,1) 高于
+   `.h-10` (0,1,0)，所以**不需要 `!important`**。
+   （另注：老文档/docs 里的 `.login-panel` / `.login-form` 那两个类名是旧前端的，新版布局
+   已经不用它们了，照抄那些示例不会生效。）
+
+### 管理台侧栏那处不用管
+
+控制台侧栏是另一处，而且**没有挂钩点**：
+
+```jsx
+<img src={favicon || logo}
+     className={collapsed ? "h-6 w-6 rounded" : "h-8 max-w-[160px]"} />
+```
+
+折叠 24px / 展开 32px，且优先取**应用的 favicon**。这是控制台图标的常规尺寸；父级与 `img`
+都没有语义类名，而那段 Custom CSS 只注入登录页，挂不上。要改只能换图。
+
+**回滚**：把这两个字段清空即回到默认的 40px。纯配置，无残留，不用重启。
