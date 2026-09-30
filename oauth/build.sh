@@ -26,22 +26,52 @@ OAUTH_TAG="${OAUTH_TAG:-v7.8.0}"
 # 结果就是「Pod 一重启就换版本」、升级不可控。改版本与升级步骤见清单顶部注释。
 CASDOOR_TAG="${CASDOOR_TAG:-v4.11.0}"
 
+# 国内加速前缀：留空 = 用服务器 Docker daemon 的 registry-mirrors（见 debian_begin.sh 里的
+# daemon.json）。这与 network-policy/build.sh、panghu_chat/hermes/build.sh 的约定一致。
+# Docker Hub 在国内常年不可达，拉不动时显式指定，例如：
+#   DOCKERHUB_MIRROR=https://docker.m.daocloud.io CASDOOR_TAG=v4.11.0 bash oauth/build.sh
+#   QUAY_MIRROR=https://quay.m.daocloud.io bash oauth/build.sh
+DOCKERHUB_MIRROR="${DOCKERHUB_MIRROR:-}"
+QUAY_MIRROR="${QUAY_MIRROR:-}"
+
 pull_and_push() {
     local official="$1" local_img="$2" name="$3"
     echo "=== [${name}] Pulling ${official} ==="
-    docker pull "${official}"
+    if ! docker pull "${official}"; then
+        cat >&2 <<MSG
+
+‼️ 拉取失败：${official}
+
+   Docker Hub / quay.io 在国内常常不可达。三种办法：
+
+   a) 显式指定加速前缀（绕过 daemon 的 registry-mirrors，最直接）
+        DOCKERHUB_MIRROR=https://docker.m.daocloud.io bash oauth/build.sh    # Docker Hub
+        QUAY_MIRROR=https://quay.m.daocloud.io bash oauth/build.sh           # quay.io
+
+   b) 改服务器 /etc/docker/daemon.json 的 registry-mirrors 后 systemctl restart docker
+        （候选列表与踩过的坑见 debian_begin.sh；加速器寿命不长，坏了就换一个）
+
+   c) 兜底：在能拉通的机器上 docker save，scp 过来 docker load，再 push 到 ${REGISTRY}
+
+MSG
+        return 1
+    fi
     echo "=== [${name}] Pushing to ${local_img} ==="
     docker tag "${official}" "${local_img}"
     docker push "${local_img}"
 }
 
 pull_and_push_all() {
-    pull_and_push "quay.io/oauth2-proxy/oauth2-proxy:${OAUTH_TAG}" \
+    local proxy_src="quay.io/oauth2-proxy/oauth2-proxy:${OAUTH_TAG}"
+    [[ -n "${QUAY_MIRROR}" ]] && proxy_src="${QUAY_MIRROR%/}/oauth2-proxy/oauth2-proxy:${OAUTH_TAG}"
+    pull_and_push "${proxy_src}" \
         "${REGISTRY}/oauth2-proxy:${OAUTH_TAG}" "oauth2-proxy"
     docker tag "${REGISTRY}/oauth2-proxy:${OAUTH_TAG}" "${REGISTRY}/oauth2-proxy:latest"
     docker push "${REGISTRY}/oauth2-proxy:latest"
 
-    pull_and_push "casbin/casdoor:${CASDOOR_TAG}" \
+    local casdoor_src="casbin/casdoor:${CASDOOR_TAG}"
+    [[ -n "${DOCKERHUB_MIRROR}" ]] && casdoor_src="${DOCKERHUB_MIRROR%/}/${casdoor_src}"
+    pull_and_push "${casdoor_src}" \
         "${REGISTRY}/casdoor:${CASDOOR_TAG}" "Casdoor"
     docker tag "${REGISTRY}/casdoor:${CASDOOR_TAG}" "${REGISTRY}/casdoor:latest"
     docker push "${REGISTRY}/casdoor:latest"

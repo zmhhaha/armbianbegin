@@ -111,16 +111,21 @@ apt install -y docker-ce
 
 mkdir -p /etc/docker
 mkdir -p /mnt/nvme/docker
+# Docker Hub 加速（2026-09-29 校订）：原列表里有两个坏项 ——
+#   registry.docker-cn.com  已下线（2024 年即停服）
+#   registry.aliyuncs.com   不是 Hub 加速器（阿里云的正确形式是 <你的ID>.mirror.aliyuncs.com，需登录获取）
+# 以下四个取自「目前可用」列表（https://github.com/dongyubin/DockerHub）。加速器寿命不长，
+# 拉不动时先看这里换一个；也可以临时用 DOCKERHUB_MIRROR=... 前缀绕过 daemon 配置。
 cat > /etc/docker/daemon.json << EOF
 {
     "exec-opts": ["native.cgroupdriver=systemd"],
     "storage-driver": "overlay2",
     "data-root": "/mnt/nvme/docker/",
     "registry-mirrors": [
-        "https://registry.docker-cn.com",
-        "https://dockerproxy.cn",
         "https://docker.m.daocloud.io",
-        "https://registry.aliyuncs.com"
+        "https://docker.1ms.run",
+        "https://docker.1panel.live",
+        "https://dockerproxy.net"
     ],
     "insecure-registries": ["${REGISTRY}"]
 }
