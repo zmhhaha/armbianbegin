@@ -5,12 +5,16 @@
 #  用法:
 #    ./build.sh              # 拉取 + 推送到私有 registry（默认）
 #    ./build.sh --push       # 拉取 + 推送（默认行为）
-#    ./build.sh --deploy     # 拉取 + 推送 + 部署到 K8s
-#    ./build.sh --deploy-proxy  # 部署 oauth2-proxy 到 K8s
+#    ./build.sh --deploy     # 拉取 + 推送 + 部署 Casdoor 基础服务（**不含** oauth2-proxy 实例）
+#    ./build.sh --deploy-proxy  # 已不可用：只打印 oauth2-proxy 实例的正确部署方式后退出
 #
 #  镜像:
 #    oauth2-proxy — quay.io/oauth2-proxy/oauth2-proxy (ARM64)
 #    Casdoor      — casbin/casdoor (ARM64, 非 all-in-one)
+#
+#  ⚠️ oauth2-proxy 实例不由本脚本部署。各家族的实例形状（回调参数、匿名放行路由、
+#     upstream 端口）已经分化，通用模板只适用于其中一部分 —— 见 deploy_proxy_guidance()
+#     的说明，以及 k8s/deploy-{agent,game,hublog}-proxy.sh 三个专用脚本。
 # ============================================================
 set -euo pipefail
 
@@ -86,132 +90,131 @@ deploy_k8s() {
     echo ""
     echo "=== 部署 Casdoor 基础服务到 K8s ==="
     kubectl apply ${K} -f k8s/namespace.yaml
-    kubectl apply ${K} -f k8s/secret.yaml
+    # 2026-10-01 修正：这里原来还会 apply k8s/secret.yaml，而那份清单里是**占位符**
+    # （COOKIE_SECRET=change-me-...、OIDC_CLIENT_ID=oauth2-proxy-client-id）。
+    # 线上 oauth2-proxy-secret 由 Vault 经 ExternalSecret 管理（creationPolicy: Owner），
+    # apply 会把真凭证覆盖掉。代理是 envFrom.secretRef，环境变量只在容器启动时注入一次，
+    # 所以在跑的 Pod 不受影响 —— 但只要有一个代理重启，它就会拿占位符 client_id 去
+    # Casdoor 换 token（登录直接失败），直到 ExternalSecret 下次同步
+    # （refreshInterval: 1h）才恢复。新集群请走 Vault，不要用这份占位符清单。
+    if ! kubectl get ${K} -n oauth secret oauth2-proxy-secret >/dev/null 2>&1; then
+        echo "  ⚠️ oauth 命名空间里还没有 oauth2-proxy-secret" >&2
+        echo "     请应用 vault/inventory/oauth-externalsecret.yaml（不要用 k8s/secret.yaml 的占位符）" >&2
+    fi
     kubectl apply ${K} -f k8s/casdoor-configmap.yaml
     # 2026-09-29 修正：这里原写作 k8s/deployment.yaml，而该文件并不存在（实际叫
     # casdoor-deployment.yaml）。配合 set -e，--deploy 会中止在这一行，后面的
-    # mysql.yaml / 各代理 / ExternalSecret 全都不会被 apply。
+    # mysql.yaml / ExternalSecret 全都不会被 apply。
     kubectl apply ${K} -f k8s/casdoor-deployment.yaml   # Casdoor deployment
     kubectl apply ${K} -f k8s/mysql.yaml          # MySQL for Casdoor
 
-    echo ""
-    echo "=== Casdoor 基础服务已部署 ==="
-}
-
-deploy_proxy() {
-    echo ""
-    echo "=== 部署 oauth2-proxy 实例（research-agent + scientific-agent + daofaziran-agent + fofawubian-agent + zhongkuifumo-agent + yimaneili-agent + zhenzhuzhida-agent + zhougongjiemeng-agent + xiaotanrenjian-agent + txt2img）==="
-    for target in research-agent scientific-agent daofaziran-agent fofawubian-agent zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent zhougongjiemeng-agent xiaotanrenjian-agent bingbichunqiu-agent; do
-        echo "  ── 部署 ${target} ──"
-        sed "s/__TARGET_NAME__/${target}/g" k8s/proxy-configmap.yaml | kubectl apply ${K} -f -
-        sed "s/__TARGET_NAME__/${target}/g" k8s/proxy-deployment.yaml | kubectl apply ${K} -f -
-    done
-
-    # txt2img-proxy 使用独立的 ConfigMap（FastAPI 8000 端口）
-    echo "  ── 部署 txt2img ──"
-    kubectl apply ${K} -f k8s/txt2img-proxy-configmap.yaml
-    sed "s/__TARGET_NAME__/txt2img/g" k8s/proxy-deployment.yaml | kubectl apply ${K} -f -
-
+    # ExternalSecret 同步：原来在 deploy_proxy() 里做，deploy_proxy 不再部署实例后挪到此处。
     echo ""
     echo "=== 同步 oauth2-proxy-secret 从 Vault ==="
     if [ -f "../vault/inventory/oauth-externalsecret.yaml" ]; then
         kubectl apply ${K} -f ../vault/inventory/oauth-externalsecret.yaml
         echo "  ExternalSecret 已应用"
     else
-        echo "  ⚠️ vault/inventory/oauth-externalsecret.yaml 未找到，跳过"
-        echo "  请确保 Vault 已部署，或在 apply 后手动创建 Secret"
+        echo "  ⚠️ vault/inventory/oauth-externalsecret.yaml 未找到，跳过" >&2
+        echo "  Vault 未部署时需按 vault/inventory/02-panghu-agent.md 手动创建 Secret" >&2
     fi
 
     echo ""
-    echo "=== oauth2-proxy 实例已部署 ==="
+    echo "=== Casdoor 基础服务已部署 ==="
+}
+
+# 2026-10-01：本函数**不再**部署 oauth2-proxy 实例，只打印正确做法。
+#
+# 原来它遍历一份写死的名单，把 k8s/proxy-configmap.yaml / k8s/proxy-deployment.yaml 用
+# sed 换掉 __TARGET_NAME__ 就 apply。这套逻辑有三处已经和线上脱节，跑一次就是故障：
+#
+#  1) proxy-configmap.yaml 里还有 __UPSTREAM__，原来从来不替换它。apply 之后在线实例的
+#     ConfigMap 会变成 `uri: __UPSTREAM__`；实测这个值会让 oauth2-proxy 在**启动时 panic**
+#     （validation.Validate: index out of range [0] with length 0）。而改 ConfigMap 不触发
+#     滚动更新，在跑的 Pod 照旧 —— 所以 apply 当时看不出任何异常，等它下次重启/滚动就直接
+#     CrashLoop，该域名登录全挂。受害的是名单里与线上同名的 research-agent /
+#     scientific-agent / txt2img。
+#  2) 名单停在 2026-09-28 之前。八个人格（daofaziran / fofawubian / xiaotanrenjian /
+#     yimaneili / zhenzhuzhida / zhongkuifumo / zhougongjiemeng / bingbichunqiu）的
+#     per-domain 代理那时已经删除，改由共享实例 oauth2-proxy-baijiazhengming 服务。
+#     跑一次会新建 8 个线上并不存在的 Deployment，同时漏掉真正在线的 10 个。
+#  3) hublog 的 5 条 --skip-auth-route（匿名分享页）只存在于它自己的脚本里，用通用模板
+#     apply 会把它们抹掉，分享页会开始要求登录。
+#
+# 各家族的实例形状（回调参数、匿名放行路由、upstream 端口）本来就不一样，正确做法是按
+# 家族用各自的脚本，而不是从通用模板盲拍。
+deploy_proxy_guidance() {
+    cat >&2 <<'EOS'
+
+⚠️  oauth2-proxy 实例不由本脚本部署 —— 请按家族使用 k8s/ 下的专用脚本：
+
+    一域一实例（含多域名共享实例 baijiazhengming）：
+      bash k8s/deploy-agent-proxy.sh <target> [upstream]
+      默认 upstream 是 http://ui.<target>.svc.cluster.local:7860；共享实例要显式给：
+        bash k8s/deploy-agent-proxy.sh baijiazhengming \
+          http://baijiazhengming-ui.baijiazhengming.svc.cluster.local:7860
+
+    游戏系（guanliao / qianfu / school-of-one / shapan / tewu / xuye）：
+      bash k8s/deploy-game-proxy.sh <target>
+
+    Hublog（额外带匿名分享页的 --skip-auth-route）：
+      bash k8s/deploy-hublog-proxy.sh
+
+    在线实例以集群为准：  kubectl -n oauth get deploy | grep oauth2-proxy
+EOS
 }
 
 case "${1:-}" in
     --deploy)
         pull_and_push_all
         deploy_k8s
-        deploy_proxy
+        deploy_proxy_guidance
 
         sleep 10
         kubectl get pods -n oauth ${K}
 
         echo ""
         echo "============================================"
-        echo "  OAuth 认证服务已部署！"
+        echo "  Casdoor 基础服务已部署，镜像已推送到私有 registry。"
         echo ""
-        echo "  oauth2-proxy 实例:"
-        echo "    research-agent:    http://oauth2-proxy-research-agent.oauth.svc.cluster.local:4180"
-        echo "    scientific-agent:  http://oauth2-proxy-scientific-agent.oauth.svc.cluster.local:4180"
-        echo "    daofaziran-agent:  http://oauth2-proxy-daofaziran-agent.oauth.svc.cluster.local:4180"
-        echo "    fofawubian-agent:  http://oauth2-proxy-fofawubian-agent.oauth.svc.cluster.local:4180"
-        echo "    zhongkuifumo-agent:  http://oauth2-proxy-zhongkuifumo-agent.oauth.svc.cluster.local:4180"
-        echo "    yimaneili-agent:     http://oauth2-proxy-yimaneili-agent.oauth.svc.cluster.local:4180"
-        echo "    zhenzhuzhida-agent:  http://oauth2-proxy-zhenzhuzhida-agent.oauth.svc.cluster.local:4180"
-        echo "    zhougongjiemeng-agent: http://oauth2-proxy-zhougongjiemeng-agent.oauth.svc.cluster.local:4180"
-        echo "    xiaotanrenjian-agent: http://oauth2-proxy-xiaotanrenjian-agent.oauth.svc.cluster.local:4180"
-        echo "    txt2img:           http://oauth2-proxy-txt2img.oauth.svc.cluster.local:4180"
+        echo "  注意：本命令**不部署** oauth2-proxy 实例（见上方指引），"
+        echo "        在线实例请以集群为准：kubectl -n oauth get deploy | grep oauth2-proxy"
         echo ""
         echo "  下一步:"
-        echo "    1. 访问 https://auth.panghuer.top 配置 OAuth 提供商"
-        echo "    2. 在 Casdoor 中创建 oauth2-proxy 应用"
-        echo "      回调 URL: https://research-agent.panghuer.top/oauth2/callback"
-        echo "                https://scientific-agent.panghuer.top/oauth2/callback"
-        echo "                https://daofaziran-agent.panghuer.top/oauth2/callback"
-        echo "                https://fofawubian-agent.panghuer.top/oauth2/callback"
-        echo "                https://zhongkuifumo-agent.panghuer.top/oauth2/callback"
-        echo "                https://yimaneili-agent.panghuer.top/oauth2/callback"
-        echo "                https://zhenzhuzhida-agent.panghuer.top/oauth2/callback"
-        echo "                https://zhougongjiemeng-agent.panghuer.top/oauth2/callback"
-        echo "                https://xiaotanrenjian-agent.panghuer.top/oauth2/callback"
-        echo "                https://bingbichunqiu-agent.panghuer.top/oauth2/callback"
-        echo "                https://txt2img.panghuer.top/oauth2/callback"
-        echo "    3. 更新 secret.yaml 中 OIDC_CLIENT_ID/SECRET"
-        echo "    4. 确保 tunnel-routes.yaml 已更新指向 oauth2-proxy"
+        echo "    1. 访问 https://auth.panghuer.top 确认 Casdoor 版本与 OIDC 发现正常"
+        echo "    2. 要改动某个代理，用 k8s/deploy-{agent,game,hublog}-proxy.sh"
+        echo "    3. 客户端凭证走 Vault（vault/inventory/oauth-externalsecret.yaml），"
+        echo "       不要用 k8s/secret.yaml 里的占位符"
         echo "============================================"
         ;;
     --deploy-proxy)
-        deploy_proxy
+        deploy_proxy_guidance
+        exit 1
         ;;
     --push|"")
         pull_and_push_all
         ;;
     --help)
-        echo "用法: $0 [--push|--deploy|--deploy-proxy]"
+        echo "用法: $0 [--push|--deploy|--deploy-proxy|--help]"
         echo ""
         echo "  (无参数)        拉取 oauth2-proxy + Casdoor 镜像并推送到私有 registry（默认）"
         echo "  --push          拉取 oauth2-proxy + Casdoor 镜像并推送到私有 registry"
-        echo "  --deploy        拉取镜像 + 部署 Casdoor + 部署 oauth2-proxy 多个实例"
-        echo "  --deploy-proxy  仅部署/更新 oauth2-proxy 实例（research-agent + scientific-agent + daofaziran-agent + fofawubian-agent + zhongkuifumo-agent + yimaneili-agent + zhenzhuzhida-agent + zhougongjiemeng-agent + xiaotanrenjian-agent + txt2img）"
-        echo ""
-        echo "  oauth2-proxy 实例:"
-        echo "    research-agent:     oauth2-proxy-research-agent.oauth.svc.cluster.local:4180"
-        echo "    scientific-agent:   oauth2-proxy-scientific-agent.oauth.svc.cluster.local:4180"
-        echo "    daofaziran-agent:   oauth2-proxy-daofaziran-agent.oauth.svc.cluster.local:4180"
-        echo "    fofawubian-agent:   oauth2-proxy-fofawubian-agent.oauth.svc.cluster.local:4180"
-        echo "    zhongkuifumo-agent:  oauth2-proxy-zhongkuifumo-agent.oauth.svc.cluster.local:4180"
-        echo "    yimaneili-agent:     oauth2-proxy-yimaneili-agent.oauth.svc.cluster.local:4180"
-        echo "    zhenzhuzhida-agent:  oauth2-proxy-zhenzhuzhida-agent.oauth.svc.cluster.local:4180"
-        echo "    zhougongjiemeng-agent: oauth2-proxy-zhougongjiemeng-agent.oauth.svc.cluster.local:4180"
-        echo "    xiaotanrenjian-agent: oauth2-proxy-xiaotanrenjian-agent.oauth.svc.cluster.local:4180"
-        echo "    txt2img:            oauth2-proxy-txt2img.oauth.svc.cluster.local:4180"
-        ;;
-    *)
-        echo "用法: $0 [--push|--deploy|--deploy-proxy|--help]"
+        echo "  --deploy        拉取镜像 + 部署 Casdoor 基础服务（**不含** oauth2-proxy 实例）"
+        echo "  --deploy-proxy  已不可用；只打印 oauth2-proxy 实例的正确部署方式并以 1 退出"
         echo ""
         echo "  组件:"
         echo "    oauth2-proxy : quay.io/oauth2-proxy/oauth2-proxy:${OAUTH_TAG}"
         echo "    Casdoor      : casbin/casdoor:${CASDOOR_TAG}"
         echo ""
-        echo "  oauth2-proxy 实例:"
-        echo "    research-agent:     oauth2-proxy-research-agent.oauth.svc.cluster.local:4180"
-        echo "    scientific-agent:   oauth2-proxy-scientific-agent.oauth.svc.cluster.local:4180"
-        echo "    daofaziran-agent:   oauth2-proxy-daofaziran-agent.oauth.svc.cluster.local:4180"
-        echo "    fofawubian-agent:   oauth2-proxy-fofawubian-agent.oauth.svc.cluster.local:4180"
-        echo "    zhongkuifumo-agent:  oauth2-proxy-zhongkuifumo-agent.oauth.svc.cluster.local:4180"
-        echo "    yimaneili-agent:     oauth2-proxy-yimaneili-agent.oauth.svc.cluster.local:4180"
-        echo "    zhenzhuzhida-agent:  oauth2-proxy-zhenzhuzhida-agent.oauth.svc.cluster.local:4180"
-        echo "    zhougongjiemeng-agent: oauth2-proxy-zhougongjiemeng-agent.oauth.svc.cluster.local:4180"
-        echo "    xiaotanrenjian-agent: oauth2-proxy-xiaotanrenjian-agent.oauth.svc.cluster.local:4180"
-        echo "    txt2img:            oauth2-proxy-txt2img.oauth.svc.cluster.local:4180"
+        echo "  oauth2-proxy 实例按家族用 k8s/ 下的专用脚本部署，理由见 deploy_proxy_guidance()。"
+        ;;
+    *)
+        echo "未知参数: ${1}" >&2
+        echo "用法: $0 [--push|--deploy|--deploy-proxy|--help]" >&2
+        echo "" >&2
+        echo "  组件:" >&2
+        echo "    oauth2-proxy : quay.io/oauth2-proxy/oauth2-proxy:${OAUTH_TAG}" >&2
+        echo "    Casdoor      : casbin/casdoor:${CASDOOR_TAG}" >&2
+        exit 1
         ;;
 esac

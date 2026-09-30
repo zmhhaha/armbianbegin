@@ -1,8 +1,16 @@
 # ============================================================
-#  oauth2-proxy ConfigMap 模板
-#  通过 sed 替换 __TARGET_NAME__ 部署:
-#    sed "s/__TARGET_NAME__/research-agent/g" proxy-configmap.yaml | kubectl apply -f -
-#    sed "s/__TARGET_NAME__/scientific-agent/g" proxy-configmap.yaml | kubectl apply -f -
+#  oauth2-proxy ConfigMap 模板 —— **不要直接 apply**
+#
+#  它有两个占位符：__TARGET_NAME__ 和 __UPSTREAM__。只替换前者的写法
+#  （sed "s/__TARGET_NAME__/.../g" | kubectl apply -f -）会渲染出
+#  `uri: __UPSTREAM__`，实测会让 oauth2-proxy 在启动时 panic：
+#      panic: runtime error: index out of range [0] with length 0
+#      github.com/oauth2-proxy/oauth2-proxy/v7/pkg/validation.Validate
+#  而改 ConfigMap 不触发滚动更新，所以在跑的 Pod 当时无异常，下次重启才 CrashLoop。
+#
+#  用 deploy-agent-proxy.sh 部署，它两个占位符都替换：
+#    bash deploy-agent-proxy.sh research-agent [upstream]
+#  默认 upstream = http://ui.<target>.svc.cluster.local:7860
 # ============================================================
 apiVersion: v1
 kind: ConfigMap

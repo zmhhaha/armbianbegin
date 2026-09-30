@@ -89,29 +89,66 @@ bash build.sh --deploy
 
 这会部署：
 - `namespace.yaml` — `oauth` 命名空间
-- `secret.yaml` — oauth2-proxy 凭证（placeholder，后续通过 Vault 同步）
 - `casdoor-configmap.yaml` — Casdoor 配置（MySQL 连接、端口）
 - `casdoor-deployment.yaml` — Casdoor 服务
 - `mysql.yaml` — MySQL 8.0 有状态服务
+- `vault/inventory/oauth-externalsecret.yaml` — oauth2-proxy 的客户端凭证（从 Vault 同步）
+
+两个**不再**发生的事（2026-10-01 修正）：
+
+- 它不再 apply `secret.yaml`。那份清单里是占位符（`change-me-use-openssl-rand-hex-16`、
+  `oauth2-proxy-client-id`），而线上的 `oauth2-proxy-secret` 由 Vault 经 ExternalSecret
+  管理。apply 会把真凭证换成占位符：代理是 `envFrom.secretRef`，环境变量只在容器启动时
+  注入，所以在跑的 Pod 不受影响，但只要有一个代理重启，它就会拿占位符 `client_id` 去
+  Casdoor 换 token（登录直接失败），直到 ExternalSecret 下次同步（`refreshInterval: 1h`）
+  才恢复。新集群的凭证请走 Vault。
+- 它不再部署 oauth2-proxy 实例 —— 见 Step 2。
 
 ### Step 2：部署 oauth2-proxy 实例
 
-```bash
-# 仅部署 oauth2-proxy（两个实例：research-agent + scientific-agent）
-bash build.sh --deploy-proxy
+oauth2-proxy 实例**不由 `build.sh` 部署**。各家族的实例形状（回调参数、匿名放行路由、
+upstream 端口）本来就不一样，用 `k8s/` 下对应的专用脚本：
 
-# 验证
-kubectl get pods -n oauth | grep oauth2-proxy
-# 应看到:
-# oauth2-proxy-research-agent-xxx     2/2  Running
-# oauth2-proxy-scientific-agent-xxx   2/2  Running
+```bash
+cd ~/armbianbegin/oauth
+
+# 一域一实例（默认 upstream 是 http://ui.<target>.svc.cluster.local:7860）
+bash k8s/deploy-agent-proxy.sh research-agent
+bash k8s/deploy-agent-proxy.sh scientific-agent
+bash k8s/deploy-agent-proxy.sh literature-downloader
+bash k8s/deploy-agent-proxy.sh txt2img
+
+# 多域名共享实例：八个人格共用一个代理，回调按请求的 Host 生成
+bash k8s/deploy-agent-proxy.sh baijiazhengming \
+  http://baijiazhengming-ui.baijiazhengming.svc.cluster.local:7860
+
+# 游戏系（upstream 走 :80）
+bash k8s/deploy-game-proxy.sh tewu
+# guanliao / qianfu / school-of-one / shapan / xuye 同理
+
+# Hublog（额外带匿名分享页的 --skip-auth-route）
+bash k8s/deploy-hublog-proxy.sh
 ```
 
-`--deploy-proxy` 会执行：
-1. 遍历 `research-agent` 和 `scientific-agent`
-2. 用 `sed` 替换 `__TARGET_NAME__` 部署两个 ConfigMap
-3. 用 `sed` 替换 `__TARGET_NAME__` 部署两个 Deployment + Service
-4. 同时同步 Vault 中的 ExternalSecret（如果 Vault 已部署）
+⚠️ **不要**再手写这种命令：
+
+```bash
+sed "s/__TARGET_NAME__/research-agent/g" k8s/proxy-configmap.yaml | kubectl apply -f -
+sed "s/__TARGET_NAME__/research-agent/g" k8s/proxy-deployment.yaml | kubectl apply -f -
+```
+
+`proxy-configmap.yaml` 里的 `__UPSTREAM__`、`proxy-deployment.yaml` 里的 `__CALLBACK_ARG__`
+它都不替换，渲染出来是 `uri: __UPSTREAM__` —— 实测这个值会让 oauth2-proxy 在**启动时
+panic**（`validation.Validate: index out of range [0] with length 0`）。而改 ConfigMap 不触发
+滚动更新，所以在跑的 Pod 当时看不出任何异常，等它下次重启/滚动就直接 CrashLoop，该域名
+登录全挂。专用脚本会同时替换这两个占位符，并在最后补一次 `rollout restart`。
+
+验证（名单以集群为准，不要照抄本文档里的历史清单）：
+
+```bash
+kubectl -n oauth get deploy | grep oauth2-proxy
+kubectl -n oauth get pods  | grep oauth2-proxy
+```
 
 ### Step 3：更新 Tunnel 路由
 
@@ -330,34 +367,32 @@ kubectl logs -n oauth deploy/casdoor --tail=200 | grep -i "oauth\|authorize\|red
 ### 更新配置
 
 ```bash
-# 重新部署两个 oauth2-proxy 实例
-sed "s/__TARGET_NAME__/research-agent/g" k8s/proxy-configmap.yaml | kubectl apply -f -
-sed "s/__TARGET_NAME__/research-agent/g" k8s/proxy-deployment.yaml | kubectl apply -f -
-sed "s/__TARGET_NAME__/scientific-agent/g" k8s/proxy-configmap.yaml | kubectl apply -f -
-sed "s/__TARGET_NAME__/scientific-agent/g" k8s/proxy-deployment.yaml | kubectl apply -f -
+cd ~/armbianbegin/oauth
+
+# 改动某个实例：脚本会把 ConfigMap + Deployment 一起渲染，并补一次 rollout restart
+bash k8s/deploy-agent-proxy.sh research-agent
+bash k8s/deploy-game-proxy.sh tewu
 ```
+
+不要手写 `sed "s/__TARGET_NAME__/.../g" k8s/proxy-*.yaml | kubectl apply -f -`，
+原因见 Step 2 的警告（`__UPSTREAM__` / `__CALLBACK_ARG__` 不会被替换）。
 
 ### 重启
 
 ```bash
-# 重启所有 agent 类
-for t in research-agent scientific-agent daofaziran-agent fofawubian-agent \
-         zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent \
-         zhougongjiemeng-agent xiaotanrenjian-agent; do
-  kubectl rollout restart deploy/oauth2-proxy-$t -n oauth
+# 名单以集群为准。历史上那份写死的名单（含八个人格）在 2026-09-28 八个人格合并到
+# 共享实例 oauth2-proxy-baijiazhengming 之后就过期了，照抄会对不存在的 Deployment 报错。
+for d in $(kubectl -n oauth get deploy -o name | grep oauth2-proxy); do
+  kubectl -n oauth rollout restart "$d"
 done
 
-# txt2img
-kubectl rollout restart deploy/oauth2-proxy-txt2img -n oauth
-
-# 游戏类（school-of-one + qianfu）
-for t in school-of-one qianfu; do
-  kubectl rollout restart deploy/oauth2-proxy-$t -n oauth
-done
-
-# 等待全部就绪
-kubectl rollout status deploy -n oauth -l app -l='oauth2-proxy-'
+kubectl -n oauth rollout status deploy -l app --timeout=180s
 ```
+
+注意：oauth2-proxy 在**启动时**读 alpha-config，所以只改 ConfigMap 必须跟一次
+`rollout restart`，否则 Deployment 的 spec 没变、apply 不触发滚动，Pod 会一直用旧
+upstream（症状是日志里 dial 一个早就删掉的地址、浏览器拿到 502）。专用脚本里已经带
+了这一步。
 
 ### 调试直连
 
@@ -572,15 +607,25 @@ kubectl logs -n oauth deploy/casdoor --tail=50 | grep -i "error\|callback\|token
 2. 登录 `https://auth.panghuer.top` → **应用 (Applications)** → 编辑应用
 3. 确保 `Refresh token expire (hours)` ≥ 24（建议 168，即 7 天，与 cookie-expire 一致）
 
-部署：
+部署（`--cookie-refresh` 要改在 `proxy-deployment.yaml` + `game-proxy-deployment.yaml` 两个
+模板里，然后按家族重新渲染；**不要手写 sed**，原因见 Step 2）：
+
 ```bash
-for t in research-agent scientific-agent daofaziran-agent fofawubian-agent zhongkuifumo-agent yimaneili-agent zhenzhuzhida-agent zhougongjiemeng-agent xiaotanrenjian-agent txt2img; do
-  sed "s/__TARGET_NAME__/$t/g" k8s/proxy-deployment.yaml | kubectl apply -f -
-done
-for t in school-of-one qianfu; do
-  sed "s/__TARGET_NAME__/$t/g" k8s/game-proxy-deployment.yaml | kubectl apply -f -
-done
-kubectl rollout restart deploy -n oauth -l app.kubernetes.io/name=oauth2-proxy
+cd ~/armbianbegin/oauth
+
+# 一域一实例 / 多域名共享实例
+bash k8s/deploy-agent-proxy.sh research-agent
+bash k8s/deploy-agent-proxy.sh baijiazhengming \
+  http://baijiazhengming-ui.baijiazhengming.svc.cluster.local:7860
+
+# 游戏系
+bash k8s/deploy-game-proxy.sh tewu
+
+# Hublog
+bash k8s/deploy-hublog-proxy.sh
+
+# 其余实例同法处理，名单以集群为准：
+#   kubectl -n oauth get deploy | grep oauth2-proxy
 ```
 
 

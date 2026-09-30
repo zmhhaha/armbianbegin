@@ -1,8 +1,14 @@
 # ============================================================
-#  oauth2-proxy 认证代理部署模板
-#  部署时通过 sed 替换 __TARGET_NAME__ 创建不同实例:
-#    sed "s/__TARGET_NAME__/research-agent/g" proxy-deployment.yaml | kubectl apply -f -
-#    sed "s/__TARGET_NAME__/scientific-agent/g" proxy-deployment.yaml | kubectl apply -f -
+#  oauth2-proxy 认证代理部署模板 —— **不要直接 apply**
+#
+#  它的 __CALLBACK_ARG__ 必须替换成：
+#    一域一实例      --redirect-url=https://<target>.panghuer.top/oauth2/callback
+#    多域名共享实例  --whitelist-domain=.panghuer.top
+#      （共享实例写死回调的话，从别的域名登录会被绕到写死的那一个）
+#  未替换时它是个**被忽略的位置参数**（不会报错），于是回调只能靠请求的 Host 生成。
+#
+#  用 deploy-agent-proxy.sh 部署：
+#    bash deploy-agent-proxy.sh <target> [upstream]
 # ============================================================
 ---
 apiVersion: v1
