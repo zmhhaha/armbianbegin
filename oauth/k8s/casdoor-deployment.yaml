@@ -1,6 +1,25 @@
 # Casdoor — 统一身份认证平台
-# casbin/casdoor:latest (ARM64, 非 all-in-one)
+# casbin/casdoor（ARM64，非 all-in-one）；**固定不可变 tag**，见下方 image 行
 # 数据持久化到 MySQL (Ceph RBD PVC)
+#
+# ── 升级步骤（2026-09-29 整理，配合 oauth/build.sh 的 CASDOOR_TAG）──────────
+#  1) 备份
+#       mysqldump 出 oauth 命名空间里 casdoor 用的那个库
+#       kubectl -n oauth get deploy casdoor -o yaml > /tmp/casdoor-rollback.yaml
+#  2) 改版本：改下面 image 的 tag，**同时**改 oauth/build.sh 的 CASDOOR_TAG 默认值
+#  3) 取镜像并推送：  CASDOOR_TAG=vX.Y.Z bash oauth/build.sh
+#  4) 应用：          kubectl apply -f oauth/k8s/casdoor-deployment.yaml
+#     （或 kubectl -n oauth set image deploy/casdoor casdoor=$REGISTRY/casdoor:vX.Y.Z）
+#  5) 验证，按顺序：  /api/health → /api/get-version-info →
+#       /.well-known/openid-configuration → JWKS →
+#       **八个域名各登录一次** → OpenSpec MCP 调一次 list_projects
+#  6) 回滚：          kubectl apply -f /tmp/casdoor-rollback.yaml
+#
+# ⚠️ **不要再用 `latest`**：imagePullPolicy 是 Always，可变 tag 等于「Pod 一重启就换版本」。
+# ⚠️ 启动时 xorm 会 Sync2 自动迁移表结构；迁移慢可能被 liveness 打死 → 已加 startupProbe。
+# ⚠️ v4.0.0 起后台前端换成 shadcn/ui，**设置项位置会变**（Token format / Token fields 要重找）。
+#    该版本唯一一条 BREAKING 是前端静态资源路径（只影响用 CDN/反代发它静态文件的部署，我们不涉及）。
+#    已核对 v4.11.0：仍支持 JWT-Custom / TokenFields；OIDC 发现、JWKS、/api/health 路由均未变。
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -21,7 +40,7 @@ spec:
     spec:
       containers:
       - name: casdoor
-        image: arm-cluster-master:5000/casdoor:latest
+        image: arm-cluster-master:5000/casdoor:v4.11.0
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
@@ -41,6 +60,14 @@ spec:
           limits:
             cpu: 500m
             memory: 1Gi
+        # 首次升级要跑 xorm Sync2 迁移表结构，可能比 liveness 的容忍时间更久；
+        # 有 startupProbe 之前 liveness 不会开始计时，避免「迁移没跑完就被打死 → 重启重来」。
+        startupProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          periodSeconds: 5
+          failureThreshold: 60      # 最多容忍 5 分钟启动
         livenessProbe:
           httpGet:
             path: /api/health

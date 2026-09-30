@@ -21,7 +21,10 @@ REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
 K="${KUBECONFIG:---kubeconfig=/etc/kubernetes/super-admin.conf}"
 
 OAUTH_TAG="${OAUTH_TAG:-v7.8.0}"
-CASDOOR_TAG="${CASDOOR_TAG:-latest}"
+# Casdoor 用**不可变 tag**：清单 oauth/k8s/casdoor-deployment.yaml 里固定的是同一个版本，
+# 两边要一起改。历史上这里默认 latest、清单也写 latest，叠加 imagePullPolicy: Always，
+# 结果就是「Pod 一重启就换版本」、升级不可控。改版本与升级步骤见清单顶部注释。
+CASDOOR_TAG="${CASDOOR_TAG:-v4.11.0}"
 
 pull_and_push() {
     local official="$1" local_img="$2" name="$3"
@@ -55,7 +58,10 @@ deploy_k8s() {
     kubectl apply ${K} -f k8s/namespace.yaml
     kubectl apply ${K} -f k8s/secret.yaml
     kubectl apply ${K} -f k8s/casdoor-configmap.yaml
-    kubectl apply ${K} -f k8s/deployment.yaml    # Casdoor deployment
+    # 2026-09-29 修正：这里原写作 k8s/deployment.yaml，而该文件并不存在（实际叫
+    # casdoor-deployment.yaml）。配合 set -e，--deploy 会中止在这一行，后面的
+    # mysql.yaml / 各代理 / ExternalSecret 全都不会被 apply。
+    kubectl apply ${K} -f k8s/casdoor-deployment.yaml   # Casdoor deployment
     kubectl apply ${K} -f k8s/mysql.yaml          # MySQL for Casdoor
 
     echo ""
