@@ -7,9 +7,12 @@
 #       mysqldump 出 oauth 命名空间里 casdoor 用的那个库
 #       kubectl -n oauth get deploy casdoor -o yaml > /tmp/casdoor-rollback.yaml
 #  2) 改版本：改下面 image 的 tag，**同时**改 oauth/build.sh 的 CASDOOR_TAG 默认值
-#  3) 取镜像并推送：  CASDOOR_TAG=vX.Y.Z bash oauth/build.sh
+#     ⚠️ tag 形状：GitHub 上游是 `v4.11.0`，但 Casdoor 的 CI 去掉 `v` 再推镜像
+#        （build.yml: version=${GITHUB_REF_NAME#v}），**Docker Hub 上是 `4.11.0`**。
+#        写错形状会 403/404，然后 fallback 到 registry-1.docker.io 报一个无关的 EOF。
+#  3) 取镜像并推送：  CASDOOR_TAG=4.11.0 bash oauth/build.sh
 #  4) 应用：          kubectl apply -f oauth/k8s/casdoor-deployment.yaml
-#     （或 kubectl -n oauth set image deploy/casdoor casdoor=$REGISTRY/casdoor:vX.Y.Z）
+#     （或 kubectl -n oauth set image deploy/casdoor casdoor=$REGISTRY/casdoor:X.Y.Z）
 #  5) 验证，按顺序：  /api/health → /api/get-version-info →
 #       /.well-known/openid-configuration → JWKS →
 #       **八个域名各登录一次** → OpenSpec MCP 调一次 list_projects
@@ -40,7 +43,7 @@ spec:
     spec:
       containers:
       - name: casdoor
-        image: arm-cluster-master:5000/casdoor:v4.11.0
+        image: arm-cluster-master:5000/casdoor:4.11.0
         imagePullPolicy: Always
         ports:
         - containerPort: 8000

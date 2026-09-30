@@ -24,36 +24,25 @@ OAUTH_TAG="${OAUTH_TAG:-v7.8.0}"
 # Casdoor 用**不可变 tag**：清单 oauth/k8s/casdoor-deployment.yaml 里固定的是同一个版本，
 # 两边要一起改。历史上这里默认 latest、清单也写 latest，叠加 imagePullPolicy: Always，
 # 结果就是「Pod 一重启就换版本」、升级不可控。改版本与升级步骤见清单顶部注释。
-CASDOOR_TAG="${CASDOOR_TAG:-v4.11.0}"
+#
+# ⚠️ tag 形状：Casdoor 的 CI 把 release tag 的 `v` 去掉再推镜像
+#    （build.yml: `version=${GITHUB_REF_NAME#v}`，注释写明 "tag `v1.2.3` publishes `1.2.3`"）。
+#    所以 GitHub 上游是 v4.11.0、**Docker Hub 上是 4.11.0** —— 写成 v4.11.0 会 403/404，
+#    然后 fallback 到 registry-1.docker.io 报一个和真实原因无关的 EOF。
+CASDOOR_TAG="${CASDOOR_TAG:-4.11.0}"
 
-# 国内加速前缀：留空 = 用服务器 Docker daemon 的 registry-mirrors（见 debian_begin.sh 里的
-# daemon.json）。这与 network-policy/build.sh、panghu_chat/hermes/build.sh 的约定一致。
-# Docker Hub 在国内常年不可达，拉不动时显式指定，例如：
-#   DOCKERHUB_MIRROR=https://docker.m.daocloud.io CASDOOR_TAG=v4.11.0 bash oauth/build.sh
-#   QUAY_MIRROR=https://quay.m.daocloud.io bash oauth/build.sh
-DOCKERHUB_MIRROR="${DOCKERHUB_MIRROR:-}"
+# 国内加速前缀。默认已指向实测可用的源（2026-09-29 验证 casbin/casdoor:4.11.0 返回 200 且含 arm64）；
+# 传空串则改用服务器 Docker daemon 的 registry-mirrors（见 debian_begin.sh 的 daemon.json）。
+# 同一约定见 network-policy/build.sh、panghu_chat/hermes/build.sh。
+DOCKERHUB_MIRROR="${DOCKERHUB_MIRROR:-https://docker.m.daocloud.io}"
 QUAY_MIRROR="${QUAY_MIRROR:-}"
 
 pull_and_push() {
     local official="$1" local_img="$2" name="$3"
     echo "=== [${name}] Pulling ${official} ==="
     if ! docker pull "${official}"; then
-        cat >&2 <<MSG
-
-‼️ 拉取失败：${official}
-
-   Docker Hub / quay.io 在国内常常不可达。三种办法：
-
-   a) 显式指定加速前缀（绕过 daemon 的 registry-mirrors，最直接）
-        DOCKERHUB_MIRROR=https://docker.m.daocloud.io bash oauth/build.sh    # Docker Hub
-        QUAY_MIRROR=https://quay.m.daocloud.io bash oauth/build.sh           # quay.io
-
-   b) 改服务器 /etc/docker/daemon.json 的 registry-mirrors 后 systemctl restart docker
-        （候选列表与踩过的坑见 debian_begin.sh；加速器寿命不长，坏了就换一个）
-
-   c) 兜底：在能拉通的机器上 docker save，scp 过来 docker load，再 push 到 ${REGISTRY}
-
-MSG
+        echo "‼️ 拉取失败：${official}" >&2
+        echo "   换源：DOCKERHUB_MIRROR=https://docker.1ms.run bash oauth/build.sh（QUAY 用 QUAY_MIRROR=）" >&2
         return 1
     fi
     echo "=== [${name}] Pushing to ${local_img} ==="

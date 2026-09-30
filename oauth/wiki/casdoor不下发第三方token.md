@@ -162,8 +162,15 @@ curl -s -X POST "$BASE/api/update-application?id=admin/panghu-suite" \
 `oauth/build.sh` 的 tag 本来就是参数化的：
 
 ```bash
-CASDOOR_TAG=v4.11.0 bash oauth/build.sh     # 具体版本按需选
+CASDOOR_TAG=4.11.0 bash oauth/build.sh     # 具体版本按需选；注意 Docker tag 不带 v
 ```
+
+> ⚠️ **tag 形状（2026-09-29 踩过）**：Casdoor 的 CI 把 release tag 的 `v` 去掉再推镜像
+> （`build.yml`：`version=${GITHUB_REF_NAME#v}`，注释写明 "tag `v1.2.3` publishes `1.2.3`"）。
+> 所以 **GitHub 上游是 `v4.11.0`，Docker Hub / 私有 registry 上是 `4.11.0`**。
+> 写成 `v4.11.0` 时各加速源回 403/404，daemon 再 fallback 到 `registry-1.docker.io`，
+> 最终报一个与真实原因毫无关系的 `Get "https://registry-1.docker.io/v2/": EOF` ——
+> 该报错误导性极强，遇到先核对 tag 形状。
 
 ✅ **没有自定义补丁要处理**：曾有一个支付宝 PKCS#8 回退补丁（`oauth/casdoor_fix/`），
 **已于 2026-09-29 删除** —— 该集成从未正常使用，已放弃。所以升级是纯粹的换 tag。
