@@ -134,6 +134,8 @@ spec:
   backend: oauth2-proxy-guanliao.oauth.svc.cluster.local:4180
 ---
 # 特务
+# ⚠️ 2026-09-29 实测：公网访问超时。这条路由在本文件（备份）里有，但 **Cloudflare 后台没有
+#    对应的 Public Hostname** —— 本文件不生效，后台才是权威来源。要通得去后台补。
 apiVersion: cf.armbianbegin.io/v1
 kind: TunnelRoute
 metadata:
@@ -315,3 +317,24 @@ spec:
   tunnelRef: main
   hostname: obsidian.panghuer.top
   backend: obsidian-couchdb.obsidian.svc.cluster.local:5984
+---
+# 百家争鸣（统一入口域名）
+#
+# ⚠️ 2026-09-29 状态：**尚未发布**。本文件此前没有这条路由，只有在用的共享代理
+#    oauth2-proxy-baijiazhengming（八条 *-agent Public Hostname 直接指向它）。
+#    要让它真正可用，需要两步：
+#      1) Cloudflare 后台 → main tunnel → 加 Public Hostname（**必做**，后台才是权威来源）
+#           baijiazhengming.panghuer.top → oauth2-proxy-baijiazhengming.oauth.svc.cluster.local:4180
+#      2) **应用侧还要认这个 Host**：共享 UI 按 Host 查
+#           panghu_agent/baijiazhengming/registry.yaml 的白名单，该 host 不在表里，
+#         现在指过去只会渲染「当前域名未登记」。要么给某个人格补上这个 host，要么先做
+#         路径分段/落地页 —— 后者是尚未实现的方案，见 docs/oauth-proxy-consolidation.md。
+apiVersion: cf.armbianbegin.io/v1
+kind: TunnelRoute
+metadata:
+  name: baijiazhengming
+  namespace: default
+spec:
+  tunnelRef: main
+  hostname: baijiazhengming.panghuer.top
+  backend: oauth2-proxy-baijiazhengming.oauth.svc.cluster.local:4180

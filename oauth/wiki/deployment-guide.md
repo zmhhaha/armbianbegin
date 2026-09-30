@@ -2,6 +2,10 @@
 
 记录了 oauth2-proxy + Casdoor 部署过程中的架构、流程、运维命令和常见问题。
 
+> **Casdoor 升级记录（2026-09-29，3.113.0 → 4.11.0）**：含「怎么证明真的换了版本」、迁移日志的
+> 判据、`progress deadline exceeded` 为何是滞后误报、以及回滚方法 —— 见
+> [casdoor升级记录.md](casdoor升级记录.md)。
+
 ---
 
 ## 目录
