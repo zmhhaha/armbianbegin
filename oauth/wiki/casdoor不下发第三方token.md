@@ -165,8 +165,8 @@ curl -s -X POST "$BASE/api/update-application?id=admin/panghu-suite" \
 CASDOOR_TAG=v4.11.0 bash oauth/build.sh     # 具体版本按需选
 ```
 
-⚠️ **升级前先处理 `oauth/casdoor_fix/`**：那份补丁是为阿里云 PKCS#8 私钥格式打的
-（`formatPrivateKey`），升级后要重新应用，否则会回到那个老坑。
+✅ **没有自定义补丁要处理**：曾有一个支付宝 PKCS#8 回退补丁（`oauth/casdoor_fix/`），
+**已于 2026-09-29 删除** —— 该集成从未正常使用，已放弃。所以升级是纯粹的换 tag。
 
 不想升级的话，有三条**不改 Casdoor token 逻辑**的退路（按性价比）：
 

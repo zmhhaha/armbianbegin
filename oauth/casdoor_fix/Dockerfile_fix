@@ -1,3 +1,0 @@
-FROM arm-cluster-master:5000/casdoor:latest
-
-COPY casdoor-fix-static server
