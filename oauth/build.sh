@@ -67,8 +67,14 @@ pull_and_push_all() {
     [[ -n "${DOCKERHUB_MIRROR}" ]] && casdoor_src="${DOCKERHUB_MIRROR%/}/${casdoor_src}"
     pull_and_push "${casdoor_src}" \
         "${REGISTRY}/casdoor:${CASDOOR_TAG}" "Casdoor"
-    docker tag "${REGISTRY}/casdoor:${CASDOOR_TAG}" "${REGISTRY}/casdoor:latest"
-    docker push "${REGISTRY}/casdoor:latest"
+    # ⚠️ 这里**故意不再**把新版本同时打成 :latest。
+    # 之前会把 :latest 覆盖成刚拉到的版本，等于每升一次就抹掉一次回滚点：
+    # 想 `kubectl rollout undo` 回旧版时，:latest 已经指向新版本了（清单里也没人再用
+    # :latest，全部固定不可变 tag）。回滚改为显式拉旧版本：
+    #   docker pull docker.m.daocloud.io/casbin/casdoor:3.113.0   # Docker tag 不带 v
+    #   docker tag  docker.m.daocloud.io/casbin/casdoor:3.113.0 ${REGISTRY}/casdoor:3.113.0
+    #   docker push ${REGISTRY}/casdoor:3.113.0
+    #   kubectl -n oauth set image deploy/casdoor casdoor=${REGISTRY}/casdoor:3.113.0
 
     echo ""
     echo "全部镜像已推送:"
