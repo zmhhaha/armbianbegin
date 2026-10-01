@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import {authenticate,subject} from './auth.mjs';
+import {authenticate,subject,protectedResourceMetadata,bearerChallenge} from './auth.mjs';
 import {config} from './config.mjs';
 import * as db from './db.mjs';
 import * as gitea from './gitea.mjs';
@@ -116,6 +116,9 @@ export async function dispatch(req,res,id=requestId()){
   if(req.method==='GET'&&url.pathname==='/healthz') return json(res,200,{status:'ok'},id);
   if(req.method==='GET'&&url.pathname==='/project-requests') return html(res,200,projectRequestEntryHtml(),id);
   if(req.method==='POST'&&url.pathname==='/webhooks/gitea') return handleGiteaWebhook(req,res,id);
+  // RFC 9728 PRM：必须匿名可读，所以在下面 authenticate 之前返回。
+  // 客户端先撞 /mcp 拿到 401 + 挑战头，再来这里得知授权服务器是谁；放到鉴权之后就永远读不到。
+  if(req.method==='GET'&&(url.pathname==='/.well-known/oauth-protected-resource'||url.pathname==='/.well-known/oauth-protected-resource/mcp')) return json(res,200,protectedResourceMetadata(),id);
   if(req.method==='GET'&&url.pathname==='/readyz'){
     if(!db.pool||!db.migrationReady) throw new ServiceError(503,'not_ready',db.pool?'database migration is not ready':'DATABASE_URL is not configured');
     await db.query('select 1');
@@ -205,6 +208,8 @@ export async function handler(req,res){
   const id=requestId();
   try{await dispatch(req,res,id);}catch(error){
     const status=error.status||500;
+    // RFC 9728：与 mcp.mjs 的 catch 对齐，REST 侧的 401 也给出发现入口。
+    if(status===401) res.setHeader('www-authenticate',bearerChallenge());
     json(res,status,{error:error.code||'internal_error',message:status===404?'Not found':error.message},id);
   }
 }

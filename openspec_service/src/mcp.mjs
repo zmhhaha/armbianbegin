@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import {authenticate,subject} from './auth.mjs';
+import {authenticate,subject,bearerChallenge} from './auth.mjs';
 import {projectAccess} from './rest.mjs';
 import * as db from './db.mjs';
 import * as gitea from './gitea.mjs';
@@ -145,6 +145,9 @@ export async function mcpHandler(req,res){
     return response(res,200,{jsonrpc:'2.0',id,error:{code:-32601,message:'Method not found: '+body.method}},sessionId,requestId);
   }catch(error){
     const status=error.code==='invalid_session'?404:error.status===401?401:200;
+    // RFC 9728：401 要带上发现入口。标准 MCP 客户端靠它找到授权服务器，再去取 PRM。
+    // 只加响应头，状态码与 body 都不变 —— 手工贴 JWT 的路径不受影响。
+    if(status===401) res.setHeader('www-authenticate',bearerChallenge());
     return response(res,status,{jsonrpc:'2.0',id,error:rpcError(error)},sessionId,requestId);
   }
 }
