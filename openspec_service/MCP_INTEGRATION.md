@@ -31,6 +31,10 @@ AI 工具只需"加一个远程 MCP"即可，不需要在本地装任何 OpenSpe
 | 认证 | `Authorization: Bearer <Casdoor JWT>` |
 | 项目边界 | 服务端强制，客户端只传 `projectId`（UUID） |
 
+> **用 Casdoor 做认证的完整调研**（Casdoor 侧的两块 MCP 能力、当前实现依赖了哪些 claim、
+> 以及要让标准 MCP 客户端走 OAuth 2.1 自助接入还缺什么）：见
+> [MCP_AUTH_WITH_CASDOOR.md](MCP_AUTH_WITH_CASDOOR.md)。
+
 ## 2. 获取 JWT
 
 > ⚠️ **JWT 是明文可解的，别到处贴。** 它只是 base64 —— payload 里带着 Casdoor 记在用户记录
