@@ -90,21 +90,30 @@ IsAdmin, Roles, Permissions, Groups
 
 ## 五、操作步骤
 
-### 5.0 版本前提：本集群的 Casdoor（v3.113.0）**支持**
+### 5.0 版本前提：本集群的 Casdoor **支持**
 
-已按运行中版本核对（`curl -s https://auth.panghuer.top/api/get-version-info` →
-`v3.113.0`，commit `8f7b4ff`）。该 commit 的源码里：
+> 📌 **2026-09-29 更新**：本集群的 Casdoor 已升级到 v4.x（升级实录见
+> [casdoor升级记录.md](casdoor升级记录.md)），本文当初核对的是 v3.113.0。
+> `JWT-Custom` + `TokenFields` 在 v4.11.0 仍受支持（已核对源码），升级后配置未动、token 形状不变。
+>
+> ⚠️ **`/api/get-version-info` 现在需要鉴权**（v3.113.0 时是公开的，升级后返回
+> `Unauthorized operation`）。查版本改用 **Casdoor 后台的 System Info 页面**，
+> 或带一个有效 token 调该接口 —— 不要再按下面那句"任一版本都能问"来用。
+
+当初按运行中版本核对（`curl -s https://auth.panghuer.top/api/get-version-info` →
+`v3.113.0`，commit `8f7b4ff`，**该调用当时匿名可用**）。该 commit 的源码里：
 
 - `object/token_jwt.go` 有 `JWT-Custom` 分支，调用 `getClaimsCustom(claims, application.TokenFields, …)`；
 - `object/application.go` 有 `TokenFormat string` 与 `TokenFields []string`；
 - 前端 `web/src/ApplicationEditPage.js` 有 **Token format** 与 **Token fields** 两个控件。
 
-所以**不需要升级**。若换到别的 Casdoor 实例，再按下面的办法确认一遍即可
+若换到别的 Casdoor 实例，按下面的办法确认一遍即可
 （`JWT-Custom` 由 #2594 于 2024-01 引入，前端控件可能更晚；老版本没有字段白名单，
 做任何配置都关不掉 `Properties`）：
 
 ```bash
-curl -s https://auth.panghuer.top/api/get-version-info     # 任一版本都能问
+# 版本：优先看后台的 System Info 页；接口 /api/get-version-info 自 v4.x 起需要鉴权
+curl -s -H "Authorization: Bearer <管理员 token>" https://auth.panghuer.top/api/get-version-info
 ```
 
 或者看 **Token format 下拉里有没有 `JWT-Custom` 这个选项**；没有就是版本太老，直接看 5.4。
