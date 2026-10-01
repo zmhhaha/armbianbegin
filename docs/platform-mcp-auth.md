@@ -1,14 +1,23 @@
-# 用 Casdoor 做 MCP 认证：调研与接入清单
+# 平台 MCP 服务器认证设计：以 Casdoor 作为授权服务器
 
 > 调研日期 **2026-09-29**，针对 **Casdoor v4.13.0**（本集群已从 v3.113.0 升级到 v4.x，
 > 实录见 [../oauth/wiki/casdoor升级记录.md](../oauth/wiki/casdoor升级记录.md)）。
 >
-> **结论先行**：OpenSpec 的 MCP **已经在依赖 Casdoor 做认证**（校验 Casdoor 签发的 JWT + 用
-> `sub`/`email` 映射 Gitea 身份）。要让它支持**标准 MCP 客户端的 OAuth 2.1 自助接入**，还缺三件
-> 实现 + 三个待定决策，见 §三、§四。
+> **这是平台级设计，不是某一个服务的私事**：本集群以后新增的 MCP 服务器都该照同一套认证口径做，
+> 免得每个服务各写一遍 OAuth 2.1。**OpenSpec 的 MCP 是当前唯一的落地实例**，所以本文用它当参考实现
+> （§二）。
 >
-> 相关：[MCP_INTEGRATION.md](MCP_INTEGRATION.md)（工具清单与现有接入方式）、
-> [MULTI_TENANCY.md](MULTI_TENANCY.md)（项目隔离）、[../oauth/wiki/casdoor不下发第三方token.md](../oauth/wiki/casdoor不下发第三方token.md)（JWT 字段白名单）。
+> **结论先行**：MCP 规范要求服务器侧实现 OAuth 2.1，而 **Casdoor 已经把授权服务器那一半做完了**
+> （RFC 8414 metadata / OIDC discovery / 7591 DCR / PKCE / 8707 resource indicators / JWKS +
+> consent + custom scopes）—— 平台侧不需要自建授权服务器，只需让每个 MCP 服务器**发布
+> Protected Resource Metadata 指向 Casdoor** 并校验它签发的 JWT。
+>
+> 现状：OpenSpec 已经在做 JWT 校验与身份映射，缺的是**让标准 MCP 客户端自助完成 OAuth 2.1** 的
+> 三处实现（§三）与三个待定决策（§四）。
+>
+> 相关：[../openspec_service/MCP_INTEGRATION.md](../openspec_service/MCP_INTEGRATION.md)（OpenSpec 的工具清单与现有接入方式）、
+> [../openspec_service/MULTI_TENANCY.md](../openspec_service/MULTI_TENANCY.md)（项目隔离）、
+> [../oauth/wiki/casdoor不下发第三方token.md](../oauth/wiki/casdoor不下发第三方token.md)（JWT 字段白名单）。
 
 ---
 
@@ -55,19 +64,21 @@ Metadata 指向 Casdoor**，然后自己校验 JWT（JWKS + audience + scope）�
 
 ---
 
-## 二、OpenSpec 现状：**已经在依赖 Casdoor**（逐条有代码依据）
+## 二、参考实现：OpenSpec 这个 MCP 服务器现在的样子
+
+（它是本集群目前**唯一**的 MCP 服务器，也是以后新服务的参照。逐条有代码依据。）
 
 | 能力 | 现状 | 依据 |
 |---|---|---|
-| 校验 Casdoor 签发的 JWT | ✅ `jwtVerify{issuer, audience}` + 远程 JWKS | [src/auth.mjs:3](src/auth.mjs) |
-| audience | 固定为 Casdoor **client_id**（默认 `ece3f52410b046fe0952`） | [src/config.mjs:17](src/config.mjs) |
-| 身份映射 | `sub`（必需）+ `email` → Gitea 用户名；项目级权限由 **Gitea ACL** 决定 | [src/identity.mjs:8-11](src/identity.mjs) |
-| 取 token 的方式 | **手工复制**：浏览器 `/token` 走一次授权码，再把 JWT 贴进各工具配置 | [src/token.mjs:5-6](src/token.mjs) |
+| 校验 Casdoor 签发的 JWT | ✅ `jwtVerify{issuer, audience}` + 远程 JWKS | [src/auth.mjs:3](../openspec_service/src/auth.mjs) |
+| audience | 固定为 Casdoor **client_id**（默认 `ece3f52410b046fe0952`） | [src/config.mjs:17](../openspec_service/src/config.mjs) |
+| 身份映射 | `sub`（必需）+ `email` → Gitea 用户名；项目级权限由 **Gitea ACL** 决定 | [src/identity.mjs:8-11](../openspec_service/src/identity.mjs) |
+| 取 token 的方式 | **手工复制**：浏览器 `/token` 走一次授权码，再把 JWT 贴进各工具配置 | [src/token.mjs:5-6](../openspec_service/src/token.mjs) |
 | Protected Resource Metadata | ❌ 没有（全仓库无 `oauth-protected-resource`） | — |
-| 401 挑战头 | ❌ 只有 `{"error":"unauthorized"}`，无 `WWW-Authenticate` | [src/errors.mjs:2](src/errors.mjs) |
+| 401 挑战头 | ❌ 只有 `{"error":"unauthorized"}`，无 `WWW-Authenticate` | [src/errors.mjs:2](../openspec_service/src/errors.mjs) |
 
-所以"能否依赖 Casdoor"的答案是 **能，而且已经在依赖**；缺的是**让客户端自助完成 OAuth 2.1**
-的那半段，而不是认证本身。
+所以"每个 MCP 服务器要不要自建 OAuth 授权服务器"的答案是 **不要** —— Casdoor 已经覆盖了那一半，
+服务侧只需补**发现自己该找谁授权**的那半段（§三），而不是从零做认证。
 
 ---
 
@@ -142,7 +153,7 @@ Default 应用**，它的 TokenFormat 已被改成 `JWT-Custom` + 字段白名�
 
 ```bash
 # 0) 先确认当前实现没被改坏：现有手工流程仍然可用
-CASDOOR_JWT="$(cat /workspace/.openspec.jwt)" bash scripts/mcp-call.sh --check
+CASDOOR_JWT="$(cat /workspace/.openspec.jwt)" bash ../openspec_service/scripts/mcp-call.sh --check
 
 # 1) Casdoor 侧：新建 Agent/MCP 应用 + custom scopes + consent（+ 可选 DCR）
 #    记下它的 client_id；确认它签发的 token 里仍有 sub 与 email（JWT-Custom + TokenFields）
@@ -155,7 +166,7 @@ CASDOOR_JWT="$(cat /workspace/.openspec.jwt)" bash scripts/mcp-call.sh --check
 curl -s https://openspec.panghuer.top/.well-known/oauth-protected-resource | python3 -m json.tool
 curl -sI https://openspec.panghuer.top/mcp | grep -i www-authenticate
 
-# 5) 回归：现有手工贴 JWT 的用法不能坏（MCP_INTEGRATION.md §3 的命令仍应通过）
+# 5) 回归：现有手工贴 JWT 的用法不能坏（[../openspec_service/MCP_INTEGRATION.md](../openspec_service/MCP_INTEGRATION.md) §3 的命令仍应通过）
 ```
 
 ---
