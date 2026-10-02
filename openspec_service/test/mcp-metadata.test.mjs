@@ -14,7 +14,7 @@ delete process.env.BOOTSTRAP_ADMIN_SUBJECTS;
 const auth=await import('../src/auth.mjs?metadata-test');
 const {config}=await import('../src/config.mjs?metadata-test');
 const {handler,dispatch}=await import('../src/rest.mjs?metadata-test');
-const {mcpHandler}=await import('../src/mcp.mjs?metadata-test');
+const {mcpHandler,toStructured}=await import('../src/mcp.mjs?metadata-test');
 
 function fakeReq(method,url,headers={}){return{method,url,headers};}
 function fakeRes(){
@@ -73,4 +73,14 @@ test('非 401 的错误不带挑战头（避免把挑战头加错地方）',asyn
 
 test('OIDC_AUDIENCE 支持逗号分隔的多个值，供手工贴 JWT 与 MCP 客户端并存',()=>{
   assert.deepEqual(config.oidcAudience,['aud-one','aud-two']);
+});
+
+test('tools/call 的 structuredContent 必须是对象：数组包一层，对象原样透传',()=>{
+  // 回归：MCP schema 里 structuredContent 是 `{[key:string]:unknown}`。
+  // list_projects 的返回值是数组，原样塞进去会被严格按 schema 校验的客户端当场拒掉
+  // —— DSH 的 MCP 客户端实测报 `expected record, received array`，该工具完全不可用。
+  assert.deepEqual(toStructured([{id:'p1'}]),{items:[{id:'p1'}]});
+  assert.deepEqual(toStructured([]),{items:[]});
+  // 其它工具返回的本来就是对象：不能再多包一层，否则客户端按字段名解析会全部落空。
+  assert.deepEqual(toStructured({projectId:'p',revision:'r'}),{projectId:'p',revision:'r'});
 });

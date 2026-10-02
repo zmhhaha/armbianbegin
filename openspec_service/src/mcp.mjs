@@ -10,6 +10,12 @@ import {notFound,badRequest,ServiceError} from './errors.mjs';
 const sessions=new Map();
 const sessionTtlMs=60*60*1000;
 const maxSessions=1024;
+// MCP schema 要求 structuredContent 是 **JSON 对象**（`{[key:string]:unknown}`），而
+// list_projects 的返回值是数组 —— 直接塞进去会被严格按 schema 校验的客户端当场拒掉
+// （DSH 的 MCP 客户端实测报 `expected record, received array`，该工具完全不可用）。
+// 所以只在 structuredContent 里包一层 `{items:[...]}`；content[].text 保持原样，
+// 让按文本解析的老消费方不受影响。其它工具返回的本来就是对象，原样透传。
+export const toStructured=value=>Array.isArray(value)?{items:value}:value;
 function rememberSession(id,sub){
   if(!sessions.has(id)&&sessions.size>=maxSessions)throw new ServiceError(503,'session_limit','MCP session limit reached');
   sessions.set(id,{sub,expiresAt:Date.now()+sessionTtlMs});
@@ -132,13 +138,13 @@ export async function mcpHandler(req,res){
           ? req.headers['idempotency-key']
           : crypto.createHash('sha256').update([sub,args.projectId,name,JSON.stringify(args)].join(':')).digest('hex');
         idempotency=await db.beginIdempotency(sub,args.projectId,idempotencyKey,crypto.createHash('sha256').update(JSON.stringify({name,args})).digest('hex'));
-        if(idempotency.replay) return response(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(idempotency.response)}],structuredContent:idempotency.response}},sessionId,requestId);
+        if(idempotency.replay) return response(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(idempotency.response)}],structuredContent:toStructured(idempotency.response)}},sessionId,requestId);
       }
       let value;
       try{value=await callTool(name,args,claims,requestId);}
       catch(error){if(idempotency) await db.abandonIdempotency(sub,args.projectId,idempotencyKey);throw error;}
       if(idempotency) await db.completeIdempotency(sub,args.projectId,idempotencyKey,200,value);
-      return response(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(value)}],structuredContent:value}},sessionId,requestId);
+      return response(res,200,{jsonrpc:'2.0',id,result:{content:[{type:'text',text:JSON.stringify(value)}],structuredContent:toStructured(value)}},sessionId,requestId);
     }
     // 未知方法必须返回 HTTP 200 + JSON-RPC 错误，绝不能返回 HTTP 404：
     // Codex/RMCP 会把 404 误判为 session 失效（见 openai/codex#13969）。
