@@ -14,7 +14,9 @@ export const config={
   scriptProfiles:new Set((process.env.GITEA_SCRIPT_PROFILES||'openspec-bootstrap-v1,openspec-validate-v1').split(',').map(x=>x.trim()).filter(Boolean)),
   workspaceRoot:process.env.WORKSPACE_ROOT||'/data/workspaces',
   oidcIssuer:process.env.OIDC_ISSUER,
-  oidcAudience:process.env.OIDC_AUDIENCE||'ece3f52410b046fe0952',
+  // 逗号分隔，可同时接受多个 audience：手工贴 JWT 与 /token 页走 panghu-suite，
+  // 标准 MCP 客户端走专用应用。jose 的 jwtVerify 接受 string | string[]（见 auth.mjs）。
+  oidcAudience:(process.env.OIDC_AUDIENCE||'ece3f52410b046fe0952').split(',').map(x=>x.trim()).filter(Boolean),
   oidcJwksUrl:process.env.OIDC_JWKS_URL,
   bootstrapSubjects:new Set((process.env.BOOTSTRAP_ADMIN_SUBJECTS||'').split(',').map(x=>x.trim()).filter(Boolean)),
   gitUser:process.env.GIT_USER||'openspec-service',

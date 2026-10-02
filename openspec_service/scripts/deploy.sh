@@ -163,6 +163,11 @@ fi
 if ((CORE_ONLY == 1 || SKIP_VAULT == 1)); then
   echo "=== Applying OpenSpec core resources ==="
   "${KUBECTL}" apply -k "${SERVICE_DIR}/k8s"
+  # 必须重启：OIDC_*、PUBLIC_BASE_URL 等是通过 envFrom(configMapRef) 注入的，环境变量只在
+  # 容器启动时读一次，改 ConfigMap 不会触发滚动更新。不重启就会出现「apply 成功、配置没生效」。
+  # 上面 Vault 分支里那次 restart 只覆盖那条路径，--core-only / --skip-vault 必须自己补。
+  echo "=== Restarting OpenSpec to load applied configuration ==="
+  "${KUBECTL}" -n "${NAMESPACE}" rollout restart deployment/openspec-service
 fi
 
 if ((CORE_ONLY == 0 && SKIP_CLOUDFLARE == 0)); then

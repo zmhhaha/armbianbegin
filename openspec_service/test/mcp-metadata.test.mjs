@@ -5,11 +5,14 @@ import test from 'node:test';
 process.env.PUBLIC_BASE_URL='https://openspec.example.test';
 process.env.OIDC_ISSUER='https://auth.example.test';
 process.env.OIDC_JWKS_URL='https://auth.example.test/.well-known/jwks';
+// 用两个值，顺带断言 audience 的列表化（手工贴 JWT 与 MCP 客户端并存）。
+process.env.OIDC_AUDIENCE='aud-one,aud-two';
 process.env.GITEA_TOKEN='test-token';
 process.env.DATABASE_URL='postgres://unused';
 delete process.env.BOOTSTRAP_ADMIN_SUBJECTS;
 
 const auth=await import('../src/auth.mjs?metadata-test');
+const {config}=await import('../src/config.mjs?metadata-test');
 const {handler,dispatch}=await import('../src/rest.mjs?metadata-test');
 const {mcpHandler}=await import('../src/mcp.mjs?metadata-test');
 
@@ -66,4 +69,8 @@ test('非 401 的错误不带挑战头（避免把挑战头加错地方）',asyn
   await handler(fakeReq('GET','/readyz'),res);
   assert.notEqual(res.statusCode,401);
   assert.equal(res.headers['www-authenticate'],undefined);
+});
+
+test('OIDC_AUDIENCE 支持逗号分隔的多个值，供手工贴 JWT 与 MCP 客户端并存',()=>{
+  assert.deepEqual(config.oidcAudience,['aud-one','aud-two']);
 });

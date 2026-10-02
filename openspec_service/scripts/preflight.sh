@@ -82,9 +82,13 @@ else
   bad "无法访问 Casdoor discovery: ${deployed_issuer}/.well-known/openid-configuration"
 fi
 
-[[ "${deployed_aud}" == "${EXPECTED_AUDIENCE}" ]] \
-  && ok "OIDC_AUDIENCE 正确 (${deployed_aud})" \
-  || bad "OIDC_AUDIENCE 应为 ${EXPECTED_AUDIENCE}，当前为 ${deployed_aud}"
+# OIDC_AUDIENCE 现在是逗号分隔的列表（手工贴 JWT 与 MCP 客户端各一个），
+# 所以判据是「包含期望值」，不是「整串相等」。
+if [[ ",${deployed_aud// /}," == *",${EXPECTED_AUDIENCE},"* ]]; then
+  ok "OIDC_AUDIENCE 含 ${EXPECTED_AUDIENCE} (当前: ${deployed_aud})"
+else
+  bad "OIDC_AUDIENCE 不含 ${EXPECTED_AUDIENCE}，当前为 ${deployed_aud}"
+fi
 if [[ -z "${deployed_bootstrap}" || "${deployed_bootstrap}" == *REPLACE* ]]; then
   bad "BOOTSTRAP_ADMIN_SUBJECTS 为空或仍是占位符: '${deployed_bootstrap}'"
 else
