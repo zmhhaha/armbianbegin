@@ -67,8 +67,19 @@ AI 工具只需"加一个远程 MCP"即可，不需要在本地装任何 OpenSpe
 **不需要 `client_secret`。** 服务端信任的是 **MCP 专用 Casdoor 应用**（`panghu-mcp`，
 client_id `315cbdaf565b82103c6f`）—— 它是公共客户端，2026-10-02 实测不带 secret 也能换到 token。
 
-如果所用客户端的 OAuth 实现要求手工填 client_id（有些客户端不做动态注册，而本集群 Casdoor
-4.11.0 的 DCR 是关的），填 `315cbdaf565b82103c6f`，**secret 留空**。
+**已实测踩到的坑**：Claude Code 会先尝试 RFC 7591 **动态客户端注册**，而本集群 Casdoor 的 DCR 是关的，
+于是报 `Dynamic Client Registration rejected (HTTP 400): … dynamic client registration is disabled
+for this organization`。解法是**预配置 client_id**：
+
+```bash
+claude mcp add --transport http --client-id 315cbdaf565b82103c6f \
+  openspec https://openspec.panghuer.top/mcp
+```
+
+**不需要 `--client-secret`**（`panghu-mcp` 是公共客户端，走 PKCE），回调端口也不用指定
+（该应用登记了 `http://localhost:*` 与 `http://127.0.0.1:*`）。其它客户端遇到同类错误的同理：
+找到「手工指定 client_id / 预配置凭据」那个开关，填 `315cbdaf565b82103c6f`、secret 留空。
+详见 [TROUBLESHOOTING.md](TROUBLESHOOTING.md) §1.8。
 
 ### 2.2 兜底：手工取 JWT（命令行 / 不支持 OAuth 的客户端）
 

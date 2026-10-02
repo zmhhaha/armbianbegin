@@ -201,10 +201,30 @@ Casdoor 的 AS metadata **会公布** `registration_endpoint = /api/oauth/regist
 > 「我搜不到」当成了「不存在」。列是存在的。另：4.11.0 的**前端产物里搜不到 `dcr_policy`**，
 > 说明这个开关在当前版本**没有 UI 控件**，只能走 API 设置，或升级 Casdoor。
 
-**但即使打开 DCR 也走不通**，原因是结构性的：DCR 每次注册发出的是**随机 client_id**，token 的
-`aud` 就是它，而资源服务器**没法预先把这个随机值加进 `OIDC_AUDIENCE` 白名单**。要让 DCR 可用，
-得改成按 **RFC 8707 的资源标识**校验 audience（`aud` = MCP 资源 URL），那属于 §4.1 的第二条路线，
-且**本集群没有验证过 4.11.0 是否支持 `resource` 参数**。所以现阶段的正解是 §3.3 的预注册应用。
+**但光打开 DCR 走不通**，原因是结构性的：DCR 每次注册发出的是**随机 client_id**，token 的
+`aud` 就是它，而资源服务器**没法预先把这个随机值加进 `OIDC_AUDIENCE` 白名单**。
+
+> ⚠️ **更正（2026-10-02，已查 tag 源码）**：本文早先写「本集群没有验证过 4.11.0 是否支持
+> `resource` 参数」，并据此断言「即便打开 DCR 也走不通」——**后半句是错的**。`v4.11.0` 源码确认
+> **RFC 8707 已实现**（PR #5098 于 2026-02-15 合并；v4.11.0 发布于 2026-09-26，远在其后）：
+>
+> - `object/token_jwt.go`：`if resource != "" { claims.Audience = []string{resource} }`
+>   —— **带了 `resource` 时 `aud` 就等于该 resource URL**，不再等于 client_id；
+> - `object/token_oauth.go`：`GetOAuthToken` / `GetAuthorizationCodeToken` 都带 `resource`，
+>   并校验「token 请求里的 resource 必须与授权请求里的一致」；
+> - `controllers/token.go`：从 query 与 body 两处读 `resource`。
+
+所以 **DCR + RFC 8707 是一条可行的「零配置」路线**：MCP 客户端按规范会带
+`resource=https://openspec.panghuer.top/mcp`，只要把该 URL 也加进 `OIDC_AUDIENCE`，
+随机 client_id 就不再是障碍。DCR 的开启条件也已从源码确认：`object/oauth_dcr.go`
+里 `if org.DcrPolicy == "" || org.DcrPolicy == "disabled"` 即拒绝，**非空且非 `disabled` 即启用**。
+
+**这条路暂未采用**，两个原因：（a）DCR 等于对任何能访问 `auth.panghuer.top` 的人开放客户端注册，
+是个滥用面；（b）Casdoor 关于 `resource` 透传的若干后续修复（#5294 / #5666 / #5689 / #5690 / #5744，
+涉及 web 登录流、consent 流、`fastAutoSignin`、refresh_token）**未逐一确认是否已进入 v4.11.0**；
+其中 #5666「consent flow drops RFC 8707 resource parameter」若不在，授权码交换会以 `invalid_grant`
+失败。现阶段采用 §3.3 的预注册应用 + 客户端指定 `--client-id`
+（Claude Code 实测可用的写法见 [../openspec_service/TROUBLESHOOTING.md](../openspec_service/TROUBLESHOOTING.md) §1.8）。
 
 ---
 
@@ -214,7 +234,7 @@ Casdoor 的 AS metadata **会公布** `registration_endpoint = /api/oauth/regist
 
 | 选项 | 含义 | 影响 |
 |---|---|---|
-| **现状：`aud` = client_id（已采用）** | `OIDC_AUDIENCE` **只列 MCP 应用** `315cbdaf565b82103c6f`（2026-10-02 先扩成列表做过渡、当天又收敛；字段本身仍是逗号分隔、可多值） | 简单；但同一个应用签发的 token 对**所有**信任它的资源服务器都有效，无法按资源收窄。**代价是换应用就得改这份白名单** —— 这也正是 DCR 天然走不通的原因（随机 client_id 无法预先列进去） |
+| **现状：`aud` = client_id（已采用）** | `OIDC_AUDIENCE` **只列 MCP 应用** `315cbdaf565b82103c6f`（2026-10-02 先扩成列表做过渡、当天又收敛；字段本身仍是逗号分隔、可多值） | 简单；但同一个应用签发的 token 对**所有**信任它的资源服务器都有效，无法按资源收窄。**代价是换应用就得改这份白名单** —— 这也是 DCR 单纯靠 client_id 走不通的原因（随机 client_id 无法预先列进去）；改用 `resource` 做 audience 才能解，见 §3.4 |
 | RFC 8707：`aud` = MCP 资源 URL | 需要 Casdoor 侧按 resource 签发、且 `OIDC_AUDIENCE` 改成 `https://openspec.panghuer.top/mcp` | 半径更小（token 只对该资源有效）；但要改 Casdoor 应用配置 + 服务端配置，且**旧 token 会校验不过**（需过渡期） |
 
 ### 4.2 scope 与 Gitea ACL 的分工
@@ -356,7 +376,8 @@ OAuth 2.1 改造已经做完。）
 | 项 | 状态 |
 |---|---|
 | 本集群 Casdoor 的**确切版本** | ✅ **`4.11.0`**（2026-10-02 由镜像身份三方确认：registry 里 `casdoor:4.11.0` 的 manifest digest `073c0e22…` = 运行中容器的 imageID，且该镜像来自上游 `casbin/casdoor:4.11.0`）。**不是本文抬头原先写的 4.13.0。** 另更正一处：`/api/get-version-info` 用**有效但非管理员**的 token 也返回 `Unauthorized operation` —— 它要的是管理员身份，不只是"需要鉴权" |
-| 组织设置的 **DCR 开关** | ⚠️ **更正：开关存在，是 `organization.dcr_policy`**（`varchar(100)`；`built-in`=`disabled`、`Normal-User`=空，空值即不启用）。本节早先写的「4.11.0 上不存在这个开关」**是错的** —— 当时用 `%dynamic%` / `%registration%` 扫，**漏了 `dcr_*` 命名**，把「搜不到」当成了「不存在」。另：4.11.0 前端产物里搜不到 `dcr_policy`，所以这个开关**没有 UI 控件**。即便打开也走不通（随机 client_id 对不上固定 audience），详见 §3.4 |
+| 组织设置的 **DCR 开关** | ⚠️ **更正：开关存在，是 `organization.dcr_policy`**（`varchar(100)`；`built-in`=`disabled`、`Normal-User`=空，空值即不启用）。本节早先写的「4.11.0 上不存在这个开关」**是错的** —— 当时用 `%dynamic%` / `%registration%` 扫，**漏了 `dcr_*` 命名**，把「搜不到」当成了「不存在」。另：4.11.0 前端产物里搜不到 `dcr_policy`，所以这个开关**没有 UI 控件**。即便打开也要配合 RFC 8707 的 resource audience 才行，开关判定见源码 `object/oauth_dcr.go`，详见 §3.4 |
+| **Casdoor 的 RFC 8707 支持** | ✅ **v4.11.0 已实现**（2026-10-02 查 tag 源码确认，非推测）：PR #5098 于 2026-02-15 合并；`object/token_jwt.go` 在带 `resource` 时把 `aud` 设为该 resource URL。本文早先「未验证 4.11.0 是否支持 `resource`」的措辞与"打开 DCR 也走不通"的结论已一并更正，见 §3.4 |
 | §3.1 的 PRM 响应 | ✅ **已实现并取得线上真实响应**（2026-10-02），见 §3.1 —— 原先标注的「规范样例」已被实测值替换 |
 | Casdoor 侧的六步配置 | ✅ **已实操**：应用 `panghu-mcp` 已建（`category=Agent`、`type=MCP`），并走完了整条授权码 + PKCE。两个反直觉点已被实测确认，见 §3.3：**Type 下拉里没有 `MCP` 是正常的**（选 `Category=Agent` 会自动设成 `MCP`）；**不需要 `client_secret`** |
 | **新观察：`list_projects` 的 `structuredContent` 是数组** | ⚠️ MCP schema（2025-06-18）里 `structuredContent?: { [key: string]: unknown }` 要求是**对象**，而 `src/mcp.mjs` 把 `db.visibleProjects(...)` 的返回值（**数组**）直接塞了进去 —— 其余 8 个工具都返回对象。严格按 schema 校验的客户端可能在 `list_projects` 上报错。**尚未修**：修法是包一层 `{items:...}`，但那会同时改变 `content[].text` 的载荷形状，属破坏性改动，需所有者定 |

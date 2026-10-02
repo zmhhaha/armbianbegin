@@ -94,6 +94,33 @@ Deployment/PVC/PostgreSQL。
 原 `/token` 的"表单登录"那一半改成）。**该地址已于 2026-10-02 加入 `panghu-mcp` 的 Redirect URLs**
 （早期漏登记过，表现为浏览器走表单登录时因 `redirect_uri` 未登记而失败）。
 
+### 1.8 Claude Code 报 `Dynamic Client Registration rejected (HTTP 400)`
+- **现象**：`claude mcp add ...` 之后授权时报
+  `SDK auth failed: Dynamic Client Registration rejected (HTTP 400):
+   {"error":"invalid_client_metadata","error_description":"dynamic client registration is disabled for this organization"}`。
+- **原因**：Claude Code 发现 Casdoor 的 AS metadata 里**公布了** `registration_endpoint`，于是先尝试
+  **RFC 7591 动态客户端注册**；而本集群组织 `Normal-User` 的 `dcr_policy` 是**空值 = 不启用**
+  （v4.11.0 `object/oauth_dcr.go:85`：`if org.DcrPolicy == "" || org.DcrPolicy == "disabled"` 就拒绝）。
+- **解决（推荐，零服务端改动）**：**给客户端预配置 client_id，绕开 DCR** —— Claude Code 支持这个：
+
+  ```bash
+  claude mcp add --transport http --client-id 315cbdaf565b82103c6f \
+    openspec https://openspec.panghuer.top/mcp
+  # 或 JSON 形式
+  claude mcp add-json openspec \
+    '{"type":"http","url":"https://openspec.panghuer.top/mcp","oauth":{"clientId":"315cbdaf565b82103c6f"}}'
+  ```
+
+  **不需要 `--client-secret`** —— `panghu-mcp` 是公共客户端，走 PKCE。回调端口也不用指定：
+  该应用登记的是 `http://localhost:*` 与 `http://127.0.0.1:*`，两种形式都覆盖了
+  （Claude Code v2.1.229 曾发 `127.0.0.1` 形式、导致精确匹配的服务端拒登，**对我们无影响**；
+  v2.1.231 已改回 `localhost`）。
+- **另一条路（要改服务端）**：Casdoor **4.11.0 已支持 RFC 8707**，带 `resource` 时 `aud` 就是该
+  resource URL，而 MCP 客户端按规范会带 `resource=https://openspec.panghuer.top/mcp`。
+  所以把该 URL 加进 `OIDC_AUDIENCE`、再把组织 `dcr_policy` 设成非空非 `disabled`，
+  就能让**任何**客户端零配置自助注册。未采用的原因（DCR 的滥用面 + 若干 `resource` 透传修复
+  是否已进 v4.11.0 未逐一确认）见 [`../docs/platform-mcp-auth.md`](../docs/platform-mcp-auth.md) §3.4。
+
 ### 1.7 Casdoor 用户 `sub` 与 Gitea 用户映射
 - Gitea 用户 `zmh_haha` 的 `login_name` = `27714443`，与 Casdoor 用户 `zmhhaha` 的
   `sub`/`id` 一致 —— 说明 Gitea 的 Casdoor OAuth 外部 ID 绑定用的就是 Casdoor 的 `id`，
