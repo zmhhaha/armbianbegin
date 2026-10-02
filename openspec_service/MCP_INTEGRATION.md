@@ -64,7 +64,7 @@ AI 工具只需"加一个远程 MCP"即可，不需要在本地装任何 OpenSpe
 ⑤ 重试 POST /mcp 带上 token → 200
 ```
 
-**不需要 `client_secret`。** 服务端信任的是 **MCP 专用 Casdoor 应用**（`panghu-mcp_my29ub`，
+**不需要 `client_secret`。** 服务端信任的是 **MCP 专用 Casdoor 应用**（`panghu-mcp`，
 client_id `315cbdaf565b82103c6f`）—— 它是公共客户端，2026-10-02 实测不带 secret 也能换到 token。
 
 如果所用客户端的 OAuth 实现要求手工填 client_id（有些客户端不做动态注册，而本集群 Casdoor

@@ -142,7 +142,7 @@ www-authenticate: Bearer resource_metadata="https://openspec.panghuer.top/.well-
 
 ### 3.3 Casdoor 侧建一个 **Agent / MCP** 应用 —— ✅ 已建（2026-10-02）
 
-已建应用：**`panghu-mcp_my29ub`**，`client_id = 315cbdaf565b82103c6f`，`category = Agent`、
+已建应用：**`panghu-mcp`**，`client_id = 315cbdaf565b82103c6f`，`category = Agent`、
 `type = MCP`、`organization = Normal-User`、`grant_types` 含 `authorization_code` + `refresh_token`、
 `redirect_uris = ["http://localhost:*","http://127.0.0.1:*"]`、`token_format = JWT-Custom`、
 `token_fields` 含 `Email`。（它的 `token_fields` 与 `panghu-suite` **完全相同**，两者都不列 `Sub`；
@@ -163,9 +163,16 @@ www-authenticate: Bearer resource_metadata="https://openspec.panghuer.top/.well-
   `string | string[]`，所以 `auth.mjs` 那行不用动）、`scripts/preflight.sh` 的判据从
   「整串相等」改成「包含期望值」。
 
-⚠️ **遗留待办**：项目申请表单的登录（`GET /project-requests/login`）也用这个应用，但它的
-`redirect_uri` 是 `https://openspec.panghuer.top/project-requests/login`，**该地址还没加进这个
-应用的 Redirect URLs**（当前只有两个 localhost）。加进去之前，那条登录会失败。
+✅ **该应用当前的 Redirect URLs（2026-10-02 已确认）**：
+
+```text
+http://localhost:*
+http://127.0.0.1:*
+https://openspec.panghuer.top/project-requests/login     ← 项目申请表单登录用（已加入）
+```
+
+前两条给桌面 MCP 客户端（授权码 + PKCE 后回调本机），第三条给服务端的表单登录路由。
+`GET /project-requests/login` 已实测能正确 302 到 Casdoor（带这个 `redirect_uri` + PKCE S256）。
 
 ### 3.4 （可选）组织级 DCR —— ❌ 本集群不可用，且启用也解决不了问题
 
@@ -223,7 +230,7 @@ Casdoor 的 AS metadata **会公布** `registration_endpoint = /api/oauth/regist
 - 复用：省事，但 `panghu-suite` 被所有 oauth2-proxy 共用，改它的 scope/consent 会影响全站登录；
   而且它是**机密客户端**（旧 `token.mjs` 就要求 `CASDOOR_CLIENT_SECRET`），把这个 secret 发给桌面
   客户端等于全平台 OIDC secret 外泄。**已排除。**
-- **新建（已采用，2026-10-02）**：`panghu-mcp_my29ub` / `315cbdaf565b82103c6f`，scope/consent/DCR
+- **新建（已采用，2026-10-02）**：`panghu-mcp` / `315cbdaf565b82103c6f`，scope/consent/DCR
   互不干扰，而且是**公共客户端 —— 免 secret**，详见 §3.3。代价是用户要**授权两次**
   （浏览器登录一次 + MCP 客户端授权一次）。
 
@@ -286,12 +293,35 @@ deploy/openspec-service`；验收 = 两种 PRM 形状匿名可读（200）、`PO
 > 环境变量只在容器启动时读一次 —— 不重启就是「apply 成功、配置没生效」。Vault 分支里那次 restart
 > 只覆盖那条路径，已在 `--core-only` 分支补上。
 
+### 第三轮：回调清理（2026-10-02）
+
+`panghu-suite` 是**所有 13 个 oauth2-proxy 实例共用**的应用，它的 Redirect URLs 里混进了几条已经
+没用的，按「逐条查实消费方」的方式清理（**27 → 24**）：
+
+| 删除 | 依据 |
+|---|---|
+| `https://openspec.panghuer.top/mcp` | 旧 `get-token.sh` 用它做回调；现已改用 MCP 专用应用 + `http://localhost:39399/callback` |
+| `https://openspec.panghuer.top/token` | 已退役的 `/token` 页用它 |
+| `https://obsidian.panghuer.top/oauth2/callback` | obsidian 前面的 oauth2-proxy **早已删除**、路由直连 CouchDB（实测该域名返回的是 CouchDB 自己的 `WWW-Authenticate: Basic realm="administrator"`，不是 302 到 Casdoor；`obsidian` 命名空间里也没有代理） |
+
+**保留的 24 条及依据**（清点而非猜测）：
+
+- **12 条**与线上 12 个 oauth2-proxy Deployment 的 `--redirect-url` **逐字相同**；
+- **8 条**人格域名由共享实例 `oauth2-proxy-baijiazhengming` 使用 —— 它只给
+  `--whitelist-domain=.panghuer.top`、**回调按请求 Host 现生成**，所以这 8 个 host 的回调每条都在用；
+- **4 条**分别是 Gitea 的 OAuth 登录源、Hermes 外层代理、Hermes 原生 OIDC、DSH 代理 ——
+  前三条已用线上 302 的 `redirect_uri` 或登录页按钮实测确认，第 4 条（Hermes 原生 OIDC）按
+  文档描述的两层认证保留（未直接探到，但留着无害）。
+
+> ⚠️ **改 Casdoor 应用配置的坑**：应用对象被 Casdoor **缓存在内存**里，所以
+> （a）直接改数据库**必须重启 Casdoor** 才生效，否则运行时仍用旧列表；
+> （b）后续任何一次从后台保存该应用，都可能把内存里的旧列表**写回库里覆盖**你的改动。
+> 优先走后台 UI —— 它自己会更新缓存。
+> 当时的实况：用 SQL 改但**事务没提交**，库里一条没变（`json_length` 仍是 27）。
+
 ### 仍待执行
 
 ```bash
-# ⚠️ Casdoor 侧：把 https://openspec.panghuer.top/project-requests/login 加进
-#    panghu-mcp_my29ub 的 Redirect URLs —— 否则项目申请表单的登录会失败（见 §3.3 末尾）
-
 # 回归：命令行取 JWT 的老用法仍然可用
 bash ../openspec_service/scripts/get-token.sh
 CASDOOR_JWT="$(cat /tmp/casdoor.jwt)" bash ../openspec_service/scripts/mcp-call.sh --check
@@ -322,7 +352,7 @@ OAuth 2.1 改造已经做完。）
 | 本集群 Casdoor 的**确切版本** | ✅ **`4.11.0`**（2026-10-02 由镜像身份三方确认：registry 里 `casdoor:4.11.0` 的 manifest digest `073c0e22…` = 运行中容器的 imageID，且该镜像来自上游 `casbin/casdoor:4.11.0`）。**不是本文抬头原先写的 4.13.0。** 另更正一处：`/api/get-version-info` 用**有效但非管理员**的 token 也返回 `Unauthorized operation` —— 它要的是管理员身份，不只是"需要鉴权" |
 | 组织设置的 **DCR 开关** | ⚠️ **更正：开关存在，是 `organization.dcr_policy`**（`varchar(100)`；`built-in`=`disabled`、`Normal-User`=空，空值即不启用）。本节早先写的「4.11.0 上不存在这个开关」**是错的** —— 当时用 `%dynamic%` / `%registration%` 扫，**漏了 `dcr_*` 命名**，把「搜不到」当成了「不存在」。另：4.11.0 前端产物里搜不到 `dcr_policy`，所以这个开关**没有 UI 控件**。即便打开也走不通（随机 client_id 对不上固定 audience），详见 §3.4 |
 | §3.1 的 PRM 响应 | ✅ **已实现并取得线上真实响应**（2026-10-02），见 §3.1 —— 原先标注的「规范样例」已被实测值替换 |
-| Casdoor 侧的六步配置 | ✅ **已实操**：应用 `panghu-mcp_my29ub` 已建（`category=Agent`、`type=MCP`），并走完了整条授权码 + PKCE。两个反直觉点已被实测确认，见 §3.3：**Type 下拉里没有 `MCP` 是正常的**（选 `Category=Agent` 会自动设成 `MCP`）；**不需要 `client_secret`** |
+| Casdoor 侧的六步配置 | ✅ **已实操**：应用 `panghu-mcp` 已建（`category=Agent`、`type=MCP`），并走完了整条授权码 + PKCE。两个反直觉点已被实测确认，见 §3.3：**Type 下拉里没有 `MCP` 是正常的**（选 `Category=Agent` 会自动设成 `MCP`）；**不需要 `client_secret`** |
 | **新观察：`list_projects` 的 `structuredContent` 是数组** | ⚠️ MCP schema（2025-06-18）里 `structuredContent?: { [key: string]: unknown }` 要求是**对象**，而 `src/mcp.mjs` 把 `db.visibleProjects(...)` 的返回值（**数组**）直接塞了进去 —— 其余 8 个工具都返回对象。严格按 schema 校验的客户端可能在 `list_projects` 上报错。**尚未修**：修法是包一层 `{items:...}`，但那会同时改变 `content[].text` 的载荷形状，属破坏性改动，需所有者定 |
 | 旧的手工 JWT 路径 | ✅ **已退役**（2026-10-02）：`GET /token` 与 `src/token.mjs` 删除，能力归档 `oauth/token-dispenser/`；项目申请登录保留为 `GET /project-requests/login`。详见 §五 |
 

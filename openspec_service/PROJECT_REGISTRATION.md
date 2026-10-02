@@ -69,7 +69,7 @@ git clone https://github.com/example/my-app.git
 
 MCP 客户端不需要单独取 JWT：只要填 MCP 地址 `https://openspec.panghuer.top/mcp`，
 **多数标准客户端会自动完成 OAuth 授权**（RFC 9728 发现 → Casdoor → 授权码 + PKCE）。需要手工指定
-client_id 的客户端填 `315cbdaf565b82103c6f`（MCP 专用应用 `panghu-mcp_my29ub`），**不需要 secret**。
+client_id 的客户端填 `315cbdaf565b82103c6f`（MCP 专用应用 `panghu-mcp`），**不需要 secret**。
 
 本文下面的登记脚本属于命令行/脚本路径，凭据用 `get-token.sh` 取：
 

@@ -50,7 +50,7 @@ td code{font-size:.85em}
     <li>
       <span class="st">填上 MCP 地址，让客户端自己授权</span>
       <p>不需要先取 JWT。多数标准 MCP 客户端会在首次连接时<strong>自动完成 OAuth 授权</strong>：它先撞到 401，再按 RFC 9728 发现 <code>auth.panghuer.top</code>，拉起浏览器让你同意一次，然后带着 token 回来。</p>
-      <p>需要手工指定 client_id 的客户端填 <code>315cbdaf565b82103c6f</code>（MCP 专用应用 <code>panghu-mcp_my29ub</code>），<strong>不需要 secret</strong>。授权后你在 MCP 上的身份权限<strong>完全以该项目的 Gitea 仓库 ACL 为准</strong>：viewer 能读、editor 能写、owner 才能归档。</p>
+      <p>需要手工指定 client_id 的客户端填 <code>315cbdaf565b82103c6f</code>（MCP 专用应用 <code>panghu-mcp</code>），<strong>不需要 secret</strong>。授权后你在 MCP 上的身份权限<strong>完全以该项目的 Gitea 仓库 ACL 为准</strong>：viewer 能读、editor 能写、owner 才能归档。</p>
       <h3>Claude Code</h3>
       <pre><code>claude mcp add --transport http openspec \
   https://openspec.panghuer.top/mcp</code></pre>

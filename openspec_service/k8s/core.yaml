@@ -12,7 +12,7 @@ data:
   OIDC_ISSUER: "https://auth.panghuer.top"
   # 逗号分隔，可多个。两个都必须留着：
   #   ece3f52410b046fe0952 = panghu-suite，手工贴 JWT 与 /token 页在用
-  #   315cbdaf565b82103c6f = panghu-mcp_my29ub（Category=Agent / Type=MCP），标准 MCP 客户端走 OAuth 用
+  #   315cbdaf565b82103c6f = panghu-mcp（Category=Agent / Type=MCP），标准 MCP 客户端走 OAuth 用
   # 去掉前者 → 手工贴 JWT 的手工路线立刻 401；去掉后者 → MCP 客户端拿到 token 也过不了 audience。
   OIDC_AUDIENCE: "ece3f52410b046fe0952,315cbdaf565b82103c6f"
   OIDC_JWKS_URL: "https://auth.panghuer.top/.well-known/jwks"
