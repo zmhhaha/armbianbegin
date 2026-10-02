@@ -126,6 +126,43 @@ claude mcp add --transport http openspec \
 ```
 想全局生效可写入 `~/.claude.json` 的 `mcpServers`，或按项目放 `.mcp.json`。
 
+### DSH（DeepSeek Harness）
+
+⚠️ **DSH 的 MCP 客户端不支持 OAuth。** 源码实测（`@deepseek-ai/dsh-mcp-client`）：全文搜不到
+`oauth` / `401` / `WWW-Authenticate` / `resource_metadata` 的任何处理，`headers` 是**静态**传给
+`StreamableHTTPClientTransport` 的 `requestInit`。所以它**只能走静态 Bearer**（§2.2 那种 JWT），
+本服务端那套自动发现链路在 DSH 里用不上。
+
+DSH 也**不读 `.mcp.json`**（那是 Claude Code 的约定；DSH 的 asar 里搜不到读它的代码）。
+它把 MCP 服务器配成 **cordis 插件行**，写进 profile 的 patch 层
+`%USERPROFILE%\.dsh\profiles\<profile>\cordis.patch.yml`：
+
+```yaml
+- insert:
+    - id: openspec-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: openspec
+        transport: streamable-http
+        url: https://openspec.panghuer.top/mcp
+        headers:
+          Authorization: 'Bearer <JWT>'
+        failOnStartupError: false
+```
+
+工具以 **`mcp__openspec__<工具名>`** 出现（`list_projects` / `list_specs` / …）。这个 patch 是
+**热应用**的 —— 改完不用重启 DSH（但见下面第二条，某些情况下仍要重载）。
+
+两个运维要点：
+
+- **token 7 天过期**（Casdoor 应用的 `expireInHours`）。换法是重跑
+  `scripts/get-token.sh` 并把新 JWT 替换进上面那行；也可以直接从 Casdoor 的 `token` 表取最近一把：
+  `SELECT access_token FROM casdoor.token ORDER BY created_time DESC LIMIT 1;`
+- **服务端每次部署/重启 Pod 都会让旧 session 立即失效**（单副本、session 在进程内存里，服务端按
+  MCP 规范回 HTTP 404）。DSH 的 SDK **不会**因此自己重新 `initialize`，表现为调用报
+  `MCP session expired or does not belong to this identity`。恢复：**新开一个对话**，或改一下
+  `cordis.patch.yml` 触发插件重载，或重启 DSH。
+
 ### Codex CLI
 ```bash
 codex mcp add openspec --transport streamable-http \
@@ -235,7 +272,10 @@ bash openspec_service/scripts/mcp-call.sh --call list_specs \
 
 ## 9. 已知限制
 
-- 当前单副本部署：MCP session 在进程内存，Pod 重启后客户端需重新 `initialize`。
+- 当前单副本部署：MCP session 在进程内存，Pod 重启后客户端需重新 `initialize`（服务端按 MCP 规范
+  回 HTTP 404）。**但不是所有客户端都会自动重连** —— DSH 的 SDK 收到 404 后不会自己重新
+  `initialize`，得靠新会话或插件重载。要根治可把 session 改成**无状态**（session id 用
+  `HMAC(secret, sub)` 派生、不落内存），那样部署对客户端完全透明；尚未做。
 - 写操作是"先读后写"乐观并发，不适合无 revision 概念的纯流式调用。
 - `archive_change` 要求 Gitea Admin 权限，普通编辑者无法归档。
 - 跨副本部署、OAuth **动态客户端注册（DCR）** 在 backlog P2。注意 DCR 在本集群 Casdoor 4.11.0 上

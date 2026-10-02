@@ -390,7 +390,7 @@ OAuth 2.1 改造已经做完。）
 | **Casdoor 的 RFC 8707 支持** | ✅ **v4.11.0 已实现**（2026-10-02 查 tag 源码确认，非推测）：PR #5098 于 2026-02-15 合并；`object/token_jwt.go` 在带 `resource` 时把 `aud` 设为该 resource URL。本文早先「未验证 4.11.0 是否支持 `resource`」的措辞与"打开 DCR 也走不通"的结论已一并更正，见 §3.4 |
 | §3.1 的 PRM 响应 | ✅ **已实现并取得线上真实响应**（2026-10-02），见 §3.1 —— 原先标注的「规范样例」已被实测值替换 |
 | Casdoor 侧的六步配置 | ✅ **已实操**：应用 `panghu-mcp` 已建（`category=Agent`、`type=MCP`），并走完了整条授权码 + PKCE。两个反直觉点已被实测确认，见 §3.3：**Type 下拉里没有 `MCP` 是正常的**（选 `Category=Agent` 会自动设成 `MCP`）；**不需要 `client_secret`** |
-| **新观察：`list_projects` 的 `structuredContent` 是数组** | ⚠️ MCP schema（2025-06-18）里 `structuredContent?: { [key: string]: unknown }` 要求是**对象**，而 `src/mcp.mjs` 把 `db.visibleProjects(...)` 的返回值（**数组**）直接塞了进去 —— 其余 8 个工具都返回对象。严格按 schema 校验的客户端可能在 `list_projects` 上报错。**尚未修**：修法是包一层 `{items:...}`，但那会同时改变 `content[].text` 的载荷形状，属破坏性改动，需所有者定 |
+| `list_projects` 的 `structuredContent` 曾是数组 | ✅ **已修（2026-10-02）**。MCP schema（2025-06-18）里 `structuredContent?: { [key: string]: unknown }` 要求是**对象**，而 `src/mcp.mjs` 原先把 `db.visibleProjects(...)` 的返回值（**数组**）直接塞了进去，其余 8 个工具返回的都是对象。**DSH 的 MCP 客户端严格校验，实测直接报 `Invalid result for tools/call: expected record, received array`，该工具完全不可用** —— 这不是"可能报错"，是有真实客户端当场翻车。修法：新增 `toStructured()`，**只**给 `structuredContent` 包一层 `{items:[...]}`，`content[].text` 保持原值的 JSON，因此**不是**破坏性改动（按文本解析的消费方行为逐字不变），并有回归测试锁住 |
 | 旧的手工 JWT 路径 | ✅ **已退役**（2026-10-02）：`GET /token` 与 `src/token.mjs` 删除，能力归档 `oauth/token-dispenser/`；项目申请登录保留为 `GET /project-requests/login`。详见 §五 |
 
 来源：[Casdoor as MCP Auth Provider](https://casdoor.org/docs/mcp-auth/overview/)、
