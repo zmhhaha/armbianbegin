@@ -115,6 +115,19 @@ Deployment/PVC/PostgreSQL。
   该应用登记的是 `http://localhost:*` 与 `http://127.0.0.1:*`，两种形式都覆盖了
   （Claude Code v2.1.229 曾发 `127.0.0.1` 形式、导致精确匹配的服务端拒登，**对我们无影响**；
   v2.1.231 已改回 `localhost`）。
+- **另一个症状：浏览器显示 `Authentication successful`，但 Claude Code 里一直 `Server status: needs-auth`。**
+  这**不是** DCR 的问题（DCR 那关已经过了），而是**换到 token 之后被本服务拒绝**。Claude Code 按
+  MCP 规范在授权与换 token 请求里都带 `resource=https://openspec.panghuer.top/mcp`，而 Casdoor
+  4.11.0 实现了 RFC 8707：**带 `resource` 时 `aud` 就等于该 URL**，不再等于 client_id。
+  所以 `OIDC_AUDIENCE` 必须**同时**包含该 resource URL 与 client_id —— 缺前者就是这个现象
+  （服务端 401 `Invalid bearer token: unexpected "aud" claim value`，客户端于是反复重新授权）。
+  查证方式（一眼就能看出客户端实际要什么）：
+
+  ```sql
+  SELECT application, resource, created_time FROM casdoor.token ORDER BY created_time DESC LIMIT 5;
+  ```
+
+  把 `resource` 与 `k8s/core.yaml` 的 `OIDC_AUDIENCE` 对一下即可。
 - **另一条路（要改服务端）**：Casdoor **4.11.0 已支持 RFC 8707**，带 `resource` 时 `aud` 就是该
   resource URL，而 MCP 客户端按规范会带 `resource=https://openspec.panghuer.top/mcp`。
   所以把该 URL 加进 `OIDC_AUDIENCE`、再把组织 `dcr_policy` 设成非空非 `disabled`，

@@ -10,12 +10,15 @@ metadata:
   namespace: openspec
 data:
   OIDC_ISSUER: "https://auth.panghuer.top"
-  # 有效 audience = 签发该 JWT 的应用的 client_id。
-  #   315cbdaf565b82103c6f = panghu-mcp（Category=Agent / Type=MCP）：标准 MCP 客户端自动授权、
-  #     命令行 get-token.sh、项目申请表单登录，签的都是这个应用。
-  # 2026-10-02 起**只剩这一个**：panghu-suite 的 ece3f52410b046fe0952 已移除 —— 那意味着
-  #   「人工取长期 JWT 贴进工具配置」的旧路线彻底关闭；旧 token 会立刻 401，重新取一把即可。
-  OIDC_AUDIENCE: "315cbdaf565b82103c6f"
+  # 有效 audience。两种取值都必须接受 —— 同一个应用签发的 token，其 aud 取决于客户端有没有带 resource：
+  #   1) https://openspec.panghuer.top/mcp —— MCP 客户端按规范带 `resource`，Casdoor 4.11.0 照
+  #      RFC 8707 把 aud 设成该 URL（Claude Code 实测如此）。**少这一条 → 客户端换到 token 也过不了，
+  #      现象是浏览器授权成功、但客户端状态一直 needs-auth。**
+  #   2) 315cbdaf565b82103c6f —— 不带 resource 的流程，aud = 该应用的 client_id：
+  #      命令行 scripts/get-token.sh、项目申请表单登录（GET /project-requests/login）。
+  # 2026-10-02 起 panghu-suite 的 ece3f52410b046fe0952 已移除 —— 意味着「人工取长期 JWT 贴进
+  #   工具配置」的旧路线彻底关闭；那类旧 token 会立刻 401，用 get-token.sh 重新取一把即可。
+  OIDC_AUDIENCE: "315cbdaf565b82103c6f,https://openspec.panghuer.top/mcp"
   OIDC_JWKS_URL: "https://auth.panghuer.top/.well-known/jwks"
   PUBLIC_BASE_URL: "https://openspec.panghuer.top"
   # 项目申请登录用的 MCP 专用应用（公共客户端，无 secret）。

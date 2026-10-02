@@ -17,19 +17,29 @@ OpenSpec 用**两个** Casdoor 应用，分工如下（2026-10-02 起）：
 - 服务端**只校验 JWT 公钥，不需要任何 client secret**。`panghu-mcp` 是**公共客户端** ——
   2026-10-02 实测授权码 + PKCE 换 token 时**不带 secret 也返回 200**，所以服务端不再持有 Casdoor 机密
 
-`OIDC_AUDIENCE`（在 `k8s/core.yaml` 的 ConfigMap 里）**只列 MCP 应用一个值**：
+`OIDC_AUDIENCE`（在 `k8s/core.yaml` 的 ConfigMap 里）必须**同时**列两个值：
 
 ```text
-315cbdaf565b82103c6f
+315cbdaf565b82103c6f,https://openspec.panghuer.top/mcp
 ```
 
-⚠️ **2026-10-02 起 `panghu-suite` 的 `ece3f52410b046fe0952` 已从该值中移除** —— 这意味着在该时点
-**之前签发的 JWT 全部失效**（包括各工具配置里手工贴的旧 token），必须用 `scripts/get-token.sh`
-重新取。`panghu-suite` 仍然在服务 oauth2-proxy 的**浏览器会话**，那类会话不经过本服务的 JWT
-校验，所以不受影响。
+两者来源不同 —— **同一个应用签发的 token，其 `aud` 取决于客户端有没有带 `resource` 参数**：
 
-这个字段**仍然是逗号分隔列表**（服务端 `split(',')` 后交给 jose 校验，`jose` 的 `audience` 接受
-`string | string[]`），所以将来若要并存多个应用，加一个 client_id 即可，不用改代码。
+| 取值 | 什么时候出现 | 谁 |
+|---|---|---|
+| `https://openspec.panghuer.top/mcp` | 客户端带了 `resource`（MCP 规范要求），Casdoor 照 **RFC 8707** 把 `aud` 设成该 URL | Claude Code 等标准 MCP 客户端（**实测就是这种**） |
+| `315cbdaf565b82103c6f` | 不带 `resource`，`aud` = 应用的 client_id | `scripts/get-token.sh`、项目申请表单登录 |
+
+⚠️ **少任一个都会有一类客户端静默 401**：只配 client_id → MCP 客户端表现为「浏览器授权成功、
+但状态一直 `needs-auth`」（它其实已经拿到 token，只是 `aud` 不被接受）；只配 resource URL →
+命令行与表单登录失效。
+
+⚠️ **2026-10-02 起 `panghu-suite` 的 `ece3f52410b046fe0952` 已从该值中移除** —— 在该时点**之前签发的
+JWT 全部失效**（包括各工具配置里手工贴的旧 token），用 `scripts/get-token.sh` 重新取即可。
+`panghu-suite` 仍在服务 oauth2-proxy 的**浏览器会话**，那类会话不经过本服务的 JWT 校验，不受影响。
+
+服务端把这个字段 `split(',')` 后交给 jose 校验（`audience` 接受 `string | string[]`），
+所以将来要再并存别的应用，加一个值即可，不用改代码。
 
 回调地址：
 

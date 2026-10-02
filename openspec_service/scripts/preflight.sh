@@ -22,7 +22,7 @@ KUBECTL="${KUBECTL:-kubectl}"
 KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
 export KUBECONFIG
 CASDOOR_JWT="${CASDOOR_JWT:-}"
-EXPECTED_AUDIENCE="${OIDC_AUDIENCE:-315cbdaf565b82103c6f}"   # panghu-mcp client_id
+EXPECTED_AUDIENCES="${OIDC_AUDIENCE:-315cbdaf565b82103c6f,https://openspec.panghuer.top/mcp}"
 OIDC_ISSUER="${OIDC_ISSUER:-https://auth.panghuer.top}"
 GITEA_OWNER="${GITEA_OWNER:-openspec-service}"
 GITEA_REQUEST_REPOSITORY="${GITEA_REQUEST_REPOSITORY:-project-requests}"
@@ -82,12 +82,20 @@ else
   bad "无法访问 Casdoor discovery: ${deployed_issuer}/.well-known/openid-configuration"
 fi
 
-# OIDC_AUDIENCE 是逗号分隔列表、可以多个（当前只有 panghu-mcp 一个），
-# 所以判据是「包含期望值」而不是「整串相等」—— 将来再加应用不用改这里。
-if [[ ",${deployed_aud// /}," == *",${EXPECTED_AUDIENCE},"* ]]; then
-  ok "OIDC_AUDIENCE 含 ${EXPECTED_AUDIENCE} (当前: ${deployed_aud})"
+# OIDC_AUDIENCE 是逗号分隔列表，判据是「逐个都在」而不是「整串相等」。
+# 两种 aud 都要在：带 resource 的 MCP 客户端（aud = resource URL）与不带 resource 的流程
+# （aud = 应用 client_id）。只配一个就会有一类客户端静默 401。
+IFS=',' read -r -a _expected_auds <<< "${EXPECTED_AUDIENCES}"
+_missing_auds=()
+for _a in "${_expected_auds[@]}"; do
+  _a="${_a// /}"
+  [[ -z "${_a}" ]] && continue
+  [[ ",${deployed_aud// /}," == *",${_a},"* ]] || _missing_auds+=("${_a}")
+done
+if [[ ${#_missing_auds[@]} -eq 0 ]]; then
+  ok "OIDC_AUDIENCE 覆盖全部期望值 (当前: ${deployed_aud})"
 else
-  bad "OIDC_AUDIENCE 不含 ${EXPECTED_AUDIENCE}，当前为 ${deployed_aud}"
+  bad "OIDC_AUDIENCE 缺少: ${_missing_auds[*]} (当前: ${deployed_aud})"
 fi
 if [[ -z "${deployed_bootstrap}" || "${deployed_bootstrap}" == *REPLACE* ]]; then
   bad "BOOTSTRAP_ADMIN_SUBJECTS 为空或仍是占位符: '${deployed_bootstrap}'"

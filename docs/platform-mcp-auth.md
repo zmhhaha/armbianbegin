@@ -163,7 +163,14 @@ www-authenticate: Bearer resource_metadata="https://openspec.panghuer.top/.well-
   去掉它也就同时关死了「人工取长期 JWT 贴进工具配置」那条路（在那之前签发的 JWT 全部失效）。
   连带改动：`src/config.mjs` 把 `oidcAudience` 拆成数组（`jose` 6.x 的 `audience` 接受
   `string | string[]`，所以 `auth.mjs` 那行不用动）、`scripts/preflight.sh` 的判据从
-  「整串相等」改成「包含期望值」。
+  「整串相等」改成「**逐个都在**」。
+- **audience 里还必须含 resource URL（当天实测补上）**：Claude Code 实测表明 MCP 客户端按规范会带
+  `resource=https://openspec.panghuer.top/mcp`，而 Casdoor 4.11.0 实现了 RFC 8707 —— 带 `resource`
+  时 `aud` 就等于该 URL、不再等于 client_id。所以最终值是
+  `315cbdaf565b82103c6f,https://openspec.panghuer.top/mcp`：前者覆盖不带 `resource` 的流程
+  （`get-token.sh`、表单登录），后者覆盖标准 MCP 客户端。
+  **只留 client_id 的后果很隐蔽**：客户端能拿到 token，却被本服务 401 拒（浏览器显示授权成功、
+  状态一直 `needs-auth`）—— 第一次接 Claude Code 踩的就是这个。
 
 ✅ **该应用当前的 Redirect URLs（2026-10-02 已确认）**：
 
@@ -219,12 +226,15 @@ Casdoor 的 AS metadata **会公布** `registration_endpoint = /api/oauth/regist
 随机 client_id 就不再是障碍。DCR 的开启条件也已从源码确认：`object/oauth_dcr.go`
 里 `if org.DcrPolicy == "" || org.DcrPolicy == "disabled"` 即拒绝，**非空且非 `disabled` 即启用**。
 
-**这条路暂未采用**，两个原因：（a）DCR 等于对任何能访问 `auth.panghuer.top` 的人开放客户端注册，
-是个滥用面；（b）Casdoor 关于 `resource` 透传的若干后续修复（#5294 / #5666 / #5689 / #5690 / #5744，
-涉及 web 登录流、consent 流、`fastAutoSignin`、refresh_token）**未逐一确认是否已进入 v4.11.0**；
-其中 #5666「consent flow drops RFC 8707 resource parameter」若不在，授权码交换会以 `invalid_grant`
-失败。现阶段采用 §3.3 的预注册应用 + 客户端指定 `--client-id`
-（Claude Code 实测可用的写法见 [../openspec_service/TROUBLESHOOTING.md](../openspec_service/TROUBLESHOOTING.md) §1.8）。
+**这条路暂未采用**，主要理由是（a）：DCR 等于对任何能访问 `auth.panghuer.top` 的人开放客户端注册，
+是个滥用面。至于（b），**已被实测排除** —— Claude Code 走完整条「授权 → consent → 换 token」后，
+Casdoor 签出的 token 确实带着 `resource`（token 表 `resource` 列有值、`aud` 就是该 URL，见 §3.3），
+说明那些「`resource` 在流程中被丢弃」的修复**已经在 v4.11.0 里**，早先担心的 `invalid_grant`
+没有发生。也就是说 **DCR 在 4.11.0 上确实可行**，开不开纯粹是「要不要开放注册」的取舍。
+
+现阶段采用 §3.3 的预注册应用 + 服务端 `OIDC_AUDIENCE` 同时接受 client_id 与 resource URL
+（Claude Code 侧的具体写法见
+[../openspec_service/TROUBLESHOOTING.md](../openspec_service/TROUBLESHOOTING.md) §1.8）。
 
 ---
 
@@ -234,7 +244,7 @@ Casdoor 的 AS metadata **会公布** `registration_endpoint = /api/oauth/regist
 
 | 选项 | 含义 | 影响 |
 |---|---|---|
-| **现状：`aud` = client_id（已采用）** | `OIDC_AUDIENCE` **只列 MCP 应用** `315cbdaf565b82103c6f`（2026-10-02 先扩成列表做过渡、当天又收敛；字段本身仍是逗号分隔、可多值） | 简单；但同一个应用签发的 token 对**所有**信任它的资源服务器都有效，无法按资源收窄。**代价是换应用就得改这份白名单** —— 这也是 DCR 单纯靠 client_id 走不通的原因（随机 client_id 无法预先列进去）；改用 `resource` 做 audience 才能解，见 §3.4 |
+| **现状：`aud` = client_id **或** resource URL（两者并存，已采用）** | `OIDC_AUDIENCE` = `315cbdaf565b82103c6f,https://openspec.panghuer.top/mcp`：不带 `resource` 的流程用前者，MCP 客户端（带 `resource`，RFC 8707）用后者 | 兼得两者 —— MCP 客户端不必被预注册固定 client_id（resource 绑定的 `aud` 天然收敛到本资源），命令行/表单登录照旧。但这**不等于**可以顺手开 DCR：开不开是单独的取舍，见 §3.4 |
 | RFC 8707：`aud` = MCP 资源 URL | 需要 Casdoor 侧按 resource 签发、且 `OIDC_AUDIENCE` 改成 `https://openspec.panghuer.top/mcp` | 半径更小（token 只对该资源有效）；但要改 Casdoor 应用配置 + 服务端配置，且**旧 token 会校验不过**（需过渡期） |
 
 ### 4.2 scope 与 Gitea ACL 的分工
