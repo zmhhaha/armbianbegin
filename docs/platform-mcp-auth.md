@@ -77,15 +77,16 @@ Metadata 指向 Casdoor**，然后自己校验 JWT（JWKS + audience + scope）�
 | 能力 | 现状 | 依据 |
 |---|---|---|
 | 校验 Casdoor 签发的 JWT | ✅ `jwtVerify{issuer, audience}` + 远程 JWKS | [src/auth.mjs:3](../openspec_service/src/auth.mjs) |
-| audience | 固定为 Casdoor **client_id**（默认 `ece3f52410b046fe0952`） | [src/config.mjs:17](../openspec_service/src/config.mjs) |
+| audience | Casdoor **client_id**：`315cbdaf565b82103c6f`（`panghu-mcp`）。字段仍是逗号分隔列表、可多值，当前只列这一个 | [src/config.mjs](../openspec_service/src/config.mjs) |
 | 身份映射 | `sub`（必需）+ `email` → Gitea 用户名；项目级权限由 **Gitea ACL** 决定 | [src/identity.mjs:8-11](../openspec_service/src/identity.mjs) |
-| 取 token 的方式 | **手工复制**：浏览器 `/token` 走一次授权码，再把 JWT 贴进各工具配置（**仍在用，本次未改**） | [src/token.mjs:5-6](../openspec_service/src/token.mjs) |
+| 取 token 的方式 | **客户端自己走 OAuth 2.1**（RFC 9728 发现 → Casdoor 授权码 + PKCE）；命令行用 `scripts/get-token.sh`。旧的网页版手工领取器 `/token` **已于 2026-10-02 退役** | [src/project-login.mjs](../openspec_service/src/project-login.mjs)、[../oauth/token-dispenser/](../oauth/token-dispenser/README.md) |
 | Protected Resource Metadata | ✅ **已实现**（2026-10-02，`a8316f7`）：两种形状都匿名可读，见 §3.1 | [src/auth.mjs](../openspec_service/src/auth.mjs)、[src/rest.mjs](../openspec_service/src/rest.mjs) |
 | 401 挑战头 | ✅ **已实现**：`/mcp` 与 REST 两侧的 401 都带 `resource_metadata`，见 §3.2 | [src/mcp.mjs](../openspec_service/src/mcp.mjs)、[src/rest.mjs](../openspec_service/src/rest.mjs) |
 
 所以"每个 MCP 服务器要不要自建 OAuth 授权服务器"的答案是 **不要** —— Casdoor 已经覆盖了那一半。
 服务侧该补的是「**发现自己该找谁授权**」那半段：它不是"从零做认证"，而是两处小改动，**目前已经补上**
-（§3.1、§3.2）；剩下的只有「让客户端拿到 `client_id`」那一步（§3.3）。
+（§3.1、§3.2）；「让客户端拿到 `client_id`」那一步也已落地（§3.3 预注册应用 + audience 列表化），
+所以这条路现在**整条通了**。
 
 ---
 
@@ -156,9 +157,10 @@ www-authenticate: Bearer resource_metadata="https://openspec.panghuer.top/.well-
   所以 **Type 下拉里看不到 `MCP` 是正常的**，不用去那儿找。
 - **不需要 `client_secret`**：授权码 + PKCE 换 token 时**不带 secret 也返回 200**（实测）。
   这是关键收益 —— 桌面客户端不用分发任何密钥。
-- **audience 必须同时接受两个值**：新应用签发的 token 其 `aud` 是新 `client_id`，而服务原先只认
-  `ece3f52410b046fe0952`。已按 §4.1 的「现状」路线把 `OIDC_AUDIENCE` 改成逗号分隔列表：
-  `ece3f52410b046fe0952,315cbdaf565b82103c6f`（前者留到已发出的 JWT 在 2026-10-06 过期后再删）。
+- **audience 从「只能一个」改成「可以多个」**：新应用签发的 token 其 `aud` 是新 `client_id`，而服务
+  原先只认 `ece3f52410b046fe0952`。按 §4.1 的「现状」路线把 `OIDC_AUDIENCE` 改成逗号分隔列表、
+  先让新旧并存过渡；**2026-10-02 当天又收敛回单个值** `315cbdaf565b82103c6f` —— 旧应用不再需要，
+  去掉它也就同时关死了「人工取长期 JWT 贴进工具配置」那条路（在那之前签发的 JWT 全部失效）。
   连带改动：`src/config.mjs` 把 `oidcAudience` 拆成数组（`jose` 6.x 的 `audience` 接受
   `string | string[]`，所以 `auth.mjs` 那行不用动）、`scripts/preflight.sh` 的判据从
   「整串相等」改成「包含期望值」。
@@ -212,7 +214,7 @@ Casdoor 的 AS metadata **会公布** `registration_endpoint = /api/oauth/regist
 
 | 选项 | 含义 | 影响 |
 |---|---|---|
-| **现状：`aud` = client_id（已采用）** | `OIDC_AUDIENCE` 现在是**逗号分隔列表**：`ece3f52410b046fe0952,315cbdaf565b82103c6f`（2026-10-02 落地） | 简单；但同一个应用签发的 token 对**所有**信任它的资源服务器都有效，无法按资源收窄。**代价是换应用就得改这份白名单** —— 这也正是 DCR 天然走不通的原因（随机 client_id 无法预先列进去） |
+| **现状：`aud` = client_id（已采用）** | `OIDC_AUDIENCE` **只列 MCP 应用** `315cbdaf565b82103c6f`（2026-10-02 先扩成列表做过渡、当天又收敛；字段本身仍是逗号分隔、可多值） | 简单；但同一个应用签发的 token 对**所有**信任它的资源服务器都有效，无法按资源收窄。**代价是换应用就得改这份白名单** —— 这也正是 DCR 天然走不通的原因（随机 client_id 无法预先列进去） |
 | RFC 8707：`aud` = MCP 资源 URL | 需要 Casdoor 侧按 resource 签发、且 `OIDC_AUDIENCE` 改成 `https://openspec.panghuer.top/mcp` | 半径更小（token 只对该资源有效）；但要改 Casdoor 应用配置 + 服务端配置，且**旧 token 会校验不过**（需过渡期） |
 
 ### 4.2 scope 与 Gitea ACL 的分工

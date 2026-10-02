@@ -54,7 +54,7 @@ GitOps 直连（无认证代理），`cloudflare-tunnel/operator/gitops-routes.y
 - 镜像 `arm-cluster-master:5000/oauth2-proxy:v7.8.0`（`proxy-deployment.yaml:58`）。
 - 上游指向规则在 configmap：agent 类 Gradio 7860（`proxy-configmap.yaml:33`）、游戏类 nginx 80（`game-proxy-configmap.yaml:33`）、hublog `hublog-api:80`（`hublog-proxy-configmap.yaml:26`）、txt2img `ui.txt2img:7860`（`txt2img-proxy-configmap.yaml:35`）。
 - **身份注入头**：`X-Auth-Request-Sub` / `X-Forwarded-User` / `X-Forwarded-Email` / `X-Forwarded-Preferred-Username`（`hublog-proxy-configmap.yaml:30-43`、`game-proxy-configmap.yaml:38-50`）。下游靠信任这些头识别用户：`panghu_game/XuYe/server.py:86`、`panghu_chat/hublog/README.md:73`、`panghu_game/TaShuo/deploy/README.md:42`。
-- 共享同一 OIDC client：OpenSpec 用 Casdoor `panghu-suite` 的 client_id `ece3f52410b046fe0952`（`openspec_service/k8s/core.yaml:13,16`），issuer `https://auth.panghuer.top`（`:12`）。
+- 共享同一 OIDC client：OpenSpec 用 Casdoor `panghu-suite` 的 client_id `ece3f52410b046fe0952`（`openspec_service/k8s/core.yaml`），issuer `https://auth.panghuer.top`。**更正（2026-10-02）**：OpenSpec 已改用自己的 MCP 专用应用 `panghu-mcp`（client_id `315cbdaf565b82103c6f`），不再与 oauth2-proxy 系列共用 client_id。
 
 ## 三、准入控制：现状几乎没有
 

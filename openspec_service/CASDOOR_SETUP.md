@@ -2,10 +2,10 @@
 
 OpenSpec 用**两个** Casdoor 应用，分工如下（2026-10-02 起）：
 
-| 应用 | client_id | 谁在用 |
-|---|---|---|
-| `panghu-suite` | `ece3f52410b046fe0952` | 13 个 oauth2-proxy 实例等老流程 |
-| **`panghu-mcp`** | `315cbdaf565b82103c6f` | 标准 MCP 客户端自动授权（RFC 9728 发现 + PKCE）、`scripts/get-token.sh`、项目申请表单登录 |
+| 应用 | client_id | 谁在用 | 是否为 OpenSpec 接受的 audience |
+|---|---|---|---|
+| `panghu-suite` | `ece3f52410b046fe0952` | 13 个 oauth2-proxy 实例等老流程 | ❌ 已于 2026-10-02 从 `OIDC_AUDIENCE` 移除 |
+| **`panghu-mcp`** | `315cbdaf565b82103c6f` | 标准 MCP 客户端自动授权（RFC 9728 发现 + PKCE）、`scripts/get-token.sh`、项目申请表单登录 | ✅ 唯一 |
 
 两者共同要求：
 
@@ -17,15 +17,19 @@ OpenSpec 用**两个** Casdoor 应用，分工如下（2026-10-02 起）：
 - 服务端**只校验 JWT 公钥，不需要任何 client secret**。`panghu-mcp` 是**公共客户端** ——
   2026-10-02 实测授权码 + PKCE 换 token 时**不带 secret 也返回 200**，所以服务端不再持有 Casdoor 机密
 
-`OIDC_AUDIENCE`（在 `k8s/core.yaml` 的 ConfigMap 里）是**逗号分隔列表**：
+`OIDC_AUDIENCE`（在 `k8s/core.yaml` 的 ConfigMap 里）**只列 MCP 应用一个值**：
 
 ```text
-ece3f52410b046fe0952,315cbdaf565b82103c6f
+315cbdaf565b82103c6f
 ```
 
-前者是留给**未过期 JWT** 的过渡（它们在 2026-10-06 到期后即可删除），后者是 MCP 应用。服务端把
-它 `split(',')` 成数组交给 jose 校验（`jose` 的 `audience` 接受 `string | string[]`），
-所以**两个应用签发的 token 同时有效** —— 这也是"手工贴 JWT"与"MCP 客户端 OAuth"能并存的原因。
+⚠️ **2026-10-02 起 `panghu-suite` 的 `ece3f52410b046fe0952` 已从该值中移除** —— 这意味着在该时点
+**之前签发的 JWT 全部失效**（包括各工具配置里手工贴的旧 token），必须用 `scripts/get-token.sh`
+重新取。`panghu-suite` 仍然在服务 oauth2-proxy 的**浏览器会话**，那类会话不经过本服务的 JWT
+校验，所以不受影响。
+
+这个字段**仍然是逗号分隔列表**（服务端 `split(',')` 后交给 jose 校验，`jose` 的 `audience` 接受
+`string | string[]`），所以将来若要并存多个应用，加一个 client_id 即可，不用改代码。
 
 回调地址：
 

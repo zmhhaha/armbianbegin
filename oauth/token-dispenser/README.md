@@ -62,7 +62,7 @@ B 不是「给人取 token」用的，它是项目申请网页表单的登录管
 
    | 方案 | 需要 secret？ | 需要动 audience？ |
    |---|---|---|
-   | 沿用 `panghu-suite`（`ece3f52410b046fe0952`） | 需要，从 Vault 注入 | 不需要（它已在 `OIDC_AUDIENCE` 里） |
+   | 沿用 `panghu-suite`（`ece3f52410b046fe0952`） | 需要，从 Vault 注入 | **需要** —— 该 client_id 已于 2026-10-02 从 `OIDC_AUDIENCE` 移除，复活这条路线前得先把它加回去 |
    | 用 MCP 专用应用 `315cbdaf565b82103c6f` | **不需要**（2026-10-02 实测：不带 `client_secret` 也返回 200） | 需要把它的 client_id 加进 `OIDC_AUDIENCE` |
 
 6. **别忘了那条固有代价**：复活它 = 重新开启「长期 JWT 写进各工具明文配置」这条路。

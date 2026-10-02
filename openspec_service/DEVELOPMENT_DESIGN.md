@@ -69,12 +69,12 @@ API 不接受客户端提供的文件路径、仓库地址、分支或 shell 参
   "sub": "casdoor-user-id",
   "email": "alice@example.com",
   "iss": "https://auth.panghuer.top",
-  "aud": "ece3f52410b046fe0952",
+  "aud": "315cbdaf565b82103c6f",
   "exp": 1770000000
 }
 ```
 
-OpenSpec Service 验证 JWT 的签名、issuer、audience、过期时间和 `sub`。audience 使用通用 sso 应用 `panghu-suite` 的 client_id（`ece3f52410b046fe0952`），不要求每个服务单独注册 Casdoor 应用。健康检查可以匿名访问，其他接口默认必须携带 Bearer JWT。
+OpenSpec Service 验证 JWT 的签名、issuer、audience、过期时间和 `sub`。本设计最初让 audience 复用通用 sso 应用 `panghu-suite` 的 client_id（`ece3f52410b046fe0952`）、不要求每个服务单独注册 Casdoor 应用。**2026-10-02 变更**：MCP 接入改用专用应用 `panghu-mcp`，audience 现为它的 client_id `315cbdaf565b82103c6f`，`panghu-suite` 的旧值已移除（旧 JWT 全部失效）—— 见 [CASDOOR_SETUP.md](CASDOOR_SETUP.md)。健康检查可以匿名访问，其他接口默认必须携带 Bearer JWT。
 
 ### 4.2 Casdoor 与 Gitea 用户映射
 

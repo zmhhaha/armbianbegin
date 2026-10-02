@@ -22,7 +22,7 @@ KUBECTL="${KUBECTL:-kubectl}"
 KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
 export KUBECONFIG
 CASDOOR_JWT="${CASDOOR_JWT:-}"
-EXPECTED_AUDIENCE="${OIDC_AUDIENCE:-ece3f52410b046fe0952}"   # panghu-suite client_id
+EXPECTED_AUDIENCE="${OIDC_AUDIENCE:-315cbdaf565b82103c6f}"   # panghu-mcp client_id
 OIDC_ISSUER="${OIDC_ISSUER:-https://auth.panghuer.top}"
 GITEA_OWNER="${GITEA_OWNER:-openspec-service}"
 GITEA_REQUEST_REPOSITORY="${GITEA_REQUEST_REPOSITORY:-project-requests}"
@@ -82,8 +82,8 @@ else
   bad "无法访问 Casdoor discovery: ${deployed_issuer}/.well-known/openid-configuration"
 fi
 
-# OIDC_AUDIENCE 现在是逗号分隔的列表（手工贴 JWT 与 MCP 客户端各一个），
-# 所以判据是「包含期望值」，不是「整串相等」。
+# OIDC_AUDIENCE 是逗号分隔列表、可以多个（当前只有 panghu-mcp 一个），
+# 所以判据是「包含期望值」而不是「整串相等」—— 将来再加应用不用改这里。
 if [[ ",${deployed_aud// /}," == *",${EXPECTED_AUDIENCE},"* ]]; then
   ok "OIDC_AUDIENCE 含 ${EXPECTED_AUDIENCE} (当前: ${deployed_aud})"
 else

@@ -44,10 +44,11 @@ Deployment/PVC/PostgreSQL。
   `client_id`**（OIDC 规范）。本集群复用了通用 sso 应用 `panghu-suite`，其 client_id 是
   `ece3f52410b046fe0952`，不是自定义的 `openspec-api`。
 - **解决**：`OIDC_AUDIENCE` 设为 `ece3f52410b046fe0952`（即 panghu-suite 的 client_id）。
-  这样不要求每个服务单独注册 Casdoor 应用。**2026-10-02 更新**：audience 已扩成**逗号分隔列表**
-  `ece3f52410b046fe0952,315cbdaf565b82103c6f`（后者是 MCP 专用应用 `panghu-mcp`）；
-  旧值只是留给未过期 JWT 的过渡，所以现在 `aud` 不符可能是**列表里少了一个 client_id**，
-  而不是"不该用列表"。
+  这样不要求每个服务单独注册 Casdoor 应用。**2026-10-02 更新**：中途一度扩成逗号分隔列表
+  `ece3f52410b046fe0952,315cbdaf565b82103c6f` 做过渡，随后**又收敛回单个值**
+  `315cbdaf565b82103c6f`（MCP 专用应用 `panghu-mcp`）—— panghu-suite 的旧 client_id 已移除，
+  **在那之前签发的 JWT 全部失效**。所以现在遇到 `aud` 不符，几乎都是手里那把是旧应用的 token：
+  用 `scripts/get-token.sh` 重新取一把，不要去放宽 audience。
 
 ### 1.3 JWT 的 `aud` 是数组
 - **现象**：preflight 报 `JWT aud=['ece3f52410b046fe0952'] 与期望 ... 不一致`。
