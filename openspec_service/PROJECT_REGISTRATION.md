@@ -67,20 +67,25 @@ git clone https://github.com/example/my-app.git
 
 ### 2. 获取 Casdoor JWT
 
-推荐打开：
+MCP 客户端不需要单独取 JWT：只要填 MCP 地址 `https://openspec.panghuer.top/mcp`，
+**多数标准客户端会自动完成 OAuth 授权**（RFC 9728 发现 → Casdoor → 授权码 + PKCE）。需要手工指定
+client_id 的客户端填 `315cbdaf565b82103c6f`（MCP 专用应用 `panghu-mcp_my29ub`），**不需要 secret**。
 
-```text
-https://openspec.panghuer.top/token
-```
-
-登录 Casdoor 后复制页面显示的 access token。也可以在命令行使用：
+本文下面的登记脚本属于命令行/脚本路径，凭据用 `get-token.sh` 取：
 
 ```bash
 bash openspec_service/scripts/get-token.sh
 export CASDOOR_JWT="$(cat /tmp/casdoor.jwt)"
 ```
 
+该脚本走 MCP 专用应用（client_id `315cbdaf565b82103c6f`），**不需要 `CASDOOR_CLIENT_SECRET`**，
+自带 PKCE，回调 `http://localhost:39399/callback`。
+
 JWT 只放在当前终端环境中，不要提交到 Git、写入项目映射文件或发到聊天中。
+
+旧的网页版领取器 `https://openspec.panghuer.top/token` 已于 **2026-10-02 退役**，服务端归档与复活
+步骤见 [`../oauth/token-dispenser/README.md`](../oauth/token-dispenser/README.md)，设计记录见
+[`../docs/platform-mcp-auth.md`](../docs/platform-mcp-auth.md)。
 
 ### 3. 执行登记脚本
 
@@ -219,7 +224,9 @@ MCP 配置和各工具的参数见 [MCP_INTEGRATION.md](MCP_INTEGRATION.md)。
 
 ### `401 Unauthorized`
 
-检查 JWT 是否过期、是否包含 `Bearer` 前缀，以及 `aud`、`iss`、`email` 和 `sub` 是否正确。重新获取 JWT 后再运行脚本。
+检查 JWT 是否过期、是否包含 `Bearer` 前缀，以及 `aud`、`iss`、`email` 和 `sub` 是否正确。
+命令行/脚本场景重新执行 `bash openspec_service/scripts/get-token.sh` 取新 JWT 后再运行脚本；
+MCP 客户端场景则由客户端自动重新授权（必要时重新走一次浏览器授权），不需要人工取 JWT。
 
 ### `403 Forbidden`
 

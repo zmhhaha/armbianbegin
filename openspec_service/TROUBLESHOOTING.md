@@ -44,7 +44,10 @@ Deployment/PVC/PostgreSQL。
   `client_id`**（OIDC 规范）。本集群复用了通用 sso 应用 `panghu-suite`，其 client_id 是
   `ece3f52410b046fe0952`，不是自定义的 `openspec-api`。
 - **解决**：`OIDC_AUDIENCE` 设为 `ece3f52410b046fe0952`（即 panghu-suite 的 client_id）。
-  这样不要求每个服务单独注册 Casdoor 应用。
+  这样不要求每个服务单独注册 Casdoor 应用。**2026-10-02 更新**：audience 已扩成**逗号分隔列表**
+  `ece3f52410b046fe0952,315cbdaf565b82103c6f`（后者是 MCP 专用应用 `panghu-mcp_my29ub`）；
+  旧值只是留给未过期 JWT 的过渡，所以现在 `aud` 不符可能是**列表里少了一个 client_id**，
+  而不是"不该用列表"。
 
 ### 1.3 JWT 的 `aud` 是数组
 - **现象**：preflight 报 `JWT aud=['ece3f52410b046fe0952'] 与期望 ... 不一致`。
@@ -60,6 +63,8 @@ Deployment/PVC/PostgreSQL。
   **从未设置 Casdoor 密码**（`hash`/`pre_hash` 为空）；且 `panghu-suite` 应用的 providers
   只有 `github` 和 `provider_email`，**没有 password provider**。密码登录对这种账户永远失败。
 - **解决**：改用**浏览器授权码流**获取 JWT（见 `scripts/get-token.sh`），不要用密码登录。
+  该脚本自 2026-10-02 起用 MCP 专用 client_id `315cbdaf565b82103c6f`，**不需要 `client_secret`**，
+  自带 PKCE，回调 `http://localhost:39399/callback`。
   排查时用 `select name,github,hash<>'' as has_password from user where name='...'` 确认是否无密码。
 
 ### 1.5 Casdoor `/api/signin` 报 `GetOwnerAndNameFromId() error, wrong token count`
@@ -72,10 +77,20 @@ Deployment/PVC/PostgreSQL。
 |---|---|---|
 | `POST /api/login/oauth/access_token` + `grant_type=password` | ❌ | 本 Casdoor 禁用了 password grant |
 | `POST /api/signin`（密码） | ⚠️ | 仅对有密码的用户；本环境用户走 GitHub 无密码 |
-| **浏览器授权码流** | ✅ | `scripts/get-token.sh`；需管理员在 panghu-suite 白名单加 `https://openspec.panghuer.top/mcp` |
+| **浏览器授权码流** | ✅ | `scripts/get-token.sh`；用 MCP 专用 client_id `315cbdaf565b82103c6f`，**不需要 `client_secret`**，自带 PKCE |
+| **MCP 客户端自动授权** | ✅ | 给客户端填 `https://openspec.panghuer.top/mcp` 即可，客户端按 RFC 9728 发现链路自己走 OAuth 2.1 |
 
-授权码流前置：Casdoor 管理员在 应用 → panghu-suite → Redirect URLs 增加
-`https://openspec.panghuer.top/mcp`（用户 `zmhhaha` 非管理员，需 admin 账号操作）。
+脚本/命令行的正路是 `scripts/get-token.sh`（已按上面的新 client_id 重写）；MCP 客户端的浏览器
+授权交给 MCP 专用应用 `panghu-mcp_my29ub`（client_id `315cbdaf565b82103c6f`，公共客户端、
+**不需要 `client_secret`**），它登记的 Redirect URLs 是 `http://localhost:*`、`http://127.0.0.1:*`。
+**旧的 `GET /token` 网页版领取器已于 2026-10-02 退役**，不再需要管理员往 `panghu-suite` 白名单
+加 `https://openspec.panghuer.top/token`；归档与复活步骤见
+[`../oauth/token-dispenser/README.md`](../oauth/token-dispenser/README.md)，设计记录见
+[`../docs/platform-mcp-auth.md`](../docs/platform-mcp-auth.md)。
+
+项目申请表单的登录回调是服务端的 `https://openspec.panghuer.top/project-requests/login`（路由由
+原 `/token` 的"表单登录"那一半改成）。**待办：这条 Redirect URL 目前还没加进
+`panghu-mcp_my29ub` 应用；在加上之前，浏览器走表单登录会因 redirect_uri 未登记而失败。**
 
 ### 1.7 Casdoor 用户 `sub` 与 Gitea 用户映射
 - Gitea 用户 `zmh_haha` 的 `login_name` = `27714443`，与 Casdoor 用户 `zmhhaha` 的

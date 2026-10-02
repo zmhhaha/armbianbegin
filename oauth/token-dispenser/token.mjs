@@ -1,3 +1,12 @@
+// ============================================================
+// ⚠️ 归档文件 —— 没有被任何代码 import，不要直接部署。
+//
+// 这是 openspec-service 在 2026-10-02 之前 `GET /token` 的完整实现（逐字保留）。
+// 它已被「标准 MCP 客户端 OAuth 2.1 自动授权」取代而退役，见同目录 README.md。
+//
+// 注意：下面的 import 路径是**当年在 openspec_service/src/ 下**的相对路径，
+// 放到这里之后已经失效 —— 这是故意保留的原样，方便整体复制回去复活。
+// ============================================================
 import crypto from 'node:crypto';
 import {config} from './config.mjs';
 import {projectRequestFormHtml} from './project-form.mjs';

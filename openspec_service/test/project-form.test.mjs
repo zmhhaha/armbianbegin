@@ -19,7 +19,10 @@ test('rejects unsupported form fields and unsafe values',()=>{
 });
 
 test('renders login and authenticated form pages',()=>{
-  assert.match(projectRequestEntryHtml(),/\/token\?return=\/project-requests/);
+  const entry=projectRequestEntryHtml();
+  assert.match(entry,/\/project-requests\/login/);
+  // 退役守卫：给人取长期 JWT 的旧入口 /token 不应再出现在任何页面里。
+  assert.doesNotMatch(entry,/\/token/);
   const page=projectRequestFormHtml('jwt-value');
   assert.match(page,/\/v1\/project-requests/);
   assert.match(page,/jwt-value/);

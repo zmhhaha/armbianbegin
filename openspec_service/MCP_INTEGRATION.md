@@ -14,7 +14,10 @@ AI 工具只需"加一个远程 MCP"即可，不需要在本地装任何 OpenSpe
 - 能登录的就是 Casdoor `panghu-suite` 应用允许的那两个账号；在此之上再用 Gitea 仓库 ACL 收窄到项目级。
 - 项目登记走 `/project-requests` 表单 → Gitea Issue → 管理员加 `status:approved` 审批
   （见 [PROJECT_REQUEST_APPROVAL.md](PROJECT_REQUEST_APPROVAL.md)），不靠门户自助开通。
-- `/token` 页面的唯一用途是给这些账号签发 JWT，方便在 AI 工具里配 MCP；**它不是门户入口**。
+- ~~`/token` 页面~~ **已于 2026-10-02 退役**：它当年给这些账号签发长期 JWT、让人贴进 AI 工具配置，
+  现在标准 MCP 客户端自己走 OAuth 2.1 授权（见 §2），不再需要人工取 JWT。
+  服务端那部分代码归档在 [`../oauth/token-dispenser/README.md`](../oauth/token-dispenser/README.md)。
+  项目申请表单的登录**没有**跟着退役 —— 它拆出来成了 `GET /project-requests/login`，并改绑 MCP 专用应用。
 
 因此原计划里的 `add-project-portal` 变更（同源门户页、OAuth session cookie/PKCE、脚本 Job 运行器）
 **已明确不做**，不再排期。多租户隔离能力仍由服务端强制（见 [MULTI_TENANCY.md](MULTI_TENANCY.md)），
@@ -28,34 +31,48 @@ AI 工具只需"加一个远程 MCP"即可，不需要在本地装任何 OpenSpe
 |---|---|
 | MCP 地址 | `https://openspec.panghuer.top/mcp` |
 | 传输 | streamable HTTP（协议版本 `2025-06-18`） |
-| 认证 | `Authorization: Bearer <Casdoor JWT>` |
+| 认证（推荐） | 客户端自己走 **OAuth 2.1**：撞 `POST /mcp` 拿到 401 + `WWW-Authenticate` 后自动发现并授权，**不需要人工配任何 header** |
+| 认证（兜底） | `Authorization: Bearer <Casdoor JWT>` —— 只给不支持 OAuth 发现的客户端或命令行用（见 §2.2） |
 | 项目边界 | 服务端强制，客户端只传 `projectId`（UUID） |
 
-> **MCP 认证的总体设计**（Casdoor 侧的两块 MCP 能力、平台侧只需补什么、以本服务为参考实现，
+> **MCP 认证的总体设计**（Casdoor 侧的两块 MCP 能力、平台侧只需补什么、以本服务为参考实现、
 > 以及三个待定决策）：见 [../docs/platform-mcp-auth.md](../docs/platform-mcp-auth.md)。
+> 其中「发现链路」已于 2026-10-02 上线并端到端实测通过（PRM + 401 挑战头），该文档有完整实录。
 
-## 2. 获取 JWT
+## 2. 认证：优先让客户端自己走 OAuth
 
-> ⚠️ **JWT 是明文可解的，别到处贴。** 它只是 base64 —— payload 里带着 Casdoor 记在用户记录
-> `Properties` 上的第三方凭据（用 GitHub 登录时就是 **`oauth_GitHub_accessToken`**），
-> 而默认的 `JWT` token 格式还会把**整个 User 结构**塞进去。贴进聊天、日志或公开配置，
-> 等于连带交出这些东西。
+> ⚠️ **只有在你要手工取 JWT 时才需要读这段。** JWT 是明文可解的（它只是 base64）—— payload 里
+> 可能带着 Casdoor 记在用户记录 `Properties` 上的第三方凭据（用 GitHub 登录时就是
+> **`oauth_GitHub_accessToken`**），而默认的 `JWT` token 格式还会把**整个 User 结构**塞进去。
+> 贴进聊天、日志或公开配置，等于连带交出这些东西。
 >
 > 想从根上让 Casdoor 不下发：见
 > [`../oauth/wiki/casdoor不下发第三方token.md`](../oauth/wiki/casdoor不下发第三方token.md)
 > —— 把应用的 Token format 改成 `JWT-Custom`、只勾必需字段（别勾 `Properties`）即可。
+> **这也是优先走 OAuth 的理由之一：长期凭据根本不用写进任何配置文件。**
 
-### 2.1 网页版（推荐，浏览器里取 JWT）
+### 2.1 推荐：让 MCP 客户端自动授权（不需要取 JWT）
 
-打开 **`https://openspec.panghuer.top/token`** → 用 Casdoor 登录（GitHub / 邮箱）→ 页面直接
-显示你的 JWT 和"复制"按钮，并给出 Codex / Claude Code 的配置命令。**无需装任何工具。**
+支持 MCP OAuth 的客户端只需要填 MCP 地址，其余自己完成：
 
-前置：管理员已在 `panghu-suite` 白名单加入 `https://openspec.panghuer.top/token`，且服务
-已配置 `CASDOOR_CLIENT_SECRET`（见 DEPLOY.md）。
+```text
+① POST https://openspec.panghuer.top/mcp（无凭据）
+   → 401 + WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/mcp"
+② GET  该 PRM            → authorization_servers = ["https://auth.panghuer.top"]
+③ GET  Casdoor AS metadata
+④ 浏览器弹出授权页，同意一次（授权码 + PKCE）
+⑤ 重试 POST /mcp 带上 token → 200
+```
 
-### 2.2 脚本版（管理员 / 命令行环境）
+**不需要 `client_secret`。** 服务端信任的是 **MCP 专用 Casdoor 应用**（`panghu-mcp_my29ub`，
+client_id `315cbdaf565b82103c6f`）—— 它是公共客户端，2026-10-02 实测不带 secret 也能换到 token。
 
-用仓库里的脚本（浏览器授权码流，无需 Casdoor 密码；GitHub 注册用户也可用）：
+如果所用客户端的 OAuth 实现要求手工填 client_id（有些客户端不做动态注册，而本集群 Casdoor
+4.11.0 的 DCR 是关的），填 `315cbdaf565b82103c6f`，**secret 留空**。
+
+### 2.2 兜底：手工取 JWT（命令行 / 不支持 OAuth 的客户端）
+
+用仓库里的脚本（浏览器授权码 + PKCE，无需 Casdoor 密码，也无需 secret）：
 
 ```bash
 bash openspec_service/scripts/get-token.sh      # 输出并写入 /tmp/casdoor.jwt
@@ -63,6 +80,9 @@ export CASDOOR_JWT="$(cat /tmp/casdoor.jwt)"
 ```
 
 校验可用：`CASDOOR_JWT="$CASDOOR_JWT" bash openspec_service/scripts/preflight.sh --jwt "$CASDOOR_JWT"`
+
+> 原来的网页版领取器 `https://openspec.panghuer.top/token` 已于 2026-10-02 退役，
+> 归档（含依赖与复活步骤）见 [`../oauth/token-dispenser/README.md`](../oauth/token-dispenser/README.md)。
 
 ## 3. 配置客户端
 
@@ -79,8 +99,16 @@ bash openspec_service/scripts/register-project.sh
 
 脚本会在仓库根目录写入 `.openspec-project.json`，其中只包含 `baseUrl`、`owner`、`repository` 和 UUID `projectId`，不包含任何凭据。每次任务先读取该文件，或调用 `list_projects`，再把 `projectId` 传给 MCP 工具。源码仍可在 GitHub，OpenSpec store 是独立的 Gitea 私有仓库。
 
+> 下面各客户端**先试不带 header 的写法**：支持 OAuth 的客户端会自己完成 §2.1 的授权。
+> 只有在客户端不支持、或它报 401 且不会自动授权时，才换成带 `Authorization` header 的写法
+> （那需要先用 §2.2 取一把 JWT）。
+
 ### Claude Code
 ```bash
+# 推荐：不加 header，客户端自己走 OAuth
+claude mcp add --transport http openspec https://openspec.panghuer.top/mcp
+
+# 兜底：客户端不支持 OAuth 时，用 §2.2 取来的 JWT
 claude mcp add --transport http openspec \
   https://openspec.panghuer.top/mcp \
   --header "Authorization: Bearer $CASDOOR_JWT"
@@ -97,7 +125,8 @@ codex mcp add openspec --transport streamable-http \
 ### Cursor / Windsurf / 其他支持远程 MCP 的工具
 设置 → MCP → 添加远程 MCP server：
 - URL：`https://openspec.panghuer.top/mcp`
-- Header：`Authorization: Bearer <JWT>`
+- 认证：**优先留空**，让客户端走 OAuth；只有客户端不支持 OAuth 时，才填
+  `Authorization: Bearer <JWT>`，并手工指定 client_id `315cbdaf565b82103c6f`（**不要 secret**）
 
 ### 用 MCP Inspector 调试
 ```bash
@@ -180,7 +209,7 @@ bash openspec_service/scripts/mcp-call.sh --call list_specs \
 
 | 状态 | 含义 | 处理 |
 |---|---|---|
-| 401 | JWT 无效/过期/`aud` 不符 | 重新 `get-token.sh` |
+| 401 | JWT 无效/过期/`aud` 不符 | 走 OAuth 的客户端会自己重新授权；手工 header 的场景重新跑 `get-token.sh` |
 | 404 | 项目不存在或当前用户无权限（刻意不区分，防探测） | 检查 projectId / Gitea 权限 |
 | 409 | `expectedRevision` 过期或幂等键与上次请求不一致 | 重新取 revision 重试 |
 | 422 | validate/archive 内容不合法 | 按 message 修 spec 内容 |
@@ -198,4 +227,6 @@ bash openspec_service/scripts/mcp-call.sh --call list_specs \
 - 当前单副本部署：MCP session 在进程内存，Pod 重启后客户端需重新 `initialize`。
 - 写操作是"先读后写"乐观并发，不适合无 revision 概念的纯流式调用。
 - `archive_change` 要求 Gitea Admin 权限，普通编辑者无法归档。
-- 跨副本部署、OAuth 动态授权（供第三方应用使用）在 backlog P2。
+- 跨副本部署、OAuth **动态客户端注册（DCR）** 在 backlog P2。注意 DCR 在本集群 Casdoor 4.11.0 上
+  开关存在但默认关闭，而且**与固定 audience 天然不兼容**（注册出来的是随机 client_id，没法预先
+  加进 `OIDC_AUDIENCE`）—— 详见 [../docs/platform-mcp-auth.md](../docs/platform-mcp-auth.md)。

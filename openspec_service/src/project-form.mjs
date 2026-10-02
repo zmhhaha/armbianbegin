@@ -32,7 +32,7 @@ export function buildProjectRequest(input={}, {requesterUsername}={}){
 export function projectRequestEntryHtml(){return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OpenSpec 项目申请</title><style>body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;max-width:640px;margin:64px auto;padding:0 20px;color:#1f2328}a{display:inline-block;padding:10px 16px;background:#0969da;color:white;border-radius:6px;text-decoration:none}p{color:#57606a;line-height:1.6}</style></head>
-<body><h1>OpenSpec 项目申请</h1><p>登录 Casdoor 后填写项目申请表。提交后由管理员在 Gitea 审核。</p><a href="/token?return=/project-requests">使用 Casdoor 登录</a></body></html>`;}
+<body><h1>OpenSpec 项目申请</h1><p>登录 Casdoor 后填写项目申请表。提交后由管理员在 Gitea 审核。</p><a href="/project-requests/login">使用 Casdoor 登录</a></body></html>`;}
 
 export function projectRequestFormHtml(token){
   const tokenLiteral=JSON.stringify(token).replace(/</g,'\\u003c');

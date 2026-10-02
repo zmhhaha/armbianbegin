@@ -81,16 +81,16 @@ GITEA_TOKEN='<受限 Gitea token>' GITEA_USERNAME='zmh_haha' \
   bash openspec_service/scripts/provision-gitea.sh
 ```
 
-**网页版领取 JWT（可选，推荐）**：`https://openspec.panghuer.top/token` 页面让任意用户
-用浏览器登录 Casdoor 后直接复制自己的 JWT。需要两步准备：
+**接入凭据（2026-10-02 起）**：把 MCP 地址 `https://openspec.panghuer.top/mcp` 填进 MCP 客户端即可，
+**多数标准客户端会自动完成 OAuth 授权**（RFC 9728 发现 → Casdoor → 授权码 + PKCE），不需要预先
+准备或分发任何 secret。需要手工指定 client_id 的客户端填 `315cbdaf565b82103c6f`（MCP 专用应用
+`panghu-mcp_my29ub`），**不需要 client_secret**。命令行/脚本取 JWT 仍走
+`bash openspec_service/scripts/get-token.sh`。
 
-1. Casdoor 管理员在 `panghu-suite` 的 Redirect URLs 增加 `https://openspec.panghuer.top/token`。
-2. 把 client secret 写入 Vault（用 `kv patch`，不覆盖已有键）：
-   ```bash
-   kubectl -n vault exec vault-0 -- vault kv patch secret/openspec/service \
-     casdoor_client_secret='<panghu-suite client secret>'
-   ```
-3. 应用 ExternalSecret 并重启（`scripts/deploy.sh --wait` 或手动 force-sync + restart）。
+旧的 `GET /token` 网页版 JWT 领取器已于 **2026-10-02 退役**，不再需要 Casdoor 管理员为该页面加
+Redirect URL、也不再把 `casdoor_client_secret` 写入 Vault（该 Vault 字段已从 ExternalSecret 移除）。
+归档代码与复活步骤见 [`../oauth/token-dispenser/README.md`](../oauth/token-dispenser/README.md)，
+设计记录见 [`../docs/platform-mcp-auth.md`](../docs/platform-mcp-auth.md)。
 
 `gitea_provision_token` 只用于创建/初始化 OpenSpec 私有仓库、创建申请 Issue、添加标签、评论/关闭 Issue、查询 Gitea 用户邮箱和查询 collaborator 权限，不得使用 Gitea 全局管理员 token。创建 Token 时至少授予以下最小 scope：`read:user`、`read:issue`、`write:issue`、`write:repository`、`write:organization`。其中 `write:issue` 是表单自动创建申请 Issue 所必需的；只有 `write:repository` 会导致表单返回 Gitea 403。`gitea_username` 必须是该 token 所属的 Gitea 登录名，用于 Git HTTP Basic 认证；它不是组织名。你的组织名 `openspec-service` 配置在 `k8s/core.yaml` 的 `GITEA_OWNER`。
 
@@ -106,10 +106,11 @@ OPENSPEC_DB_PASSWORD='<password>' bash openspec_service/scripts/deploy.sh --wait
 
 详细 Casdoor 应用配置见 `CASDOOR_SETUP.md`。
 
-1. 使用 Casdoor 通用 sso 应用 `panghu-suite`，audience 为其 client_id `ece3f52410b046fe0952`，并确保 JWT 返回可信 `email` claim（不要求每个服务单独注册应用）。
-2. 确认 discovery 返回的真实 `issuer` 和 `jwks_uri`，更新 `k8s/core.yaml`。
-3. 在 Gitea 配置 Casdoor OAuth/OIDC；不要求 Casdoor `preferred_username` 与 Gitea 用户名相同，但必须保证两边用户邮箱唯一且一致。
-4. 将管理员 Casdoor `sub` 写入 `BOOTSTRAP_ADMIN_SUBJECTS`，然后滚动更新服务。
+1. 使用 Casdoor 通用 sso 应用 `panghu-suite`，audience 为其 client_id `ece3f52410b046fe0952`，并确保 JWT 返回可信 `email` claim（不要求每个服务单独注册应用）。`OIDC_AUDIENCE` 现在是**逗号分隔列表** `ece3f52410b046fe0952,315cbdaf565b82103c6f`：前者暂时保留给已发出的 JWT（它们在 2026-10-06 过期后即可删除），后者是 MCP 专用应用 `panghu-mcp_my29ub`。
+2. MCP 客户端与命令行取 JWT 都走 **MCP 专用应用** `panghu-mcp_my29ub`（client_id `315cbdaf565b82103c6f`）：它是**公共客户端，不需要 `client_secret`**。标准 MCP 客户端由服务端 RFC 9728 发现链路自动拉起 OAuth 授权；命令行仍用 `scripts/get-token.sh`。
+3. 确认 discovery 返回的真实 `issuer` 和 `jwks_uri`，更新 `k8s/core.yaml`。
+4. 在 Gitea 配置 Casdoor OAuth/OIDC；不要求 Casdoor `preferred_username` 与 Gitea 用户名相同，但必须保证两边用户邮箱唯一且一致。
+5. 将管理员 Casdoor `sub` 写入 `BOOTSTRAP_ADMIN_SUBJECTS`，然后滚动更新服务。
 
 ## 构建与部署
 

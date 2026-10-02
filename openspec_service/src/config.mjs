@@ -22,7 +22,9 @@ export const config={
   gitUser:process.env.GIT_USER||'openspec-service',
   gitEmail:process.env.GIT_EMAIL||'openspec-service@localhost',
   openspecBin:process.env.OPENSPEC_BIN||'/app/node_modules/.bin/openspec',
-  casdoorClientId:process.env.CASDOOR_CLIENT_ID||'ece3f52410b046fe0952',
-  casdoorClientSecret:process.env.CASDOOR_CLIENT_SECRET,
+  // 项目申请表单的登录用 MCP 专用应用（公共客户端，**不需要 client_secret**）。
+  // 原来给人取长期 JWT 的 GET /token 用的是 panghu-suite + CASDOOR_CLIENT_SECRET，
+  // 已随「标准 MCP 客户端走 OAuth 2.1 自动授权」退役，归档在 oauth/token-dispenser/。
+  casdoorMcpClientId:process.env.CASDOOR_MCP_CLIENT_ID||'315cbdaf565b82103c6f',
   publicBaseUrl:process.env.PUBLIC_BASE_URL||'https://openspec.panghuer.top'
 };

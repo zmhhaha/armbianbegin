@@ -39,7 +39,7 @@ td code{font-size:.85em}
   <h1>📐 OpenSpec MCP 接入</h1>
   <p class="sub">让 Codex、Claude Code、Cursor 这类 AI 编程工具直接读写你的 OpenSpec 规格库。不需要在本地装任何 OpenSpec 环境，加一个远程 MCP 就行。</p>
 
-  <h2>四步走完</h2>
+  <h2>三步走完</h2>
   <ol class="steps">
     <li>
       <span class="st">提交项目申请，等管理员审批</span>
@@ -48,27 +48,22 @@ td code{font-size:.85em}
       <div class="note">审批通过之前，下面的步骤拿不到可用的 projectId。Issue 地址就是你的进度条。</div>
     </li>
     <li>
-      <span class="st">取一个 JWT</span>
-      <p>打开 <a href="https://openspec.panghuer.top/token">openspec.panghuer.top/token</a>，用 Casdoor 登录（GitHub 或邮箱），页面直接显示你的 JWT 和复制按钮，并给出各客户端的配置命令。</p>
-      <p>这个 JWT 就是你在 MCP 上的身份。权限<strong>完全以该项目的 Gitea 仓库 ACL 为准</strong>：viewer 能读、editor 能写、owner 才能归档。</p>
-    </li>
-    <li>
-      <span class="st">写进你的 Codex / Claude Code</span>
-      <p>把下面的命令里的 <code>$CASDOOR_JWT</code> 换成上一步拿到的 JWT：</p>
+      <span class="st">填上 MCP 地址，让客户端自己授权</span>
+      <p>不需要先取 JWT。多数标准 MCP 客户端会在首次连接时<strong>自动完成 OAuth 授权</strong>：它先撞到 401，再按 RFC 9728 发现 <code>auth.panghuer.top</code>，拉起浏览器让你同意一次，然后带着 token 回来。</p>
+      <p>需要手工指定 client_id 的客户端填 <code>315cbdaf565b82103c6f</code>（MCP 专用应用 <code>panghu-mcp_my29ub</code>），<strong>不需要 secret</strong>。授权后你在 MCP 上的身份权限<strong>完全以该项目的 Gitea 仓库 ACL 为准</strong>：viewer 能读、editor 能写、owner 才能归档。</p>
       <h3>Claude Code</h3>
       <pre><code>claude mcp add --transport http openspec \
-  https://openspec.panghuer.top/mcp \
-  --header "Authorization: Bearer $CASDOOR_JWT"</code></pre>
+  https://openspec.panghuer.top/mcp</code></pre>
       <h3>Codex CLI</h3>
       <pre><code>codex mcp add openspec --transport streamable-http \
-  https://openspec.panghuer.top/mcp \
-  --header "Authorization: Bearer $CASDOOR_JWT"</code></pre>
+  https://openspec.panghuer.top/mcp</code></pre>
       <h3>Cursor / Windsurf / 其他支持远程 MCP 的工具</h3>
-      <p>设置 → MCP → 添加远程 MCP server：</p>
-      <ul>
-        <li>URL：<code>https://openspec.panghuer.top/mcp</code></li>
-        <li>Header：<code>Authorization: Bearer &lt;JWT&gt;</code></li>
-      </ul>
+      <p>设置 → MCP → 添加远程 MCP server，URL 填 <code>https://openspec.panghuer.top/mcp</code>，然后按客户端提示完成浏览器授权。</p>
+      <h3>不支持自动授权的客户端 / 命令行兜底</h3>
+      <p>只有不支持 OAuth 发现的客户端才需要手工配 header。用命令行取 JWT：</p>
+      <pre><code>bash openspec_service/scripts/get-token.sh
+export CASDOOR_JWT="$(cat /tmp/casdoor.jwt)"</code></pre>
+      <p>再把 <code>$CASDOOR_JWT</code> 作为 header 传给客户端（<code>Authorization: Bearer &lt;JWT&gt;</code>）。脚本走 MCP 专用应用，<strong>不需要 client_secret</strong>。</p>
       <h3>验证连通性</h3>
       <pre><code>curl -s -X POST https://openspec.panghuer.top/mcp \
   -H "Authorization: Bearer $CASDOOR_JWT" -H 'Content-Type: application/json' \
@@ -119,7 +114,7 @@ td code{font-size:.85em}
   <h2>常见错误</h2>
   <table>
     <tr><th>状态</th><th>含义</th><th>怎么办</th></tr>
-    <tr><td>401</td><td>JWT 无效 / 过期 / aud 不符</td><td>回 <a href="https://openspec.panghuer.top/token">/token</a> 重新取</td></tr>
+    <tr><td>401</td><td>JWT 无效 / 过期 / aud 不符</td><td>支持 OAuth 的客户端会自动重新授权，重试即可；命令行场景用 <code>openspec_service/scripts/get-token.sh</code> 重新取 JWT，不要再去 <code>/token</code></td></tr>
     <tr><td>404</td><td>项目不存在，或你无权访问</td><td>查 projectId；确认自己在该 Gitea 仓库里</td></tr>
     <tr><td>409</td><td>revision 过期，或幂等键与上次内容不一致</td><td>重新读 revision 再写</td></tr>
     <tr><td>422</td><td>validate/archive 的内容不合法</td><td>按返回的 message 修 spec 内容</td></tr>
@@ -129,6 +124,13 @@ td code{font-size:.85em}
   <div class="note">
     这个服务<strong>只给所有者和一位朋友使用</strong>，没有自助注册，也不是开放平台。
     项目登记走上面的申请 + 审批流程，没有别的入口。
+  </div>
+
+  <div class="note">
+    旧路已于 <strong>2026-10-02 退役</strong>：过去要在浏览器打开 <code>https://openspec.panghuer.top/token</code>
+    登录 Casdoor、复制页面显示的长期 JWT，再手工贴进各 AI 工具的 header —— 那条路由已不存在，也用不着了。
+    归档说明与复活步骤见 <a href="../../../oauth/token-dispenser/README.md">oauth/token-dispenser</a>，
+    设计记录见 <a href="../../../docs/platform-mcp-auth.md">docs/platform-mcp-auth.md</a>。
   </div>
 
   <div class="footer">Powered by ArmbianBegin &copy; 2026</div>

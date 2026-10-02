@@ -46,9 +46,12 @@ done
     cat >&2 <<'EOF'
 ERROR: 没有凭据。请设置 CASDOOR_JWT，或把 JWT 写到 /tmp/casdoor.jwt。
 
-  取 JWT 的两种方式（见 openspec_service/MCP_INTEGRATION.md §2）：
-    1) 浏览器打开 https://openspec.panghuer.top/token ，登录后页面直接显示 JWT；
-    2) bash openspec_service/scripts/get-token.sh（授权码流，需要 CASDOOR_CLIENT_SECRET）
+  取 JWT 的方式：
+    bash openspec_service/scripts/get-token.sh
+  （授权码 + PKCE，用 MCP 专用应用 315cbdaf565b82103c6f，**不需要 client_secret**）
+
+  注意：网页版领取器 https://openspec.panghuer.top/token 已于 2026-10-02 退役 ——
+  标准 MCP 客户端现在自己走 OAuth 2.1（RFC 9728 发现）。归档见 oauth/token-dispenser/。
 EOF
     exit 1
 }
