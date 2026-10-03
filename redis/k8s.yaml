@@ -67,6 +67,12 @@ spec:
       - name: init-config
         image: busybox:1.36
         imagePullPolicy: IfNotPresent
+        # 把 ConfigMap 拷进可写的 emptyDir。/etc/redis 今天归 root，但那不是这个
+        # 容器能控制的事：显式声明 DAC_OVERRIDE，而不是依赖当前属主碰巧可写
+        # （顺带保证以后有人给它加 `drop: [ALL]` 加固也不会坏）。
+        securityContext:
+          capabilities:
+            add: ["DAC_OVERRIDE"]
         command:
         - /bin/sh
         - -ec

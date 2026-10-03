@@ -20,6 +20,14 @@ spec:
         image: arm-cluster-master:5000/gitea_base:latest
         securityContext:
           runAsUser: 0
+          # 显式声明，不靠隐式继承。这个容器要写 /var/lib/gitea 与 /etc/gitea，
+          # 而 gitea 容器会把两者 chown 成 1001:1001 —— 一旦 chown 过，uid 0 在
+          # 一个 755 目录上就只是 "other"，没有 DAC_OVERRIDE 的 init 容器此后
+          # 永远跑不起来（第一次能跑、之后每次重启必挂）。CHOWN 供上面的
+          # `chown -R` 使用。这样写还有个好处：以后即便给它加 `drop: [ALL]`
+          # 加固，也不会把这段弄坏。
+          capabilities:
+            add: ["CHOWN", "DAC_OVERRIDE"]
         command: ["/bin/sh", "-c"]
         args:
         - >-
