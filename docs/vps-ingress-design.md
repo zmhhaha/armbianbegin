@@ -227,17 +227,17 @@ transport.tls.enable = true
 loginFailExit = false          # ★ 必须：否则首次连不上就退出 → k8s 里变 CrashLoopBackOff
 log.to = "console"
 
-# ── 目标态用 HTTP vhost 模式；下面两条现在写成 TCP，切模式时改 type/customDomains ──
+# ── HTTP vhost 模式：所有域名共用 frps 的 8080，按 Host 分流 ✓（已生效）──
 [[proxies]]
 name = "dsh-web"
-type = "http"                       # 现在: tcp + remotePort=18080
+type = "http"                       # 已切换为 HTTP vhost 模式 ✓（2026-10-07）
 customDomains = ["dsh.panghuer.top"]
 localIP = "dsh-web.dsh.svc.cluster.local"
 localPort = 4180
 
 [[proxies]]
 name = "hermes-web"
-type = "http"                       # 现在: tcp + remotePort=18081
+type = "http"                       # 已切换为 HTTP vhost 模式 ✓（2026-10-07）
 customDomains = ["hermes.panghuer.top"]
 localIP = "hermes-web.hermes.svc.cluster.local"
 localPort = 4180
@@ -501,6 +501,7 @@ sudo journalctl -u frps -n 20 --no-pager
 4. **国内直连 GitHub release 资源被掐断** ✗（官方源 000，`ghfast.top` 206 @440KB/s）→ 脚本改为依次尝试多源 + 支持 `FRP_TARBALL_URL`；本次直接用官方 Docker 镜像里提取的 amd64 二进制 ✓
 
 **剩余步骤**：备案通过 → `sudo bash install.sh stage2`（nginx + 通配符证书）→ 逐条切 A 记录 ✓。
+**2026-10-07 追加**：`frpc` 已从 TCP 模式切到 **HTTP vhost** ✓ —— frps 侧 `http proxy listen for host [dsh.panghuer.top]` / `[hermes.panghuer.top]` 注册成功 ✓，统一入口 `8080` 按 Host 分流实测：`dsh` → 302 ✓、`hermes` → 302 ✓、不存在的域名 → 404 ✓，首字节 **13–15 ms** ✓。旧 TCP 端口 18080/18081 已释放 ✓。
 可选：把 `frpc` 的代理从 `tcp` 改成 `http` + `customDomains`，则新增服务只需「frpc 一条 + DNS 一条」✓。
 ## 附录 A：命令速查
 
