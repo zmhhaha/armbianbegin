@@ -43,7 +43,11 @@ need_var() {   # need_var NAME "提示语"
   printf -v "$name" '%s' "$val"
 }
 
-need_var FRP_TOKEN "FRP_TOKEN（从集群 Secret 取，见 README）"
+# FRP_TOKEN 只在"需要渲染 frps.toml"时才必需（stage1，或 stage2 首次安装 frps）
+# 已装好 frps 的机器上跑 stage2 不需要它 ✓
+if [[ ! -s /etc/frp/frps.toml ]]; then
+  need_var FRP_TOKEN "FRP_TOKEN（从集群 Secret 取，见 README）"
+fi
 
 case "$(uname -m)" in
   x86_64|amd64)  FRP_ARCH=amd64 ;;
@@ -93,6 +97,10 @@ install_frps() {
   log "创建专用系统用户 frp（不用 root 跑 ✓）"
   id -u frp >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin frp
 
+  if [[ -z "${FRP_TOKEN:-}" && -s /etc/frp/frps.toml ]]; then
+    log "未提供 FRP_TOKEN，且 /etc/frp/frps.toml 已存在 → 沿用现有配置（不重新渲染 ✓）"
+  else
+  need_var FRP_TOKEN "FRP_TOKEN（从集群 Secret 取，见 README）"
   log "渲染 /etc/frp/frps.toml（token 由环境变量注入，不落仓库 ✓）"
   install -d -m 0755 -o root -g root /etc/frp   # 显式权限，不受 umask 影响 ✓
   local rendered; rendered="$(mktemp)"
@@ -105,6 +113,7 @@ install_frps() {
     install -m 0640 -o root -g frp "$rendered" /etc/frp/frps.toml
     rm -f "$rendered"
     NEED_RESTART=1
+  fi
   fi
 
   log "注册 systemd 服务（最小权限：非 root、无 capability、只读系统盘）"
