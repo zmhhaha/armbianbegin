@@ -162,6 +162,47 @@ HTTP vhost 模式：所有域名**共用 frps 的 8080 端口**，按 `Host` 头
 
 ---
 
+### 4.7 安全模型：知道 IP 和端口 ≠ 能进来
+
+| 层 | 保护什么 | 强度 |
+|---|---|---|
+| **`auth.token`** | 谁能向 frps **注册代理** | **192 位随机**（48 位十六进制）。没有 token，攻击者**注册不了任何代理** ✗ |
+| `transport.tls` | 隧道内容加密 | TLS ✓（默认**不校验服务端证书** ✗，见下面的加固项） |
+| 端口本身 | —— | 知道 `62.234.50.20:7000` **不能登录** ✗，最多是"敲门" |
+
+**公网暴露面只有两个**：
+
+```
+7000/tcp      隧道控制端口 —— 唯一对公网开放的隧道端口，token 保护 ✓
+443/tcp       nginx —— 唯一的服务入口 ✓；后面每个服务仍用它自己的登录
+              （oauth2-proxy + Casdoor + 邮箱白名单 ✓）→ 从 CF 迁到 VPS **不降低认证强度** ✓
+──────────────────────────────────────────────────────────────
+8080 / 18080+ 被 proxyBindAddr 钉在 127.0.0.1 ✓ → 公网连连接都建立不了 ✓
+```
+
+**攻击者实际能做的**：对 7000 刷连接（DoS ✗）—— 任何公网端口都有这个通用风险。
+缓解手段：`fail2ban` ✓、把 `bindPort` 换成高位随机端口 ✓。
+
+**可选加固**（按需要选）：
+
+1. `bindPort` 改为高位随机端口（减少扫描噪声）；
+2. 安装 `fail2ban`；
+3. 让客户端**校验服务端证书**（frp 的 `transport.tls` 系参数；采用前按 0.71 文档确认参数名与用法）；
+4. 若想彻底"零监听服务端口"：改用 **WireGuard**（UDP + Curve25519 认证，VPS 上不存在可被扫描的服务端口 ✓✓）——
+   代价是家里要引入特权 Pod 或改宿主机 ✗，见 §4.1 的对比。
+
+**凭据卫生（重要）**：
+
+- token 只存在于两处：集群 Secret `frpc-config` ✓、服务器 `/root/frp-token.txt`（权限 600 ✓）；
+- **绝不写进 git** ✗ —— 本文档中的 token 一律是占位符；
+- 取用方式：
+  ```bash
+  kubectl -n dsh get secret frpc-config -o jsonpath='{.data.frpc\.toml}' | base64 -d | grep '^auth.token' | cut -d'"' -f2
+  ```
+- 怀疑泄露时的轮换步骤：重新生成 → 更新 Secret → `kubectl -n dsh rollout restart deployment/frpc`
+  → 同步更新 VPS 的 `/etc/frp/frps.toml` → `sudo systemctl restart frps` ✓
+  （2026-10-07 已轮换过一次：旧 token 曾误入本文档，指纹 `de9026e1b9282c3a` 为当前值。）
+
 ## 5. 组件清单
 
 | 位置 | 组件 | 作用 | 状态 |
@@ -230,7 +271,10 @@ localPort = 4180
 #!/usr/bin/env bash
 set -Eeuo pipefail
 FRP_VER="0.71.0"
-TOKEN="5e76f91e2d52dea434a30a1bd7e0b5fc8aaef11ddef8c91c"
+# token 绝不写进 git ✓ —— 用下面这条命令从集群里取：
+#   kubectl -n dsh get secret frpc-config -o jsonpath='{.data.frpc\.toml}' | base64 -d | grep '^auth.token' | cut -d'"' -f2
+# （服务器上也有 root-only 的副本：/root/frp-token.txt，权限 600）
+TOKEN="在此填入取到的 48 位十六进制 token"
 
 case "$(uname -m)" in
   x86_64|amd64) FRP_ARCH=amd64 ;;
