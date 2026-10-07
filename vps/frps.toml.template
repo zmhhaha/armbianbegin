@@ -1,28 +1,32 @@
-# frps 配置模板
+# frps configuration template.
 #
-# 由 install.sh 渲染到 /etc/frp/frps.toml：
-#   - auth.token 由环境变量注入；真实 token 永不进 git ✓（下面 auth.token 一行才是取值处）
-# 设计文档：../docs/vps-ingress-design.md
+# Rendered to /etc/frp/frps.toml by install.sh:
+#   - the placeholder in the auth.token line is replaced with the FRP_TOKEN environment variable
+#   - the real token never enters git
+# Design doc: ../docs/vps-ingress-design.md
+#
+# NOTE: keep this file ASCII-only. frp's TOML parser rejects non-ASCII characters inside
+# comments ("invalid character in comment"), so all prose lives in README.md instead.
 
-# 隧道控制端口 —— 唯一对公网开放的隧道端口（token 保护 ✓）
+# Tunnel control port -- the only tunnel port exposed to the internet (token protected).
 bindPort = 7000
 
 auth.method = "token"
 auth.token = "${FRP_TOKEN}"
 
-# 隧道层 TLS（自签；客户端 transport.tls.enable = true 与之配对）
+# TLS for the tunnel layer (self-signed; the client pairs with transport.tls.enable = true).
 transport.tls.force = true
 
-# 只允许这段端口做 TCP 代理。
-# HTTP vhost 模式不需要端口 ✓（所有域名共用 vhostHTTPPort），
-# 这一段是给"非 HTTP 服务"（SSH/数据库等）留的。
+# Only these ports may be used for TCP proxies.
+# HTTP vhost mode needs no port (all hostnames share vhostHTTPPort); this range is
+# reserved for non-HTTP services such as SSH or databases.
 allowPorts = [{ start = 18080, end = 18100 }]
 
-# HTTP vhost：全部 *.域名 共用一个端口，frps 按 Host 头分流到对应代理
+# HTTP vhost: every *.domain shares this single port; frps routes by the Host header.
 vhostHTTPPort = 8080
 
-# ★ 加固：所有代理端口只绑本机 ——
-#   公网唯一入口是 nginx 的 443，8080/18080 段在外面根本连不上
+# Hardening: bind all proxy ports to loopback only -- the sole public entry point is
+# nginx on 443, while 8080 and 18080+ are unreachable from outside.
 proxyBindAddr = "127.0.0.1"
 
 log.to = "console"
