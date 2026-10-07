@@ -1,4 +1,4 @@
-﻿# frps 配置模板
+# frps 配置模板
 #
 # 由 install.sh 渲染到 /etc/frp/frps.toml：
 #   - auth.token 由环境变量注入；真实 token 永不进 git ✓（下面 auth.token 一行才是取值处）

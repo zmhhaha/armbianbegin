@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # 国内 VPS 入口机 —— frps + nginx + 通配符证书
 #
 # 用法（在 VPS 上执行；脚本自己会 sudo，直接 root 跑也行）：
@@ -83,7 +83,7 @@ install_frps() {
   install -d -m 0755 -o root -g root /etc/frp   # 显式权限，不受 umask 影响 ✓
   local rendered; rendered="$(mktemp)"
   FRP_TOKEN="$FRP_TOKEN" envsubst '${FRP_TOKEN}' \
-    < "${SCRIPT_DIR}/frps.toml.template" | tr -d '\r' > "$rendered"
+    < "${SCRIPT_DIR}/frps.toml.template" | tr -d '\357\273\277\r' > "$rendered"
   if [[ -f /etc/frp/frps.toml ]] && cmp -s "$rendered" /etc/frp/frps.toml; then
     log "配置未变化，无需重启"
     rm -f "$rendered"
@@ -169,7 +169,7 @@ install_nginx_and_cert() {
   log "安装站点配置"
   local rendered; rendered="$(mktemp)"
   BASE_DOMAIN="$BASE_DOMAIN" envsubst '${BASE_DOMAIN}' \
-    < "${SCRIPT_DIR}/nginx/default.conf.template" | tr -d '\r' > "$rendered"
+    < "${SCRIPT_DIR}/nginx/default.conf.template" | tr -d '\357\273\277\r' > "$rendered"
   install -m 0644 "$rendered" "/etc/nginx/sites-available/${BASE_DOMAIN}.conf"
   rm -f "$rendered"
   ln -sf "/etc/nginx/sites-available/${BASE_DOMAIN}.conf" "/etc/nginx/sites-enabled/${BASE_DOMAIN}.conf"

@@ -1,4 +1,4 @@
-﻿# 国内 VPS 入口（替代 Cloudflare Tunnel 的直连方案）设计文档
+# 国内 VPS 入口（替代 Cloudflare Tunnel 的直连方案）设计文档
 
 > 记录时间：2026-10-07
 > 涉及：腾讯云轻量 `62.234.50.20`（Ubuntu）、家里 k8s 集群、Cloudflare（`panghuer.top`）
