@@ -1,7 +1,7 @@
-# frps 配置模板
+﻿# frps 配置模板
 #
 # 由 install.sh 渲染到 /etc/frp/frps.toml：
-#   - ${FRP_TOKEN} 从环境变量注入（**真实 token 永不进 git** ✓）
+#   - auth.token 由环境变量注入；真实 token 永不进 git ✓（下面 auth.token 一行才是取值处）
 # 设计文档：../docs/vps-ingress-design.md
 
 # 隧道控制端口 —— 唯一对公网开放的隧道端口（token 保护 ✓）
