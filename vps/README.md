@@ -85,6 +85,10 @@ certbot renew --dry-run
 | 浏览器**无限重定向** ✗ | 缺 `X-Forwarded-Proto: https` | 检查 `nginx/default.conf.template` 是否被改坏 |
 | 页面能开但**操作卡死** ✗ | WebSocket 头丢失 | 同上，检查 `Upgrade` / `Connection` 两行 |
 | 外面测端口"都开着"却连不上 | 家里路由器 Clash 透明代理接了连接 ✗ | 一律**在本机**用 `curl` 判定 ✓ |
+| `toml: invalid character in comment` ✗ | frp 的 TOML 解析器**不接受注释里的非 ASCII 字符** ✗ | `frps.toml.template` 必须保持**纯 ASCII**；中文说明写在本文件 ✓ |
+| `toml: invalid character at start of key: ï` ✗ | 模板带了 UTF-8 **BOM**（PowerShell 5.1 的 `Set-Content -Encoding UTF8` 会写 BOM ✗） | 脚本渲染时会剥掉 BOM 与 CR ✓；改模板请用不带 BOM 的编辑器 ✓ |
+| `open /etc/frp/frps.toml: permission denied` ✗ | 调用者 umask 077 → `/etc/frp` 变成 0700 ✗ | 脚本已显式 `umask 022` + `install -d -m 0755` ✓ |
+| 下载 frps 卡住 / `curl: (56) unexpected eof` ✗ | 国内直连 GitHub release 资源被掐断 ✗ | 脚本会依次尝试官方源与两个代理 ✓；或用 `FRP_TARBALL_URL` 指定镜像 ✓ |
 
 ## 六、回滚
 

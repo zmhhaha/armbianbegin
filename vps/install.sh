@@ -66,9 +66,22 @@ install_frps() {
   log "安装 frps ${FRP_VER}（${FRP_ARCH}）"
   if [[ ! -x /usr/local/bin/frps ]] || ! /usr/local/bin/frps --version 2>/dev/null | grep -q "$FRP_VER"; then
     local tmp; tmp="$(mktemp -d)"
-    curl -fL --retry 3 \
-      "https://github.com/fatedier/frp/releases/download/v${FRP_VER}/frp_${FRP_VER}_linux_${FRP_ARCH}.tar.gz" \
-      -o "${tmp}/frp.tgz"
+    local tarball="frp_${FRP_VER}_linux_${FRP_ARCH}.tar.gz"
+    # 国内直连 GitHub release 资源（objects.githubusercontent.com）常被掐断 ✗
+    # （实测：官方源 000，ghfast.top 206 @440KB/s）。按顺序尝试，可用
+    # FRP_TARBALL_URL 指定你自己的镜像；也可以先把 frps 放好再跑本脚本 ✓
+    local urls=(
+      "${FRP_TARBALL_URL:-https://github.com/fatedier/frp/releases/download/v${FRP_VER}/${tarball}}"
+      "https://ghfast.top/https://github.com/fatedier/frp/releases/download/v${FRP_VER}/${tarball}"
+      "https://ghproxy.net/https://github.com/fatedier/frp/releases/download/v${FRP_VER}/${tarball}"
+    )
+    local got=0
+    for u in "${urls[@]}"; do
+      log "下载 ${u}"
+      if curl -fL --retry 2 --connect-timeout 10 --max-time 240 "$u" -o "${tmp}/frp.tgz"; then got=1; break; fi
+      warn "该源失败，试下一个"
+    done
+    [[ $got -eq 1 ]] || die "所有下载源都失败。请用 FRP_TARBALL_URL 指定镜像，或手工把 frps 放到 /usr/local/bin/ 后再跑"
     tar -xzf "${tmp}/frp.tgz" -C "$tmp"
     install -m 0755 "${tmp}/frp_${FRP_VER}_linux_${FRP_ARCH}/frps" /usr/local/bin/frps
     rm -rf "$tmp"
