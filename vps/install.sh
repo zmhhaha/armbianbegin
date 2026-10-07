@@ -17,6 +17,7 @@ set -Eeuo pipefail
 
 FRP_VER="${FRP_VER:-0.71.0}"
 BASE_DOMAIN="${BASE_DOMAIN:-panghuer.top}"
+HTTPS_PORT=${HTTPS_PORT:-443}          # 备案前可先用 8443（80/443 被腾讯云拦截）
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 STAGE="${1:-}"
 
@@ -157,17 +158,22 @@ EOF
 
 # ── nginx + 通配符证书 ──────────────────────────────────────────────
 install_nginx_and_cert() {
-  need_var CF_DNS_API_TOKEN "CF_DNS_API_TOKEN（Cloudflare API Token，Zone:DNS:Edit）"
   need_var LE_EMAIL "Let's Encrypt 通知邮箱"
 
   log "安装 nginx / certbot / Cloudflare DNS 插件"
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -y -qq nginx certbot python3-certbot-dns-cloudflare
 
-  log "写入 Cloudflare 凭据（600，仅 root 可读）"
-  mkdir -p /etc/letsencrypt
-  printf 'dns_cloudflare_api_token = %s\n' "$CF_DNS_API_TOKEN" > /etc/letsencrypt/cloudflare.ini
-  chmod 600 /etc/letsencrypt/cloudflare.ini
+  if [[ -s /etc/letsencrypt/cloudflare.ini ]]; then
+    log "沿用已有的 /etc/letsencrypt/cloudflare.ini（本脚本不读取其内容 ✓）"
+    chmod 600 /etc/letsencrypt/cloudflare.ini
+  else
+    need_var CF_DNS_API_TOKEN "CF_DNS_API_TOKEN（Cloudflare API Token，Zone:DNS:Edit）"
+    mkdir -p /etc/letsencrypt
+    printf 'dns_cloudflare_api_token = %s\n' "$CF_DNS_API_TOKEN" > /etc/letsencrypt/cloudflare.ini
+    chmod 600 /etc/letsencrypt/cloudflare.ini
+    log "已写入凭据文件（600，仅 root 可读 ✓）"
+  fi
 
   log "申请通配符证书 *.${BASE_DOMAIN}（DNS-01，不依赖 80/443 对外）"
   if [[ -d "/etc/letsencrypt/live/${BASE_DOMAIN}" ]]; then
@@ -181,7 +187,7 @@ install_nginx_and_cert() {
 
   log "安装站点配置"
   local rendered; rendered="$(mktemp)"
-  BASE_DOMAIN="$BASE_DOMAIN" envsubst '${BASE_DOMAIN}' \
+  BASE_DOMAIN="$BASE_DOMAIN" HTTPS_PORT="$HTTPS_PORT" envsubst '${BASE_DOMAIN} ${HTTPS_PORT}' \
     < "${SCRIPT_DIR}/nginx/default.conf.template" | tr -d '\357\273\277\r' > "$rendered"
   install -m 0644 "$rendered" "/etc/nginx/sites-available/${BASE_DOMAIN}.conf"
   rm -f "$rendered"
@@ -197,7 +203,7 @@ install_nginx_and_cert() {
 
   log "本机自检（应该看到 302 = 服务的登录跳转）"
   curl -sk -o /dev/null -w '  https://127.0.0.1 (Host: dsh.%{host}) -> HTTP %{http_code}\n' \
-    -H "Host: dsh.${BASE_DOMAIN}" "https://127.0.0.1/" 2>/dev/null \
+    -H "Host: dsh.${BASE_DOMAIN}" "https://127.0.0.1:${HTTPS_PORT}/" 2>/dev/null \
     || warn "自检请求失败（正常也可能只是对应服务还没接入隧道）"
   warn "确认腾讯云防火墙已放行 TCP 80 与 443，然后去 Cloudflare 把域名改成 A 记录（DNS only）"
 }
