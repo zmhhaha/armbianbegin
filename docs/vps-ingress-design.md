@@ -474,6 +474,34 @@ sudo journalctl -u frps -n 20 --no-pager
 
 ---
 
+### 2026-10-07 更新：隧道已打通 ✅（实测数字）
+
+| 检查 | 结果 |
+|---|---|
+| `frps` | `active` ✓，监听 `7000`（公网，token 保护）+ `8080`（仅 127.0.0.1）✓ |
+| `frpc`（家里 k8s） | `login to server success` ✓；`proxy added: [dsh-web hermes-web]`；两条 `start proxy success` ✓ |
+| frps 侧 | `client login info: ip [60.27.205.165] ... arch [arm64]` ✓；两条 `new proxy ... success` ✓ |
+| **端到端（在 VPS 上判定 ✓）** | `http://127.0.0.1:18080/` → **HTTP 302**（DSH 登录跳转）✓；`:18081/` → **302**（hermes）✓ |
+| 连接稳定性 | frps 自 21:47:18 起只接受 1 次客户端登录，无反复重连 ✓ |
+
+**速度对比（同一时刻实测）**
+
+| 路径 | 首字节 | 总计 |
+|---|---|---|
+| 新：腾讯云 → frp 隧道 → 家里 k8s | **20–39 ms** | 19–24 ms |
+| 旧：经 Cloudflare（`cf-ray` 落在 DFW/SEA ✗） | 1330–1540 ms | 1330–2160 ms |
+
+约 **60 倍**提升（尚未叠加 nginx/TLS，那只会增加几毫秒）。
+
+**实施过程中真踩到的四个坑**（已修并写入 `vps/README.md` 排错表）：
+
+1. `umask 077` 导致 `/etc/frp` 变成 0700 → `frps` 以 `frp` 用户读不到配置 ✗
+2. frp 的 TOML 解析器**不接受注释里的非 ASCII 字符** ✗（`invalid character in comment`）
+3. Windows 侧写文件带 **UTF-8 BOM** → `invalid character at start of key: ï` ✗（`~/.ssh/config` 的 BOM 还会让 git 自带的 ssh 拒绝解析 ✓）
+4. **国内直连 GitHub release 资源被掐断** ✗（官方源 000，`ghfast.top` 206 @440KB/s）→ 脚本改为依次尝试多源 + 支持 `FRP_TARBALL_URL`；本次直接用官方 Docker 镜像里提取的 amd64 二进制 ✓
+
+**剩余步骤**：备案通过 → `sudo bash install.sh stage2`（nginx + 通配符证书）→ 逐条切 A 记录 ✓。
+可选：把 `frpc` 的代理从 `tcp` 改成 `http` + `customDomains`，则新增服务只需「frpc 一条 + DNS 一条」✓。
 ## 附录 A：命令速查
 
 ```bash
