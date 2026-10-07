@@ -20,6 +20,10 @@ BASE_DOMAIN="${BASE_DOMAIN:-panghuer.top}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 STAGE="${1:-}"
 
+# 显式设定 umask：脚本会创建目录与配置文件；若调用者带着 umask 077 进来，
+# /etc/frp 会变成 0700 root → 以 frp 用户运行的 frps 打不开配置 ✗
+umask 022
+
 log()  { printf '\n\033[1;34m== %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m!! %s\033[0m\n' "$*" >&2; }
 die()  { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
@@ -76,10 +80,10 @@ install_frps() {
   id -u frp >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin frp
 
   log "渲染 /etc/frp/frps.toml（token 由环境变量注入，不落仓库 ✓）"
-  mkdir -p /etc/frp
+  install -d -m 0755 -o root -g root /etc/frp   # 显式权限，不受 umask 影响 ✓
   local rendered; rendered="$(mktemp)"
   FRP_TOKEN="$FRP_TOKEN" envsubst '${FRP_TOKEN}' \
-    < "${SCRIPT_DIR}/frps.toml.template" > "$rendered"
+    < <(tr -d '\r' < "${SCRIPT_DIR}/frps.toml.template") > "$rendered"
   if [[ -f /etc/frp/frps.toml ]] && cmp -s "$rendered" /etc/frp/frps.toml; then
     log "配置未变化，无需重启"
     rm -f "$rendered"
@@ -165,7 +169,7 @@ install_nginx_and_cert() {
   log "安装站点配置"
   local rendered; rendered="$(mktemp)"
   BASE_DOMAIN="$BASE_DOMAIN" envsubst '${BASE_DOMAIN}' \
-    < "${SCRIPT_DIR}/nginx/default.conf.template" > "$rendered"
+    < <(tr -d '\r' < "${SCRIPT_DIR}/nginx/default.conf.template") > "$rendered"
   install -m 0644 "$rendered" "/etc/nginx/sites-available/${BASE_DOMAIN}.conf"
   rm -f "$rendered"
   ln -sf "/etc/nginx/sites-available/${BASE_DOMAIN}.conf" "/etc/nginx/sites-enabled/${BASE_DOMAIN}.conf"
