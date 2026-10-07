@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # 国内 VPS 入口机 —— frps + nginx + 通配符证书
 #
 # 用法（在 VPS 上执行；脚本自己会 sudo，直接 root 跑也行）：
