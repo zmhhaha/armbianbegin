@@ -1,0 +1,60 @@
+# 唯一的对外 server 块：全部 *.${BASE_DOMAIN} 共用
+#
+# 设计要点（改之前先读 ../docs/vps-ingress-design.md §4）：
+#   - 通配符证书覆盖所有子域 → 新增服务**不需要改这个文件** ✓
+#   - 所有请求都交给 frps 的 HTTP vhost 端口，由 frps 按 Host 分流 ✓
+#   - Host 必须原样传给后端：各服务靠它路由，oauth2-proxy 还靠它生成回调 URL ✓
+#
+# 由 install.sh 安装到 /etc/nginx/sites-available/<域名>.conf
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;
+
+    # 只用于 ACME http-01 兜底（通配符证书走 DNS-01，其实用不到）
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    # 注：老版本 nginx（<1.25）用这个写法；新版本会有 deprecation 警告但不影响功能
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+
+    server_name *.${BASE_DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${BASE_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${BASE_DOMAIN}/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1h;
+
+    # 保险丝：未匹配到任何 server_name 时落到这里，避免泄漏默认站点
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+
+        # Host 原样传递（各服务的路由与回调 URL 都依赖它）
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        # ★ 少了这一行：oauth2-proxy 会以为是 http → 无限重定向 ✗
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host  $host;
+
+        # ★ 少了这两行：DSH 的 WebSocket 建不起来 → 界面"能打开但操作卡死" ✗
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade;
+
+        # 长连接 / 流式响应
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering    off;
+    }
+}
