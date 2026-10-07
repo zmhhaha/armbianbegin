@@ -264,7 +264,15 @@ localPort = 4180
 | **4** | Cloudflare：逐条改 A 记录（DNS only → VPS IP） | 手机访问 `https://dsh.panghuer.top` 正常登录 | ⏳ 备案后 |
 | **5** | 验证 | 联通/移动各测一次；连续操作数分钟不断线 | ⏳ |
 
-**阶段 1 的完整脚本**（在 VPS 上以 `ubuntu` 用户执行，脚本内自行 sudo）：
+**阶段 1/2 的脚本已经纳入仓库** ✓ —— 见 [`../vps/install.sh`](../vps/install.sh) 与 [`../vps/README.md`](../vps/README.md)（幂等、可重跑、不含任何密钥）：
+
+```bash
+git clone <本仓库> && cd armbianbegin/vps
+sudo bash install.sh stage1     # 装 frps（备案审核期间就能跑 ✓，不碰 80/443）
+sudo bash install.sh stage2     # 装 nginx + 申请通配符证书 + 启用站点（备案通过后 ✓）
+```
+
+下面这段内联脚本**仅作历史留档**，实际执行请以 `vps/install.sh` 为准 ✓。
 
 ```bash
 #!/usr/bin/env bash
