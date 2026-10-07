@@ -1,4 +1,4 @@
-# 国内 VPS 入口（替代 Cloudflare Tunnel 的直连方案）设计文档
+﻿# 国内 VPS 入口（替代 Cloudflare Tunnel 的直连方案）设计文档
 
 > 记录时间：2026-10-07
 > 涉及：腾讯云轻量 `62.234.50.20`（Ubuntu）、家里 k8s 集群、Cloudflare（`panghuer.top`）
@@ -201,7 +201,6 @@ HTTP vhost 模式：所有域名**共用 frps 的 8080 端口**，按 `Host` 头
   ```
 - 怀疑泄露时的轮换步骤：重新生成 → 更新 Secret → `kubectl -n dsh rollout restart deployment/frpc`
   → 同步更新 VPS 的 `/etc/frp/frps.toml` → `sudo systemctl restart frps` ✓
-  （2026-10-07 已轮换过一次：旧 token 曾误入本文档，指纹 `de9026e1b9282c3a` 为当前值。）
 
 ## 5. 组件清单
 
