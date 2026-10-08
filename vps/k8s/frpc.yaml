@@ -1,21 +1,37 @@
-# frpc —— 国内 VPS 入口机（62.234.50.20）的隧道客户端，跑在 dsh 命名空间里。
+# frpc —— 国内 VPS 入口机（62.234.50.20）的隧道客户端
 #
-# 位置说明：本文件放在外层仓库的 vps/ 下，与 vps/install.sh、frps.toml.template
-# 同处一地 —— 和 cloudflare-tunnel/ 把"隧道集群侧清单"集中放置的惯例一致 ✓。
-# 它**不**由 dsh/deploy.sh 应用（那个只 apply panghu_chat/dsh/k8s/），
-# 所以集群重装后需要单独执行一次：见 vps/README.md「把 frpc 加回集群」✓
+# ★ 它住在**自己的命名空间 `frpc`** 里 ✓ ——它是共享基础设施，不属于任何业务
+#   命名空间（早先放在 dsh 里是错的 ✗：会占掉 dsh 的 Pod 配额，归属也混乱）。
+#   这也与 Cloudflare 连接器（跑在 default）的做法一致：连接器独立、
+#   各目标命名空间用一条 frpc-ingress **按需放行** ✓。
 #
-# ★ 前提：先存在 Secret frpc-config（内含 frpc.toml 与隧道 token）。
-#   token 不进 git ✗ —— 用 vps/install-frpc.sh 或 README 里的命令创建 ✓
+# 位置说明：本文件在外层仓库的 vps/ 下，与 vps/install.sh、frps.toml.template
+# 同处一地（和 cloudflare-tunnel/ 集中放置隧道集群侧清单的惯例一致 ✓）。
+# 它不由 dsh/deploy.sh 应用 → 集群重装后跑一次：bash install-frpc.sh ✓
+#
+# ★ 前提：先有 Secret frpc-config（含 frpc.toml 与隧道 token，token 不进 git ✗）
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: frpc
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: frpc
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress", "Egress"]
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frpc
-  namespace: dsh
+  namespace: frpc
 spec:
   replicas: 1
-  # ★ 必须 Recreate：dsh 命名空间配额（dsh-web-budget）只允许 2 个 Pod，
-  #   RollingUpdate 需要「旧 Pod + 新 Pod」同时存在 → 会因配额死锁 ✗
+  # ★ 保持 Recreate：换配置靠 restart，避免瞬间出现两个同名代理注册（会 already exists ✗）
   strategy:
     type: Recreate
   selector:
@@ -61,7 +77,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: frpc-egress
-  namespace: dsh
+  namespace: frpc
 spec:
   podSelector:
     matchLabels:
@@ -83,7 +99,7 @@ spec:
       protocol: UDP
     - port: 53
       protocol: TCP
-  # 各命名空间里常见 Web 服务的端口（新增对外服务时按需在此追加）
+  # 各命名空间里常见 Web 服务的端口（新增对外服务时按需加）
   - to:
     - namespaceSelector: {}
     ports:
@@ -95,22 +111,3 @@ spec:
     - { port: 8000, protocol: TCP }
     - { port: 8080, protocol: TCP }
     - { port: 8090, protocol: TCP }
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: frpc-web-ingress
-  namespace: dsh
-spec:
-  podSelector:
-    matchLabels:
-      role: web
-  policyTypes: ["Ingress"]
-  ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          app: frpc
-    ports:
-    - port: 4180
-      protocol: TCP

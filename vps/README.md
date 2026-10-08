@@ -150,3 +150,30 @@ EOF
 **新增一个对外服务**：在 Secret 的 `frpc.toml` 里再加一段 `[[proxies]]`（`type = "http"` + `customDomains` + `localIP/localPort`）✓，
 然后 `kubectl -n dsh rollout restart deployment/frpc` ✓；**nginx 与证书都不用改** ✓✓。
 若目标命名空间是 default-deny，再照 `frpc-ingress` 的样子加一条放行 ✓。
+
+### 新增一个对外服务（走国内 VPS）
+
+1. 目标命名空间放行 frpc（**只有 default-deny 的命名空间才需要** ✓）——
+   在该应用的清单里加一条，照 dsh/k8s/frpc-ingress.yaml（或 hermes 那份）抄：
+   `yaml
+   ingress:
+   - from:
+     - namespaceSelector:
+         matchLabels: { kubernetes.io/metadata.name: frpc }
+       podSelector:
+         matchLabels: { app: frpc }
+     ports: [{ port: <目标端口>, protocol: TCP }]
+   `
+2. 在 Secret rpc/frpc-config 的 frpc.toml 里加一段 proxy，然后重启：
+   `	oml
+   [[proxies]]
+   name = "新服务"
+   type = "http"
+   customDomains = ["新服务.panghuer.top"]
+   localIP = "<svc>.<ns>.svc.cluster.local"
+   localPort = <端口>
+   `
+   `ash
+   kubectl -n frpc rollout restart deploy/frpc
+   `
+3. Cloudflare / DNS：加一条记录指向 VPS ✓。**nginx 与证书都不用改** ✓✓（通配符 + 按 Host 分流）。
