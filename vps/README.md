@@ -111,7 +111,7 @@ certbot renew --dry-run
 
 ## 把 frpc 加回集群（集群重装后）
 
-`frpc` 的 Deployment 与两条 NetworkPolicy 现在就在 `../dsh/k8s/frpc.yaml` 里（由 `deploy.sh` apply ✓），
+`frpc` 的 Deployment 与两条 NetworkPolicy 现在就在 `k8s/frpc.yaml` 里（**不**由 dsh/deploy.sh 应用 ✗），
 但 **Secret `frpc-config`（含隧道 token）不在 git 里** ✗，需要单独创建：
 
 ```bash
