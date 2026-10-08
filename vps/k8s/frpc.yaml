@@ -1,0 +1,116 @@
+# frpc —— 国内 VPS 入口机（62.234.50.20）的隧道客户端，跑在 dsh 命名空间里。
+#
+# 位置说明：本文件放在外层仓库的 vps/ 下，与 vps/install.sh、frps.toml.template
+# 同处一地 —— 和 cloudflare-tunnel/ 把"隧道集群侧清单"集中放置的惯例一致 ✓。
+# 它**不**由 dsh/deploy.sh 应用（那个只 apply panghu_chat/dsh/k8s/），
+# 所以集群重装后需要单独执行一次：见 vps/README.md「把 frpc 加回集群」✓
+#
+# ★ 前提：先存在 Secret frpc-config（内含 frpc.toml 与隧道 token）。
+#   token 不进 git ✗ —— 用 vps/install-frpc.sh 或 README 里的命令创建 ✓
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frpc
+  namespace: dsh
+spec:
+  replicas: 1
+  # ★ 必须 Recreate：dsh 命名空间配额（dsh-web-budget）只允许 2 个 Pod，
+  #   RollingUpdate 需要「旧 Pod + 新 Pod」同时存在 → 会因配额死锁 ✗
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: frpc
+  template:
+    metadata:
+      labels:
+        app: frpc
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: frpc
+        image: arm-cluster-master:5000/frpc:v0.71.0
+        imagePullPolicy: IfNotPresent
+        args: ["-c", "/etc/frp/frpc.toml"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/frp
+          readOnly: true
+      volumes:
+      - name: config
+        secret:
+          secretName: frpc-config
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frpc-egress
+  namespace: dsh
+spec:
+  podSelector:
+    matchLabels:
+      app: frpc
+  policyTypes: ["Egress"]
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 62.234.50.20/32      # ← VPS 公网 IP；换机器时改这里
+    ports:
+    - port: 7000
+      protocol: TCP
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+  # 各命名空间里常见 Web 服务的端口（新增对外服务时按需在此追加）
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - { port: 80,   protocol: TCP }
+    - { port: 3000, protocol: TCP }
+    - { port: 4173, protocol: TCP }
+    - { port: 4180, protocol: TCP }
+    - { port: 7860, protocol: TCP }
+    - { port: 8000, protocol: TCP }
+    - { port: 8080, protocol: TCP }
+    - { port: 8090, protocol: TCP }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frpc-web-ingress
+  namespace: dsh
+spec:
+  podSelector:
+    matchLabels:
+      role: web
+  policyTypes: ["Ingress"]
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: frpc
+    ports:
+    - port: 4180
+      protocol: TCP
