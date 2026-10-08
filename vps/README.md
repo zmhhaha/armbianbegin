@@ -108,3 +108,45 @@ certbot renew --dry-run
 - 各服务**自己的登录不因此改变** ✓（oauth2-proxy + Casdoor + 邮箱白名单）—— 迁移不降低认证强度 ✓。
 - `frps` 以专用用户 `frp` 运行 ✓（非 root、无 capability、系统盘只读）。
 - 可选的进一步加固：客户端校验服务端证书、`fail2ban`、把 `bindPort` 换成高位端口 —— 见设计文档 §4.7。
+
+## 把 frpc 加回集群（集群重装后）
+
+`frpc` 的 Deployment 与两条 NetworkPolicy 现在就在 `../dsh/k8s/frpc.yaml` 里（由 `deploy.sh` apply ✓），
+但 **Secret `frpc-config`（含隧道 token）不在 git 里** ✗，需要单独创建：
+
+```bash
+# 1) 准备 token：可以沿用现成的（如果还有），也可以重新生成一把并同时更新 VPS 上的 frps ✓
+TOKEN=$(openssl rand -hex 24)
+
+# 2) 写 frpc.toml（注意：loginFailExit = false 是必须的 ✗→✓，否则 k8s 里会 CrashLoopBackOff）
+kubectl -n dsh create secret generic frpc-config --from-file=frpc.toml=/dev/stdin <<EOF
+serverAddr = "62.234.50.20"
+serverPort = 7000
+auth.method = "token"
+auth.token = "${TOKEN}"
+transport.tls.enable = true
+loginFailExit = false
+log.to = "console"
+log.level = "info"
+
+[[proxies]]
+name = "dsh-web"
+type = "http"
+customDomains = ["dsh.panghuer.top"]
+localIP = "dsh-web.dsh.svc.cluster.local"
+localPort = 4180
+
+[[proxies]]
+name = "hermes-web"
+type = "http"
+customDomains = ["hermes.panghuer.top"]
+localIP = "hermes-web.hermes.svc.cluster.local"
+localPort = 4180
+EOF
+
+# 3) 若 token 是新生成的，记得把同一把 token 写到 VPS 的 /etc/frp/frps.toml 并重启 frps ✓
+```
+
+**新增一个对外服务**：在 Secret 的 `frpc.toml` 里再加一段 `[[proxies]]`（`type = "http"` + `customDomains` + `localIP/localPort`）✓，
+然后 `kubectl -n dsh rollout restart deployment/frpc` ✓；**nginx 与证书都不用改** ✓✓。
+若目标命名空间是 default-deny，再照 `frpc-ingress` 的样子加一条放行 ✓。

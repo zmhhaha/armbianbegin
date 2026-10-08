@@ -29,6 +29,11 @@ server {
 
     server_name *.${BASE_DOMAIN};
 
+    # ★ 请求头缓冲：oauth2-proxy 的会话 cookie 会分成多个分片由浏览器回传，
+    #   Cookie 头可达数万字节 → 默认每行 8k 会返回 400 Bad Request ✗
+    client_header_buffer_size   16k;
+    large_client_header_buffers 8 32k;
+
     ssl_certificate     /etc/letsencrypt/live/${BASE_DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${BASE_DOMAIN}/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
@@ -51,6 +56,13 @@ server {
         # ★ 少了这两行：DSH 的 WebSocket 建不起来 → 界面"能打开但操作卡死" ✗
         proxy_set_header Upgrade           $http_upgrade;
         proxy_set_header Connection        $connection_upgrade;
+
+        # ★ 响应头缓冲：oauth2-proxy 的会话 cookie 超过 4KB，会被拆成多个
+        #   Set-Cookie 头 → 默认 4KB 缓冲不够 → nginx 报 "upstream sent too big
+        #   header" 并返回 502 ✗。这几个值必须放宽。
+        proxy_buffer_size       64k;
+        proxy_buffers           8 64k;
+        proxy_busy_buffers_size 128k;
 
         # 长连接 / 流式响应
         proxy_read_timeout 3600s;
