@@ -20,7 +20,7 @@
 |---|---|
 | 腾讯云**控制台防火墙** | stage1 放行 `TCP 7000`；stage2 再放行 `TCP 80`、`TCP 443`。⚠️ **控制台防火墙与系统 ufw 是两套东西**，只开 ufw 没用 ✗ |
 | ICP 备案 | 80/443 需要备案通过（stage2 之前必须完成）。stage1 不需要 ✓ |
-| 集群侧 | `frpc` Deployment + Secret `frpc-config`（已部署 ✓，见设计文档 §5） |
+| 集群侧 | `frpc` 命名空间：Deployment + Secret `frpc-config`（已部署 ✓，见设计文档 §5） |
 | Cloudflare API Token | 仅 stage2 需要：`Zone → DNS → Edit` 权限（用于 DNS-01 签通配符证书） |
 
 ## 三、部署
@@ -30,7 +30,7 @@ git clone <本仓库> && cd armbianbegin/vps
 
 # 阶段 1：frps（备案审核期间就能跑 ✓，不涉及 80/443）
 #   token 从集群 Secret 取（在你家里那台执行取，再粘到 VPS 上）：
-#     kubectl -n dsh get secret frpc-config -o jsonpath='{.data.frpc\.toml}' | base64 -d | grep '^auth.token' | cut -d'"' -f2
+#     kubectl -n frpc get secret frpc-config -o jsonpath='{.data.frpc\.toml}' | base64 -d | grep '^auth.token' | cut -d'"' -f2
 sudo bash install.sh stage1
 #   脚本会安全提示输入 FRP_TOKEN（不进 shell 历史 ✓）
 
@@ -61,7 +61,7 @@ nginx -t                                     # 改配置后先校验
 
 ```bash
 # 1) 集群侧：更新 Secret 里的 auth.token（改 frpc.toml 后 apply）
-# 2) 集群侧：kubectl -n dsh rollout restart deployment/frpc
+# 2) 集群侧：kubectl -n frpc rollout restart deployment/frpc
 # 3) VPS：sudo FRP_TOKEN='<新 token>' bash install.sh stage1
 ```
 
@@ -111,7 +111,7 @@ certbot renew --dry-run
 
 ## 把 frpc 加回集群（集群重装后）
 
-`frpc` 的 Deployment 与两条 NetworkPolicy 现在就在 `k8s/frpc.yaml` 里（**不**由 dsh/deploy.sh 应用 ✗），
+`frpc` 的 Deployment 与两条 NetworkPolicy 住在**自己的命名空间 `frpc`** ✓（共享基础设施，不占业务命名空间的 Pod 配额），清单在 `k8s/frpc.yaml`（**不**由 dsh/deploy.sh 应用 ✗），
 但 **Secret `frpc-config`（含隧道 token）不在 git 里** ✗，需要单独创建：
 
 ```bash
@@ -119,7 +119,7 @@ certbot renew --dry-run
 TOKEN=$(openssl rand -hex 24)
 
 # 2) 写 frpc.toml（注意：loginFailExit = false 是必须的 ✗→✓，否则 k8s 里会 CrashLoopBackOff）
-kubectl -n dsh create secret generic frpc-config --from-file=frpc.toml=/dev/stdin <<EOF
+kubectl -n frpc create secret generic frpc-config --from-file=frpc.toml=/dev/stdin <<EOF
 serverAddr = "62.234.50.20"
 serverPort = 7000
 auth.method = "token"
@@ -148,7 +148,7 @@ EOF
 ```
 
 **新增一个对外服务**：在 Secret 的 `frpc.toml` 里再加一段 `[[proxies]]`（`type = "http"` + `customDomains` + `localIP/localPort`）✓，
-然后 `kubectl -n dsh rollout restart deployment/frpc` ✓；**nginx 与证书都不用改** ✓✓。
+然后 `kubectl -n frpc rollout restart deployment/frpc` ✓；**nginx 与证书都不用改** ✓✓。
 若目标命名空间是 default-deny，再照 `frpc-ingress` 的样子加一条放行 ✓。
 
 ### 新增一个对外服务（走国内 VPS）
