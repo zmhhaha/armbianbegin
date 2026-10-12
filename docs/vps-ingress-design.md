@@ -503,6 +503,91 @@ sudo journalctl -u frps -n 20 --no-pager
 **剩余步骤**：备案通过 → `sudo bash install.sh stage2`（nginx + 通配符证书）→ 逐条切 A 记录 ✓。
 **2026-10-07 追加**：`frpc` 已从 TCP 模式切到 **HTTP vhost** ✓ —— frps 侧 `http proxy listen for host [dsh.panghuer.top]` / `[hermes.panghuer.top]` 注册成功 ✓，统一入口 `8080` 按 Host 分流实测：`dsh` → 302 ✓、`hermes` → 302 ✓、不存在的域名 → 404 ✓，首字节 **13–15 ms** ✓。旧 TCP 端口 18080/18081 已释放 ✓。
 可选：把 `frpc` 的代理从 `tcp` 改成 `http` + `customDomains`，则新增服务只需「frpc 一条 + DNS 一条」✓。
+## 11. 是否把 VPS 纳入集群（三层选择）
+
+> 记录时间：2026-10-12
+> 触发问题：VPS 是 **amd64**、家里节点**全是 arm64**。能否"借用 k8s 的整体网络管理"，
+> 但服务单独放在 VPS 上、**不与其它服务交互**？
+> **结论：能，但"加入节点"代价大 ✗；只把名字接进集群（方案 B）就能满足这个目标 ✓。**
+
+### 11.1 先摆事实（2026-10-12 从集群读出，非推测 ✓）
+
+| 项 | 实测值 | 对"加一个公网节点"的含义 |
+|---|---|---|
+| 节点 | 5 个，**全部 arm64**，v1.31.14，全在 `192.168.137.0/24` | VPS 是 amd64 → **混合架构** ✗ |
+| CNI | Calico，ippool `ipip=Never` / **`vxlan=Always`** | pod 间流量走 VXLAN 封装 ✓ |
+| 加密 | felix `wireguardEnabled` **空（默认 false）** ✗ | ★ **pod 流量是明文** ✗ → 只适合局域网 |
+| pod MTU | **1450**（VXLAN 典型值） | 再叠 WireGuard 需降到 ~1280 ✗ |
+| 镜像仓库 | `arm-cluster-master:5000/...`，**节点本地进程**（集群里没有 registry Service） | 公网节点**拉不到** ✗ |
+| DNS | `clusterDNS=10.96.0.10`（CoreDNS 在控制面）+ `ndots:5` | 外部域名会**跨公网多查 5 次** ✗ |
+| 已有通道 | frps(VPS:7000) ⇄ frpc(集群) + VPS nginx(443) | **反向通路已存在** ✓ |
+
+### 11.2 "作为 k8s 的一个可使用部分" 有三种含义
+
+| 层次 | 做法 | k8s 管什么 | VPS 归谁管 |
+|---|---|---|---|
+| **① 名字层**（推荐 ✓） | `ExternalName`（或静态 `Endpoints`）Service | 只给 **DNS 名 + 策略边界** | 你（systemd / Compose，即 `vps/` 那套） |
+| ② 端点层 | ClusterIP Service + 手工维护的 EndpointSlice | 名字 + 可与集群内 Pod **混在同一 Service 后做负载均衡** | 仍然是你 |
+| ③ 节点层 | 作为 node join | 调度 / 探针 / 日志 / CNI / 策略**全部** | k8s |
+
+**"可使用"≠"被管理"** ✓：第 ① 层能按名字访问，但没有调度、探针、`kubectl logs/exec`、滚动升级 ✗。
+
+### 11.3 方案 A：加入为节点（第 ③ 层）—— 六个前置条件，缺一不可
+
+| # | 要做的 | 为什么 |
+|---|---|---|
+| ① | Calico 开 **WireGuard**（`wireguardEnabled: true`） | 现在 VXLAN **明文** ✗，公网节点会把整个 pod 网络暴露出去 |
+| ② | 下调 **pod MTU 到 ~1280** | VXLAN(+50) + WireGuard(+60~80) |
+| ③ | 节点打 **taint** + 负载用 `nodeSelector: kubernetes.io/arch=amd64` | 全部镜像都是 arm64 ✗，不隔离就会 CrashLoop |
+| ④ | 准备**公网可达的 amd64 镜像仓库** | `arm-cluster-master:5000` 只在家网内 ✗ |
+| ⑤ | 上 **NodeLocal DNSCache** | `ndots:5` + CoreDNS 在控制面 → 每个外部域名跨公网多查 5 次 ✗ |
+| ⑥ | 接受控制面流量走**家宽上行（实测 ~1.6 Mbps ✗）** | 心跳能忍，**镜像拉取不可用** ✗✗ |
+
+**换来什么** ✓：VPS 成为集群 amd64 节点，可用 `nodeSelector` 调度；隔离靠 **taint + 现有 default-deny**（"不与其它服务交互"本来就是默认态 ✓，要通必须显式加策略）。
+**代价** ✗：把**整个家集群的 pod 网络**暴露给一台**公网、每天被扫**的机器（VPS nginx 日志里扫描器不断）→ 它被拿下就是集群里的据点 ✗✗。
+
+### 11.4 方案 B（推荐）：只把名字接进集群（第 ① 层）
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: rea-x64
+  namespace: tools
+spec:
+  type: ExternalName
+  externalName: 62.234.50.20        # ★ 别写橙云域名 ✗
+```
+
+- 集群内 Pod 用**统一 DNS 名**访问它 ✓；**完全不碰** CNI / 加密 / MTU / 镜像仓库 / 架构 / NodeLocal DNS ✓✓
+- 隔离**天然成立** ✓：`default-deny` 下默认谁都不能访问它；要开放就加一条 egress 策略 ✓
+
+**两个坑** ✗：
+
+1. `externalName` **不要指向 Cloudflare 橙云的域名** ✗ —— 那样流量又绕回 CF（正是要避开的慢）。
+   写 **VPS 的 IP** 或一条**灰云 A 记录**的域名 ✓。
+2. `ExternalName` 只是 CNAME ✓，**不能被 podSelector 选中** ✗ → "谁能连它"必须用 **egress `ipBlock`** 卡 ✓。
+   **已有现成范例** ✓：`frpc-egress` 就是 `ipBlock: 62.234.50.20/32` + `port 7000` → 照抄改端口即可 ✓。
+
+### 11.5 结论：什么时候用哪一层
+
+| 需求 | 选 |
+|---|---|
+| 只是"在某台机器上跑点东西 + 名字统一在 k8s 里" | **① 名字层（方案 B）** ✓ |
+| 还要与集群内 Pod 共用一个 Service 做负载均衡 | ② 端点层 |
+| 要用 k8s 的**调度 / Job / NetworkPolicy** 去管 VPS 上的负载 | ③ 节点层（方案 A，先备齐 11.3 六项） |
+
+**当下结论** ✓：按"服务单独放 VPS、不与其它服务交互"这个目标 → **取方案 B** ✓，
+**不动 CNI** ✗（改 CNI = 全集群网络风险窗口，不值得）。
+
+### 11.6 未核实 / 待验证
+
+- VPS 作为 Calico 节点的**实际表现**：本次未试，无实测数据。
+- 打开 WireGuard 后的**真实 MTU 与吞吐**：未测。
+- NodeLocal DNSCache 在 **v1.31** 的落地细节：未核。
+- `ExternalName` 在 **ndots:5** 下的实际解析次数：未测（推测会先试 5 个集群后缀 ✗）。
+
+---
 ## 附录 A：命令速查
 
 ```bash
