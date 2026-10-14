@@ -41,6 +41,27 @@ server {
     ssl_session_timeout 1h;
 
     # 保险丝：未匹配到任何 server_name 时落到这里，避免泄漏默认站点
+    # ★ 静态资源：在 VPS 上缓存 ✓（命中后完全不碰家里上行 ✓✓）
+    #   注意：带 Set-Cookie 的响应不会被缓存 ✓（安全边界，别加 proxy_ignore_headers Set-Cookie ✗）
+    location ~* ^/(assets|static|plugins|oauth2/static)/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header Accept-Encoding   "";
+
+        proxy_cache            static_cache;
+        proxy_cache_key        "$host$request_uri";
+        proxy_cache_valid      200 14d;
+        proxy_cache_use_stale  error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+        proxy_cache_lock       on;
+        proxy_ignore_headers   Cache-Control Expires;
+        add_header X-Cache-Status $upstream_cache_status always;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;

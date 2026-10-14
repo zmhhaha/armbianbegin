@@ -196,6 +196,9 @@ install_nginx_and_cert() {
 
   log "安装备案号注入（任务一：map 与页脚 snippet ✓）"
   install -m 0644 "\/nginx/beian-map.conf" /etc/nginx/conf.d/beian-map.conf
+  install -m 0644 "\/nginx/beian-cache.conf" /etc/nginx/conf.d/beian-cache.conf
+  install -d -m 0755 -o www-data -g www-data /var/cache/nginx/static
+
   install -d -m 0755 /etc/nginx/snippets
   install -m 0644 "\/nginx/beian-footer.conf" /etc/nginx/snippets/beian-footer.conf
 
