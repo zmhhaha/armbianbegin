@@ -51,6 +51,8 @@ server {
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         # ★ 少了这一行：oauth2-proxy 会以为是 http → 无限重定向 ✗
         proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Accept-Encoding \;
+        include /etc/nginx/snippets/beian-footer.conf;
         proxy_set_header X-Forwarded-Host  $host;
 
         # ★ 少了这两行：DSH 的 WebSocket 建不起来 → 界面"能打开但操作卡死" ✗
