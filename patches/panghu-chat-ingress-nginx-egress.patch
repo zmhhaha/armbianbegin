@@ -1,0 +1,72 @@
+From d5b276118bcf5f18412cf5caecb95db0e512c59b Mon Sep 17 00:00:00 2001
+From: dsh <dsh@local>
+Date: Thu, 15 Oct 2026 00:38:21 +0800
+Subject: [PATCH] =?UTF-8?q?fix(network):=20=E6=94=BE=E8=A1=8C=20dsh=20/=20?=
+ =?UTF-8?q?hermes=20=E5=88=B0=E9=9B=86=E7=BE=A4=E5=86=85=20ingress-nginx?=
+ =?UTF-8?q?=20=E7=9A=84=20443?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+背景：集群内新增了 auth.panghuer.top 的 Ingress（ingress-nginx 终结 TLS，证书由
+cert-manager 经 Cloudflare DNS-01 签发），CoreDNS 也把该域名分流到集群内的
+ingress-nginx，使 oauth2-proxy 的内部鉴权不再出集群绕公网 VPS 与 frp 隧道
+（实测 3336 ms -> 13~19 ms）。
+
+但 dsh 与 hermes 是 default-deny 命名空间，egress 白名单里此前只有 ipBlock 0.0.0.0/0:443
+（走公网 VPS 用的），没有同时覆盖集群内的 ClusterIP，于是分流后内部鉴权会连接超时。
+
+改动：
+  dsh/k8s/networkpolicies.yaml  web-egress      增加 to=ingress-nginx 的 443/80
+  hermes/k8s/core.yaml          research-egress 增加 to=ingress-nginx 的 443/80
+
+用 namespaceSelector kubernetes.io/metadata.name=ingress-nginx 而不是 IP，
+这样 ingress-nginx 的 Service 重建、ClusterIP 变化都不受影响。
+---
+ dsh/k8s/networkpolicies.yaml | 9 +++++++++
+ hermes/k8s/core.yaml         | 9 +++++++++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/dsh/k8s/networkpolicies.yaml b/dsh/k8s/networkpolicies.yaml
+index 01e7272..a6a89ac 100644
+--- a/dsh/k8s/networkpolicies.yaml
++++ b/dsh/k8s/networkpolicies.yaml
+@@ -66,6 +66,15 @@ spec:
+   policyTypes:
+   - Egress
+   egress:
++  - to:
++    - namespaceSelector:
++        matchLabels:
++          kubernetes.io/metadata.name: ingress-nginx
++    ports:
++    - protocol: TCP
++      port: 443
++    - protocol: TCP
++      port: 80
+   - to:
+     - namespaceSelector:
+         matchLabels:
+diff --git a/hermes/k8s/core.yaml b/hermes/k8s/core.yaml
+index 19e7740..0c997d6 100644
+--- a/hermes/k8s/core.yaml
++++ b/hermes/k8s/core.yaml
+@@ -251,6 +251,15 @@ spec:
+   policyTypes:
+   - Egress
+   egress:
++  - to:
++    - namespaceSelector:
++        matchLabels:
++          kubernetes.io/metadata.name: ingress-nginx
++    ports:
++    - protocol: TCP
++      port: 443
++    - protocol: TCP
++      port: 80
+   - to:
+     - namespaceSelector:
+         matchLabels:
+-- 
+2.39.5
+

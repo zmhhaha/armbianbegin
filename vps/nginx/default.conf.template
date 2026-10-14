@@ -29,6 +29,11 @@ server {
 
     server_name *.${BASE_DOMAIN};
 
+    # ★ 请求头缓冲：oauth2-proxy 的会话 cookie 会分成多个分片由浏览器回传，
+    #   Cookie 头可达数万字节 → 默认每行 8k 会返回 400 Bad Request ✗
+    client_header_buffer_size   16k;
+    large_client_header_buffers 8 32k;
+
     ssl_certificate     /etc/letsencrypt/live/${BASE_DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${BASE_DOMAIN}/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
@@ -36,6 +41,27 @@ server {
     ssl_session_timeout 1h;
 
     # 保险丝：未匹配到任何 server_name 时落到这里，避免泄漏默认站点
+    # ★ 静态资源：在 VPS 上缓存 ✓（命中后完全不碰家里上行 ✓✓）
+    #   注意：带 Set-Cookie 的响应不会被缓存 ✓（安全边界，别加 proxy_ignore_headers Set-Cookie ✗）
+    location ~* ^/(assets|static|plugins|oauth2/static)/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header Accept-Encoding   "";
+
+        proxy_cache            static_cache;
+        proxy_cache_key        "$host$request_uri";
+        proxy_cache_valid      200 14d;
+        proxy_cache_use_stale  error timeout updating http_500 http_502 http_503 http_504;
+        proxy_cache_background_update on;
+        proxy_cache_lock       on;
+        proxy_ignore_headers   Cache-Control Expires;
+        add_header X-Cache-Status $upstream_cache_status always;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
@@ -46,11 +72,20 @@ server {
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         # ★ 少了这一行：oauth2-proxy 会以为是 http → 无限重定向 ✗
         proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Accept-Encoding \;
+        include /etc/nginx/snippets/beian-footer.conf;
         proxy_set_header X-Forwarded-Host  $host;
 
         # ★ 少了这两行：DSH 的 WebSocket 建不起来 → 界面"能打开但操作卡死" ✗
         proxy_set_header Upgrade           $http_upgrade;
         proxy_set_header Connection        $connection_upgrade;
+
+        # ★ 响应头缓冲：oauth2-proxy 的会话 cookie 超过 4KB，会被拆成多个
+        #   Set-Cookie 头 → 默认 4KB 缓冲不够 → nginx 报 "upstream sent too big
+        #   header" 并返回 502 ✗。这几个值必须放宽。
+        proxy_buffer_size       64k;
+        proxy_buffers           8 64k;
+        proxy_busy_buffers_size 128k;
 
         # 长连接 / 流式响应
         proxy_read_timeout 3600s;

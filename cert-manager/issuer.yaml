@@ -1,0 +1,26 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: cloudflare-dns01
+spec:
+  acme:
+    # 与 VPS 上 certbot 用的同一个邮箱，方便出问题时在同一处收 LE 通知
+    email: zmh_haha@163.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # ACME 账户私钥（cert-manager 自动生成并保管，不再是 certbot 那个 account）
+    privateKeySecretRef:
+      name: cloudflare-dns01-account-key
+    solvers:
+      - dns01:
+          cloudflare:
+            # Token 由使用者手工创建，不进入仓库：
+            #   kubectl -n cert-manager create secret generic cloudflare-api-token \
+            #     --from-literal=api-token='<token>'
+            # 权限：Zone:DNS:Edit + Zone:Zone:Read，范围限制在 panghuer.top
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token
+        selector:
+          # 只对这一个区域生效：即使将来 token 权限放大，也不会去动别的域名
+          dnsZones:
+            - panghuer.top

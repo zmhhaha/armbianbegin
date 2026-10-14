@@ -194,6 +194,14 @@ install_nginx_and_cert() {
       -d "${BASE_DOMAIN}" -d "*.${BASE_DOMAIN}"
   fi
 
+  log "安装备案号注入（任务一：map 与页脚 snippet ✓）"
+  install -m 0644 "\/nginx/beian-map.conf" /etc/nginx/conf.d/beian-map.conf
+  install -m 0644 "\/nginx/beian-cache.conf" /etc/nginx/conf.d/beian-cache.conf
+  install -d -m 0755 -o www-data -g www-data /var/cache/nginx/static
+
+  install -d -m 0755 /etc/nginx/snippets
+  install -m 0644 "\/nginx/beian-footer.conf" /etc/nginx/snippets/beian-footer.conf
+
   log "安装站点配置"
   local rendered; rendered="$(mktemp)"
   BASE_DOMAIN="$BASE_DOMAIN" HTTPS_PORT="$HTTPS_PORT" envsubst '${BASE_DOMAIN} ${HTTPS_PORT}' \
