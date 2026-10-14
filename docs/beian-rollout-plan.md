@@ -78,3 +78,17 @@ nginx 与证书**零改动** ✓（`*.panghuer.top` 通配符 + 按 Host 分流 
 ```
 
 **每步原则** ✓：先验证再下一步 ✓；每步都可回滚 ✓；不在生产链路上做"顺手改" ✗。
+## 6. ★ 前置任务（2026-10-12 发现，必须先做）
+
+**Vault 处于 sealed 状态已 3.5 天** ✗ → 全集群 **60 个 ExternalSecret 全部同步失败**（0 成功 ✗）：
+
+```
+Vault:      Sealed = true ✗   Unseal Progress 0/3（阈值 3/5 ✓）
+起点:       约 3d8h 前（Vault Pod 在 3d5h 前重启过 ✗ —— 与上次断电时间吻合 ✓）
+影响:       ① 密钥无法轮换/新增 ✗  ② 依赖"新值"的服务会陆续失效 ✗
+            （openspec.panghuer.top 502 + MCP 断连就是这个 ✗）
+好消息:     已同步的 Secret 对象仍在 ✓（DeletionPolicy: Retain ✓）
+            → 重启 Pod **不会丢密钥** ✓，只是拿到旧值 ✓
+修法:       kubectl -n vault exec vault-0 -- vault operator unseal   ×3（用 5 份 key 中的 3 份 ✓）
+            解封后确认：kubectl get externalsecret -A → 全部回到 SecretSynced ✓
+注意:       密钥由你保管 ✓，我不接触 ✓；解封前不要重启依赖新密钥的服务 ✗
