@@ -45,6 +45,14 @@
 | [jdwatch-work-research.md](jdwatch-work-research.md) | `jdwatch.work` 就业信息采集方式调研（2026-09-04）：结论是职位聚合站 + 自动化爬虫管道 |
 | [ARC.md](ARC.md) | Actions Runner Controller 科普与部署指南。与 RAG/情报方向无关 |
 
+## 实验路线（自有硬件上的动手清单）
+
+| 文档 | 主题 |
+|---|---|
+| [softroce-dpdk-spdk-lab-plan.md](softroce-dpdk-spdk-lab-plan.md) | **Soft-RoCE / DPDK / SPDK 的可执行实验清单（2026-10，基于真机实测）**。先给能力矩阵：5 台节点的 `# CONFIG_INFINIBAND is not set`、`modinfo rdma_rxe` not found、无 `/sys/class/infiniband`（但 `libibverbs1`/`librdmacm1` 已装）；大页目录齐全、`/dev/hugepages` 已挂 2M；OPi5 有 18 个 IOMMU group 且 `vfio-pci` 可用、NanoPC 的 `uio_pci_generic` 未编译；apt 里 `dpdk` 22.11.11 / `rdma-core` / `perftest` / `nvme-cli` / `fio` 都可装，**没有 `spdk` 包**。再给四条路线：x86 双 VM 实验台（推荐起点，Soft-RoCE 全靠它）、WSL2 `--no-huge` 热身、给 Armbian 内核加 IB/RXE 后重编（附 config 与交叉编译）、硬件升级清单（M.2 NVMe / USB 网卡 / 双 ConnectX-3）。⚠️ **红线**：NanoPC 上的 NVMe 归 Ceph，禁止 `spdk/scripts/setup.sh` 与 `dpdk-devbind`；别在 3.85G 的 NanoPC 上分大页；别把 Hyper-V 外部交换机绑到给集群做 ICS 的那张 Realtek 网卡。**集群只被只读探测过，未做任何配置改动** |
+| [ai-tech-radar-2026.md](ai-tech-radar-2026.md) | **2026 时兴 AI 技术的可行性雷达（2026-10 调研）**。按"你能不能真跑起来"排序给 11 条：① **RK3588 NPU 跑 LLM/VLM（RKLLM）**——官方 benchmark 实测 Qwen3-VL-2B 14.9 tok/s、SmolVLM-256M **78 tok/s**、DeepSeekOCR-3B **31.8 tok/s**、Gemma4-E2B 还带**音频** encoder（273ms/1.5s），这是集群里最被低估的资产；② 把本地 NPU 模型接进现有 llm-service 别名体系（`local-npu` tier）；③ llama.cpp **v0.6.0**（2026-10-05）的 MTP 投机解码 / KV 量化；④ 自托管 Agent 记忆（Hindsight/Mem0/Graphiti/Letta/Cognee 的部署成本对比）；⑤ MCP Registry / A2A 标准化（CNCF 已介入，你们 2026-09 的 [platform-mcp-auth.md](platform-mcp-auth.md) 方向踩对了）；⑥ reranker + contextual retrieval（GraphRAG 的 2026 结论是"先做上下文优化"）；⑦ 小模型 GRPO/LoRA；⑧ KServe v0.19 / llm-d v0.7 / HAMi。**明确别碰**：TileRT（硬要求 8×B200 或 8×MI355X）、万亿参数、FP8 训练、多卡 NCCL、NVFP4。另附 6 周路线与完整引用清单 |
+| [kv-cache-kvmem-lab-plan.md](kv-cache-kvmem-lab-plan.md) | **KV Cache / KV Mem 的名词核实与硬件可行性分级（2026-10）**。核实结果：KVMem 论文**真实存在**（*Virtualizing Million-Token Agent Workspaces on **a Consumer GPU***，与本机 2070S 同档）；会话里的 "KV-CAT" **查无此名**（内容对应 *Training Transformers for KV Cache Compressibility*，ICML 2026），"Trellis" 与 `--kvmem-budget` 存疑/疑似编造 —— 那份分享的 `reference[N]` 是生成引用，**不能当出处**。可行性：KV 量化（`-ctk/-ctv`）、`-nkvo` 把 KV 甩到主机内存、MHA↔GQA 对照在 2070S 上**今天就能做**；vLLM PagedAttention + LMCache（KV 落到 NVMe，与上一篇交汇）要 WSL2；MLA（唯一现实权重 DeepSeek-V2-Lite，Q4 ≈10GB > 8GB 显存）与训练侧压缩**只能看**。⚠️ Windows 侧 CUDA Toolkit 只有 **v9.0（2016）**，别拿它编现代框架 —— 原生用 llama.cpp 预编译 CUDA 包，Linux 侧走 WSL2 驱动透传 |
+
 ## 决策记录
 
 | 文档 | 记录了什么 |
