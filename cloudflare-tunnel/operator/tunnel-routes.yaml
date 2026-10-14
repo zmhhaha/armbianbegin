@@ -166,7 +166,7 @@ metadata:
 spec:
   tunnelRef: main
   hostname: daofaziran-agent.panghuer.top
-  backend: oauth2-proxy-daofaziran-agent.oauth.svc.cluster.local:4180
+  backend: oauth2-proxy-baijiazhengming.oauth.svc.cluster.local:4180
 ---
 # 佛法无边
 apiVersion: cf.armbianbegin.io/v1
@@ -177,7 +177,7 @@ metadata:
 spec:
   tunnelRef: main
   hostname: fofawubian-agent.panghuer.top
-  backend: oauth2-proxy-fofawubian-agent.oauth.svc.cluster.local:4180
+  backend: oauth2-proxy-baijiazhengming.oauth.svc.cluster.local:4180
 ---
 # 钟馗伏魔
 apiVersion: cf.armbianbegin.io/v1
@@ -188,7 +188,7 @@ metadata:
 spec:
   tunnelRef: main
   hostname: zhongkuifumo-agent.panghuer.top
-  backend: oauth2-proxy-zhongkuifumo-agent.oauth.svc.cluster.local:4180
+  backend: oauth2-proxy-baijiazhengming.oauth.svc.cluster.local:4180
 ---
 # 以马内利
 apiVersion: cf.armbianbegin.io/v1
@@ -199,7 +199,7 @@ metadata:
 spec:
   tunnelRef: main
   hostname: yimaneili-agent.panghuer.top
-  backend: oauth2-proxy-yimaneili-agent.oauth.svc.cluster.local:4180
+  backend: oauth2-proxy-baijiazhengming.oauth.svc.cluster.local:4180
 ---
 # 真主至大
 apiVersion: cf.armbianbegin.io/v1
@@ -210,7 +210,7 @@ metadata:
 spec:
   tunnelRef: main
   hostname: zhenzhuzhida-agent.panghuer.top
-  backend: oauth2-proxy-zhenzhuzhida-agent.oauth.svc.cluster.local:4180
+  backend: oauth2-proxy-baijiazhengming.oauth.svc.cluster.local:4180
 ---
 # 周公解梦
 apiVersion: cf.armbianbegin.io/v1
@@ -221,7 +221,7 @@ metadata:
 spec:
   tunnelRef: main
   hostname: zhougongjiemeng-agent.panghuer.top
-  backend: oauth2-proxy-zhougongjiemeng-agent.oauth.svc.cluster.local:4180
+  backend: oauth2-proxy-baijiazhengming.oauth.svc.cluster.local:4180
 ---
 # 游戏评测
 apiVersion: cf.armbianbegin.io/v1
@@ -243,7 +243,7 @@ metadata:
 spec:
   tunnelRef: main
   hostname: xiaotanrenjian-agent.panghuer.top
-  backend: oauth2-proxy-xiaotanrenjian-agent.oauth.svc.cluster.local:4180
+  backend: oauth2-proxy-baijiazhengming.oauth.svc.cluster.local:4180
 ---
 # 秉笔春秋
 apiVersion: cf.armbianbegin.io/v1
@@ -254,7 +254,7 @@ metadata:
 spec:
   tunnelRef: main
   hostname: bingbichunqiu-agent.panghuer.top
-  backend: oauth2-proxy-bingbichunqiu-agent.oauth.svc.cluster.local:4180
+  backend: oauth2-proxy-baijiazhengming.oauth.svc.cluster.local:4180
 ---
 # XuYe literature reader
 apiVersion: cf.armbianbegin.io/v1
