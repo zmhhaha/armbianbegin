@@ -1,0 +1,3 @@
+    # 集群内分流：auth 走集群内的 ingress-nginx（443 + 真证书），不再出集群绕公网 VPS 与 frp 隧道。
+    # 指向 Service 名而非 IP：Service 重建、ClusterIP 变化都不受影响。
+    rewrite stop name exact auth.panghuer.top ingress-nginx-controller.ingress-nginx.svc.cluster.local
