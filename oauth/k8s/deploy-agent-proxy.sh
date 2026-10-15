@@ -34,25 +34,23 @@ fi
 script_dir="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 # 会话存储用的 Redis DB 号（原因见 proxy-deployment.yaml 文件头）。
-#   · 所有实例共用一份 COOKIE_SECRET，所以不同应用不要用同一个 DB；
-#   · DB0/DB2 已被占用：DB2 是游戏系（deploy-game-proxy.sh，含 guanliao 与 tewu）的既有约定，
-#     DB0 是 school-of-one 应用侧的运行时；
-#   · 号用完了就去调大 redis 的 databases，别随手复用。
+#   · 所有实例共用一份 COOKIE_SECRET，会话键也由它派生，所以不同应用不要共用一个 DB；
+#   · 唯一例外是游戏家族：deploy-game-proxy.sh 自 2026-09 起就用 DB2（既有约定，
+#     含 guanliao / qianfu / shapan / tewu / xuye / school-of-one），保持不动；
+#   · DB0 是 school-of-one 应用侧的运行时，别占。
+#   下表对应 2026-10-15 线上实测值，改这里之前先看线上。
 # 未登记的 target 用 15 并告警 —— 宁可吵一声，也不要悄悄和别的应用挤一个 DB。
 case "${target}" in
+    tewu|guanliao|qianfu|shapan|xuye|school-of-one) redis_db=2 ;;   # 游戏家族：DB2 是既有约定
+    baijiazhengming)       redis_db=3 ;;
     dsh)                   redis_db=4 ;;
     hermes)                redis_db=5 ;;
-    guanliao)              redis_db=6 ;;   # 实际由 deploy-game-proxy.sh 部署，这里只是兜底
-    shapan)                redis_db=8 ;;   # 同上：游戏系
-    qianfu)                redis_db=9 ;;   # 同上：游戏系
-    xuye)                  redis_db=10 ;;  # 同上：游戏系
-    school-of-one)         redis_db=13 ;;  # 同上：游戏系
-    tewu)                  redis_db=2 ;;   # 同上：游戏系（DB2 为既有约定）
     hublog)                redis_db=7 ;;
     txt2img)               redis_db=11 ;;
     literature-downloader) redis_db=12 ;;
+    scientific-agent)      redis_db=13 ;;
     game-review-agent)     redis_db=14 ;;
-    research-agent|scientific-agent|baijiazhengming) redis_db=15 ;;
+    research-agent)        redis_db=15 ;;
     *)
         redis_db=15
         echo "⚠️  ${target} 还没有登记 Redis DB 号，暂用 15 —— 请先在 proxy-deployment.yaml 文件头登记" >&2
