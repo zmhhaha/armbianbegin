@@ -546,7 +546,7 @@ sed "s/__NAMESPACE__/literature-downloader/g" \
 **Secret 部分正常工作**，无需特殊处理（直接 `kubectl apply -f` 即可）：
 
 ```bash
-kubectl apply -f inventory/game-review-agent-externalsecret.yaml
+# kubectl apply -f inventory/game-review-agent-externalsecret.yaml  ← 已于 2026-10-15 删除该 ExternalSecret，此行不再需要
 ```
 
 **安装 CRD（bundle.yaml）时的注意事项**：

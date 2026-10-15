@@ -63,14 +63,14 @@ secret/zhougongjiemeng-agent/api   已全软删（无存活版本）
 |------|-----|
 | **Secret** | `game-auth`（受保护游戏的登录 cookie） |
 | **Vault 路径** | `secret/data/game-review-agent/auth` |
-| **ExternalSecret** | `vault/inventory/game-review-agent-externalsecret.yaml` |
+| ~~`vault/inventory/game-review-agent-externalsecret.yaml`~~ | **已于 2026-10-15 删除** —— game-review-agent 只评价自己的游戏，不需要登录凭据 |
 
 ```bash
 # 游戏访问 cookie（可选，不配则只能访问公开页面）
 kubectl exec -n vault vault-0 -- vault kv put secret/game-review-agent/auth \
   GAME_AUTH_COOKIE="name=_oauth2_proxy;value=<cookie值>;domain=.panghuer.top;path=/;secure"
 
-kubectl apply -f inventory/game-review-agent-externalsecret.yaml
+# kubectl apply -f inventory/game-review-agent-externalsecret.yaml  ← 已于 2026-10-15 删除该 ExternalSecret，此行不再需要
 ```
 
 > 注意：`game-auth` 的 ExternalSecret 目前是 `SecretSyncedError` —— `secret/data/game-review-agent/auth`
