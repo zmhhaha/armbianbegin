@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pi-oauth
+  namespace: pi
+data:
+  oauth2-proxy.cfg: |
+    http_address = "0.0.0.0:4180"
+    provider = "oidc"
+    oidc_issuer_url = "https://auth.panghuer.top"
+    redirect_url = "https://pi.panghuer.top/oauth2/callback"
+    # loopback on purpose: the sidecar shares this Pod's network namespace with
+    # pi-cage, so `serve` keeps its default bind of 127.0.0.1 and no routable
+    # listener exists anywhere in the Pod. See panghu_chat/pi/README.md.
+    upstreams = ["http://127.0.0.1:7681/"]
+    pass_host_header = true
+    # Required. Without it oauth2-proxy emits only X-Forwarded-*, never
+    # X-Auth-Request-Email, and pi-cage answers 407 to every request *after* a
+    # successful login. Silent failure; the login page looks like it worked.
+    set_xauthrequest = true
+    request_logging = false
+    authenticated_emails_file = "/owner/emails"
+    scope = "openid email profile"
+    cookie_name = "__Host-pi"
+    cookie_path = "/"
+    cookie_secure = true
+    cookie_samesite = "lax"
+    cookie_expire = "8h"
+    cookie_refresh = "1h"
+    cookie_csrf_per_request = true
+    reverse_proxy = true
+    # ttyd is a websocket. Without this the page loads and the terminal never
+    # connects.
+    proxy_websockets = true
+    skip_provider_button = true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pi-owner
+  namespace: pi
+data:
+  # Fill your verified Casdoor email. Empty deliberately grants nobody access.
+  # Add/remove users on the server: kubectl -n pi edit configmap pi-owner
+  # Edit data.emails: one verified email per line; retain existing users.
+  # Allow time for Kubernetes to refresh the mounted ConfigMap file.
+  # Existing WebSocket connections are not immediately revoked on removal --
+  # the terminal stays open until it reconnects, and pi-cage's session is a tmux
+  # session that outlives the browser.
+  # Also update this file, otherwise the next deployment overwrites live edits.
+  # Apply this file from the repository root:
+  # kubectl apply -f oauth/k8s/pi-proxy-configmap.yaml
+  emails: |
+    zmh_haha@163.com
