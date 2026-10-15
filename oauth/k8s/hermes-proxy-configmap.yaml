@@ -29,7 +29,10 @@ data:
     cookie_secure = true
     cookie_samesite = "lax"
     cookie_expire = "8h"
-    cookie_refresh = "1h"
+    # cookie_refresh 刻意不设（2026-10-15 与 dsh / pi 统一）。理由见
+    # oauth/k8s/dsh-proxy-configmap.yaml 里的同一段注释：会话已存 Redis，
+    # 4KB 限制不再适用，但"吊销后重试刷新"的循环风险与存储位置无关。
+    # 代价：会话满 cookie_expire（8h）后重新登录一次。
     cookie_csrf_per_request = true
     reverse_proxy = true
     proxy_websockets = true

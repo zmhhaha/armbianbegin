@@ -26,13 +26,56 @@ data:
     cookie_secure = true
     cookie_samesite = "lax"
     cookie_expire = "8h"
-    cookie_refresh = "1h"
+    # cookie_refresh is deliberately absent, and it is not an oversight.
+    #
+    # oauth2-proxy refuses to start with both of these set:
+    #
+    #   invalid configuration:
+    #     cookie_refresh > 0 requires oauth tokens in sessions.
+    #     session_cookie_minimal cannot be set
+    #
+    # Since the session has to shrink below the 4 KB cookie limit -- see
+    # session_cookie_minimal below -- the refresh has to go. The cost is that a
+    # session now lasts cookie_expire and then asks for a fresh login rather than
+    # renewing silently.
+    #
+    # The gain is worth more than the cost: a refresh loop is exactly the failure
+    # mode currently taking Casdoor down for every service on this cluster. An
+    # oauth2-proxy holding a session whose refresh token has been revoked retries
+    # that refresh on every request and never gives up; dsh-web was measured
+    # issuing ~98 token requests per second against
+    # /api/login/oauth, which exhausted MySQL connections and produced
+    # "Error 1040: Too many connections" on a login page that had nothing to do
+    # with dsh. A session that cannot refresh cannot loop.
     cookie_csrf_per_request = true
     reverse_proxy = true
     # ttyd is a websocket. Without this the page loads and the terminal never
     # connects.
     proxy_websockets = true
     skip_provider_button = true
+    # Casdoor's id_token and access_token are large enough that the session
+    # exceeded the 4 KB cookie limit, so oauth2-proxy split it across several
+    # cookies -- and said so itself:
+    #
+    #   [session_store.go:170] WARNING: Multiple cookies are required for this
+    #   session as it exceeds the 4kb cookie limit.
+    #
+    # An incompletely restored session is still enough for oauth2-proxy to
+    # forward the request, but not enough to set X-Auth-Request-Email from it.
+    # ttyd then answers 407 Proxy Auth Required, which a browser reports as
+    # ERR_UNEXPECTED_PROXY_AUTH -- an error naming a proxy problem for what is
+    # really a session-size problem.
+    #
+    # This strips the tokens from the cookie and keeps the identity claims, which
+    # is all set_xauthrequest reads. The alternative is server-side session
+    # storage; Redis is available at data/redis if the cookie ever grows again.
+    #
+    # 2026-10-15 更新：那条"替代方案"已经落地 —— 本服务的 oauth2-proxy 会话已改存
+    # Redis（DB6），cookie 里只剩一个会话 ID，所以上面关于 4KB 与
+    # session_cookie_minimal 的推理前提不再成立，这一行对 Redis 存储而言是空转。
+    # cookie_refresh 仍然【刻意关闭】—— 理由与存储位置无关：吊销后的刷新重试会成环。
+    # 保留本行与上面的说明，是为了留下当时的判断依据。
+    session_cookie_minimal = true
 ---
 apiVersion: v1
 kind: ConfigMap

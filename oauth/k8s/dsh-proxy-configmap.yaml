@@ -20,7 +20,17 @@ data:
     cookie_secure = true
     cookie_samesite = "lax"
     cookie_expire = "8h"
-    cookie_refresh = "1h"
+    # cookie_refresh 刻意不设（2026-10-15 与 hermes / pi 统一）。
+    #
+    # 会话已改存 Redis，cookie 里只有一个会话 ID，所以"刷新需要 token 在会话里"
+    # 这条 4KB 限制不再适用 —— 但仍然不刷新，因为【刷新循环的风险与会话存在哪里无关】：
+    # refresh token 一旦被吊销，oauth2-proxy 会对每个请求重试刷新且永不放弃。
+    # 当时实测 dsh-web 对 /api/login/oauth 每秒约 98 个 token 请求，耗尽 MySQL 连接，
+    # 在无关服务的登录页上报 "Error 1040: Too many connections"。
+    # 不能刷新的会话不能成环。
+    #
+    # 代价：会话满 cookie_expire（8h）后需要重新登录一次，而不是静默续期。
+    # hermes-oauth 与 pi-oauth 出于同一理由也是这个设置。
     cookie_csrf_per_request = true
     reverse_proxy = true
     proxy_websockets = true
