@@ -1,0 +1,84 @@
+From 26a704d799e1b3e18df347637775130993806376 Mon Sep 17 00:00:00 2001
+From: dsh <dsh@local>
+Date: Thu, 15 Oct 2026 20:42:59 +0800
+Subject: [PATCH] =?UTF-8?q?chore(game-review-agent):=20=E6=B8=85=E7=90=86?=
+ =?UTF-8?q?=20game-auth=20=E6=AE=8B=E7=95=99=EF=BC=88=E8=AF=A5=E5=87=AD?=
+ =?UTF-8?q?=E6=8D=AE=E5=B7=B2=E4=B8=8D=E5=86=8D=E9=9C=80=E8=A6=81=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+game-review-agent 只用于评价自己的游戏，不需要登录凭据；其 ExternalSecret game-auth
+引用的 Vault 路径 secret/game-review-agent/auth 从未写入过，自 2026-09-08 创建起一直
+SecretSyncedError。该 ExternalSecret 已于 2026-10-15 在线上删除。
+
+本次清理仓库里的三处残留：
+  · game_review_agent/k8s/api-deployment.yaml
+      移除 GAME_AUTH_COOKIE / GAME_AUTH_COOKIES_JSON 两个 env（引用已删除的 Secret，
+      虽然 optional: true 不影响运行，但留着会让人以为还有这条凭据）
+  · scripts/sync-llm-token.sh
+      移除对 game-auth 的 force-sync（对象已不存在，属悬空引用）
+  · docs/game-auth-setup.md
+      文首加废弃说明，保留历史记录
+---
+ docs/game-auth-setup.md                   |  2 ++
+ game_review_agent/k8s/api-deployment.yaml | 15 ---------------
+ scripts/sync-llm-token.sh                 |  6 ------
+ 3 files changed, 2 insertions(+), 21 deletions(-)
+
+diff --git a/docs/game-auth-setup.md b/docs/game-auth-setup.md
+index bebce74..ed240bc 100644
+--- a/docs/game-auth-setup.md
++++ b/docs/game-auth-setup.md
+@@ -1,3 +1,5 @@
++> ⚠️ **2026-10-15 起本文描述的做法已废弃。** `game-auth` 的 ExternalSecret 已删除，api-deployment 里对应的环境变量注入也已移除 —— game-review-agent 只用于评价自己的游戏，不需要登录凭据。保留本文仅作历史记录。
++
+ # 游戏试玩评价 agent — 访问凭据配置
+ 
+ 生产环境的游戏（qianfu.panghuer.top、tewu.panghuer.top 等）都通过
+diff --git a/game_review_agent/k8s/api-deployment.yaml b/game_review_agent/k8s/api-deployment.yaml
+index 696c587..19e4cce 100644
+--- a/game_review_agent/k8s/api-deployment.yaml
++++ b/game_review_agent/k8s/api-deployment.yaml
+@@ -30,21 +30,6 @@ spec:
+         - containerPort: 8000
+         env:
+         # 模型凭据已全部收归 llm-service：不再注入 provider API Key，也不再从 agent-config 取值。
+-        # 游戏试玩 agent：受保护游戏的登录 cookie（可选，不配置则只能访问公开页面）
+-        - name: GAME_AUTH_COOKIE
+-          valueFrom:
+-            secretKeyRef:
+-              name: game-auth
+-              key: GAME_AUTH_COOKIE
+-              optional: true
+-        - name: GAME_AUTH_COOKIES_JSON
+-          valueFrom:
+-            secretKeyRef:
+-              name: game-auth
+-              key: GAME_AUTH_COOKIES_JSON
+-              optional: true
+-        # 模型调用：走集群内 llm-service，本服务不再持有 provider 凭据。
+-        # 用 deepseek-trusted（trusted 档）——guarded 档禁 tools/response_format，会直接 400。
+         - name: LLM_BASE_URL
+           value: http://llm-service.llm.svc.cluster.local/v1
+         - name: LLM_MODEL
+diff --git a/scripts/sync-llm-token.sh b/scripts/sync-llm-token.sh
+index 9ce22a2..8926dff 100644
+--- a/scripts/sync-llm-token.sh
++++ b/scripts/sync-llm-token.sh
+@@ -68,12 +68,6 @@ for ns in "${NS_LIST[@]}"; do
+     force-sync=$(date +%s) --overwrite $K >/dev/null 2>&1 || true
+   echo "  ${ns}/llm-token force-sync"
+ done
+-# game-review-agent 额外同步 game-auth
+-if [[ " ${NS_LIST[*]} " =~ " game-review-agent " ]]; then
+-  kubectl annotate externalsecret game-auth -n game-review-agent \
+-    force-sync=$(date +%s) --overwrite $K >/dev/null 2>&1 || true
+-  echo "  game-review-agent/game-auth force-sync"
+-fi
+ 
+ # ============================================================
+ #  Step 2: 校验令牌已就绪
+-- 
+2.39.5
+
