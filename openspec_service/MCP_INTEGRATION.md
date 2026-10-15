@@ -133,6 +133,11 @@ claude mcp add --transport http openspec \
 `StreamableHTTPClientTransport` 的 `requestInit`。所以它**只能走静态 Bearer**（§2.2 那种 JWT），
 本服务端那套自动发现链路在 DSH 里用不上。
 
+> 但这不等于"在 DSH 里就用不上 §2.1"。让本机一个 `mcp-oauth-gateway`
+> （<https://github.com/zmhhaha/mcp-oauth-gateway>）替 DSH 完成发现与授权，DSH 只连本地回环地址，
+> 长期凭据同样**不进任何配置文件**，也不必每 7 天换 JWT —— 见本节末尾
+> 「DSH + mcp-oauth-gateway（推荐）」。
+
 DSH 也**不读 `.mcp.json`**（那是 Claude Code 的约定；DSH 的 asar 里搜不到读它的代码）。
 它把 MCP 服务器配成 **cordis 插件行**，写进 profile 的 patch 层
 `%USERPROFILE%\.dsh\profiles\<profile>\cordis.patch.yml`：
@@ -162,6 +167,40 @@ DSH 也**不读 `.mcp.json`**（那是 Claude Code 的约定；DSH 的 asar 里�
   MCP 规范回 HTTP 404）。DSH 的 SDK **不会**因此自己重新 `initialize`，表现为调用报
   `MCP session expired or does not belong to this identity`。恢复：**新开一个对话**，或改一下
   `cordis.patch.yml` 触发插件重载，或重启 DSH。
+
+#### DSH + mcp-oauth-gateway（推荐，等价于 §2.1）
+
+DSH 客户端不支持 OAuth（见上），而把 7 天过期的 JWT 写进配置又违背 §2.1 的初衷
+（"长期凭据根本不用写进任何配置文件"）。折中做法是让本机 [mcp-oauth-gateway](https://github.com/zmhhaha/mcp-oauth-gateway)
+替 DSH 走完整的发现 → 授权 → 续期，DSH 只连本地回环地址：
+
+```yaml
+- insert:
+    - id: openspec-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: openspec
+        transport: streamable-http
+        url: http://127.0.0.1:33419/mcp        # 本机网关，不是 openspec.panghuer.top
+        headers:
+          x-mcp-gateway-token: '<网关本地令牌>'  # 网关自己的稳定令牌，不是 OAuth 凭据、不会过期
+        failOnStartupError: false
+        reconnect:
+          maxAttempts: 20
+```
+
+运维要点（比手工 JWT 少很多）：
+
+- **启动网关**：`wscript %APPDATA%\mcp-oauth-gateway\serve-hidden.vbs`
+  （本机已放入启动项，开机自启；无窗口）
+- **本地令牌位置**：`%APPDATA%\mcp-oauth-gateway\<state>.json` 的 `localToken`
+  —— 网关启动日志会写明它加载了哪个 state 文件，以那份为准
+- **首次或凭据失效时**：打开 <http://localhost:33419/oauth/login> 走一次浏览器授权即可
+  （这正是 §2.1 第 ④ 步的授权页；网关负责 PKCE 与续期）
+- **工具名与直连一致**：`mcp__openspec__<工具名>`
+
+本仓库自 2026-10-15 起采用这种方式。它的代价是多一个常驻的本机进程；换来的是
+**配置里没有长期凭据**、且不必每 7 天手工换一次 JWT。
 
 ### Codex CLI
 ```bash
