@@ -31,7 +31,33 @@ if [[ "${target}" == "baijiazhengming" ]]; then
 else
     callback_arg="--redirect-url=https://${target}.panghuer.top/oauth2/callback"
 fi
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+script_dir="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+# 会话存储用的 Redis DB 号（原因见 proxy-deployment.yaml 文件头）。
+#   · 所有实例共用一份 COOKIE_SECRET，所以不同应用不要用同一个 DB；
+#   · DB0/DB2 已被占用：DB2 是游戏系（deploy-game-proxy.sh，含 guanliao 与 tewu）的既有约定，
+#     DB0 是 school-of-one 应用侧的运行时；
+#   · 号用完了就去调大 redis 的 databases，别随手复用。
+# 未登记的 target 用 15 并告警 —— 宁可吵一声，也不要悄悄和别的应用挤一个 DB。
+case "${target}" in
+    dsh)                   redis_db=4 ;;
+    hermes)                redis_db=5 ;;
+    guanliao)              redis_db=6 ;;   # 实际由 deploy-game-proxy.sh 部署，这里只是兜底
+    shapan)                redis_db=8 ;;   # 同上：游戏系
+    qianfu)                redis_db=9 ;;   # 同上：游戏系
+    xuye)                  redis_db=10 ;;  # 同上：游戏系
+    school-of-one)         redis_db=13 ;;  # 同上：游戏系
+    tewu)                  redis_db=2 ;;   # 同上：游戏系（DB2 为既有约定）
+    hublog)                redis_db=7 ;;
+    txt2img)               redis_db=11 ;;
+    literature-downloader) redis_db=12 ;;
+    game-review-agent)     redis_db=14 ;;
+    research-agent|scientific-agent|baijiazhengming) redis_db=15 ;;
+    *)
+        redis_db=15
+        echo "⚠️  ${target} 还没有登记 Redis DB 号，暂用 15 —— 请先在 proxy-deployment.yaml 文件头登记" >&2
+        ;;
+esac
 
 if [[ "${target}" == "txt2img" ]]; then
     kubectl apply -f "${script_dir}/txt2img-proxy-configmap.yaml"
@@ -39,7 +65,9 @@ else
     sed -e "s/__TARGET_NAME__/${target}/g" -e "s|__UPSTREAM__|${upstream}|g" \
         "${script_dir}/proxy-configmap.yaml" | kubectl apply -f -
 fi
-sed -e "s/__TARGET_NAME__/${target}/g" -e "s|__CALLBACK_ARG__|${callback_arg}|g" \
+sed -e "s/__TARGET_NAME__/${target}/g" \
+    -e "s|__CALLBACK_ARG__|${callback_arg}|g" \
+    -e "s/__REDIS_DB__/${redis_db}/g" \
     "${script_dir}/proxy-deployment.yaml" | kubectl apply -f -
 
 # 必加：oauth2-proxy 在**启动时**读 alpha-config。只改 ConfigMap 的话 Deployment 的

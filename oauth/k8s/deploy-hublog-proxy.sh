@@ -14,6 +14,7 @@ kubectl apply -f "${SCRIPT_DIR}/hublog-proxy-configmap.yaml"
 # corresponding read-only APIs. The generic agent template stays protected.
 sed \
   -e 's/__TARGET_NAME__/hublog/g' \
+  -e 's/__REDIS_DB__/7/g' \
   -e '/--ssl-insecure-skip-verify=true/a\
           - "--skip-auth-route=^/signed-out([?].*)?$"\
           - "--skip-auth-route=^/share/[0-9a-fA-F-]{36}/?$"\

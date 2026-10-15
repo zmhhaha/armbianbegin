@@ -7,8 +7,22 @@
 #      （共享实例写死回调的话，从别的域名登录会被绕到写死的那一个）
 #  未替换时它是个**被忽略的位置参数**（不会报错），于是回调只能靠请求的 Host 生成。
 #
+#  __REDIS_DB__ 必须替换成该应用独占的 Redis DB 号（各 deploy-*.sh 里的 case 表）。
+#  未替换时 redis 连接串会是 ...:6379/__REDIS_DB__，oauth2-proxy 启动即报错 ——
+#  这是故意的：宁可启动失败，也不要悄悄和别的应用共用一个 DB。
+#
 #  用 deploy-agent-proxy.sh 部署：
 #    bash deploy-agent-proxy.sh <target> [upstream]
+#
+#  会话存储为什么用 Redis（2026-10-15）：
+#    cookie 存储会把整个会话加密塞进浏览器 cookie，超过 4KB 就被拆成多个 cookie，
+#    浏览器回传的 Cookie 头随之涨到 8–10KB，链路任何一跳（国内 VPS 的 nginx、应用
+#    自带 nginx）只要用的是默认 4x8k，就会回 400 Request Header Or Cookie Too Large
+#    （tewu.panghuer.top 2026-10-15 实测过）。换成 Redis 后 cookie 只留一个会话 ID
+#    （约 200B），该类问题结构上不再可能发生。
+#    Redis 密码来自 Vault：ExternalSecret vault/inventory/guanliao-redis-externalsecret.yaml
+#    → Secret guanliao-redis-secret（键 REDIS_PASSWORD）。名字是历史遗留（最初给关雎用），
+#    但它确实由 Vault 统一管理，因此这里直接复用，不新建任何手工 Secret。
 # ============================================================
 ---
 apiVersion: v1
@@ -76,6 +90,11 @@ spec:
           - "--cookie-expire=720h"
           - "--cookie-refresh=24h"
           - "--cookie-name=_oauth2_proxy"
+          # 会话存 Redis（cookie 里只留一个会话 ID）：见文件头「会话存储为什么用 Redis」。
+          # DB 号按应用分配，各 deploy-*.sh 里有 case 表；共用一份 COOKIE_SECRET，
+          # 所以不同应用不要用同一个 DB。
+          - "--session-store-type=redis"
+          - "--redis-connection-url=redis://:$(REDIS_PASSWORD)@redis.data.svc.cluster.local:6379/__REDIS_DB__"
           - "--email-domain=$(ALLOWED_DOMAINS)"
           # 回调参数由 deploy-agent-proxy.sh 决定：
           #   按服务的代理 → --redirect-url=https://<target>.panghuer.top/oauth2/callback
@@ -95,6 +114,10 @@ spec:
         envFrom:
         - secretRef:
             name: oauth2-proxy-secret
+        # Redis 密码（REDIS_PASSWORD）：由 Vault 经 ExternalSecret 同步 —— 见文件头说明。
+        # 它是 envFrom，只在容器启动时注入；Secret 轮换后需要 kubectl rollout restart。
+        - secretRef:
+            name: guanliao-redis-secret
         volumeMounts:
         - name: config
           mountPath: /etc/oauth2-proxy
