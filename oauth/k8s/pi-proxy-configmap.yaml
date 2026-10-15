@@ -14,9 +14,23 @@ data:
     # listener exists anywhere in the Pod. See panghu_chat/pi/README.md.
     upstreams = ["http://127.0.0.1:7681/"]
     pass_host_header = true
-    # Required. Without it oauth2-proxy emits only X-Forwarded-*, never
-    # X-Auth-Request-Email, and pi-cage answers 407 to every request *after* a
-    # successful login. Silent failure; the login page looks like it worked.
+    # Kept, but it is NOT what makes pi-cage work -- an earlier version of this
+    # comment said it was, and that was wrong.
+    #
+    # oauth2-proxy's help is explicit about which switch does what:
+    #
+    #   --pass-user-headers  pass X-Forwarded-User and X-Forwarded-Email to
+    #                        upstream                              (default true)
+    #   --set-xauthrequest   set X-Auth-Request-User and X-Auth-Request-Email
+    #                        *response* headers (useful in Nginx auth_request mode)
+    #
+    # X-Auth-Request-* answers a different question: it is set on the response for
+    # a fronting nginx in auth_request mode to read, and it is not the header that
+    # reaches the upstream. This deployment's slice of pi-cage therefore reads
+    # X-Forwarded-Email -- see PI_CAGE_AUTH_HEADER in panghu_chat/pi/k8s/core.yaml.
+    #
+    # The flag is left on because it is harmless and useful if nginx is ever put in
+    # front. Nothing here depends on it.
     set_xauthrequest = true
     request_logging = false
     authenticated_emails_file = "/owner/emails"
@@ -53,29 +67,31 @@ data:
     # connects.
     proxy_websockets = true
     skip_provider_button = true
-    # Casdoor's id_token and access_token are large enough that the session
-    # exceeded the 4 KB cookie limit, so oauth2-proxy split it across several
-    # cookies -- and said so itself:
+    # session_cookie_minimal was here, and has been REMOVED. History, because the
+    # reasoning that put it there is still worth keeping even though the line is
+    # gone.
+    #
+    # Casdoor's id_token and access_token are large enough that the cookie session
+    # exceeded the 4 KB per-cookie limit, and oauth2-proxy said so itself:
     #
     #   [session_store.go:170] WARNING: Multiple cookies are required for this
     #   session as it exceeds the 4kb cookie limit.
     #
-    # An incompletely restored session is still enough for oauth2-proxy to
-    # forward the request, but not enough to set X-Auth-Request-Email from it.
-    # ttyd then answers 407 Proxy Auth Required, which a browser reports as
-    # ERR_UNEXPECTED_PROXY_AUTH -- an error naming a proxy problem for what is
-    # really a session-size problem.
+    # That was a real failure and a misleading one: the session restored only
+    # partially, oauth2-proxy still forwarded the request, `serve` answered
+    # 407 Proxy Auth Required, and a browser reported ERR_UNEXPECTED_PROXY_AUTH --
+    # an error naming a proxy problem for what was a session-size problem.
     #
-    # This strips the tokens from the cookie and keeps the identity claims, which
-    # is all set_xauthrequest reads. The alternative is server-side session
-    # storage; Redis is available at data/redis if the cookie ever grows again.
+    # session_cookie_minimal fixed the size. It is removed now because it is
+    # documented as "(cookie session store only)" while this service now stores
+    # sessions in Redis (DB6), making it dead configuration at best -- and because
+    # the failure it was meant to prevent could equally be explained by it
+    # trimming fields out of the session, which would leave the upstream with an
+    # empty identity header. It is not worth keeping a setting whose effect under
+    # the current store type is uncertain, when the store type already removes the
+    # limit it existed for.
     #
-    # 2026-10-15 更新：那条"替代方案"已经落地 —— 本服务的 oauth2-proxy 会话已改存
-    # Redis（DB6），cookie 里只剩一个会话 ID，所以上面关于 4KB 与
-    # session_cookie_minimal 的推理前提不再成立，这一行对 Redis 存储而言是空转。
-    # cookie_refresh 仍然【刻意关闭】—— 理由与存储位置无关：吊销后的刷新重试会成环。
-    # 保留本行与上面的说明，是为了留下当时的判断依据。
-    session_cookie_minimal = true
+    # cookie_refresh stays off, and for a reason unrelated to storage: see below.
 ---
 apiVersion: v1
 kind: ConfigMap
