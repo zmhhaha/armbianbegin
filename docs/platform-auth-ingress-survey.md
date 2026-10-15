@@ -4,6 +4,11 @@
 > 范围：`oauth/`、`cloudflare-tunnel/`、`portal/`、`nginx_gateway/`、`vault/`、`openspec_service/`。
 > 用途：回答"要把一个新的内部 web 服务暴露到公网并做认证，该怎么做、有哪些坑"。
 > 行号基于该次调查，代码演进后会漂移，引用前先核对。
+>
+> 📌 **2026-10-15 补**：对外暴露链路已不只 Cloudflare Tunnel —— 27 个 hostname 改走国内 VPS
+> （用户 → VPS nginx:443 → frp → 集群），只有 4 个留在 Cloudflare。设计见
+> [vps-ingress-design.md](vps-ingress-design.md)，本文 §一 描述的仍是 Cloudflare 那条路。
+> 同一天 16 个 oauth2-proxy 的会话也全部改存 Redis，见 §四 新增的两个小节。
 
 ## 结论摘要（TL;DR）
 
@@ -105,12 +110,67 @@ oauth2-proxy 参数（`oauth/k8s/proxy-deployment.yaml:60-78`，游戏版 `game-
 - **HttpOnly 没有显式设置** —— 全仓无 `--cookie-httponly`，靠 oauth2-proxy 默认值。
 - **cookie secret 是全局共享的一份**，不是每服务独立：`oauth/k8s/secret.yaml:7-11` 定义 placeholder，真值经 Vault `secret/oauth/oauth2-proxy` 同步（`vault/inventory/oauth-externalsecret.yaml:34-37`）。所有 oauth2-proxy 实例共用 `oauth2-proxy-secret`（`oauth-externalsecret.yaml:17-18`、`oauth/README.md:61`、`vault/inventory/04-oauth.md:33`）。
 - `COOKIE_SECRET` 必须是 **32 字符 hex**，不能用 base64（`oauth/k8s/secret.yaml:8-11`、`vault/inventory/oauth-externalsecret.yaml:13-15`、`oauth/wiki/deployment-guide.md:456-474`）。
-- **游戏版额外用 Redis 存 session**（cookie 只放会话 ID）：`game-proxy-deployment.yaml:73-74` — `--session-store-type=redis` + `--redis-connection-url=redis://:$(REDIS_PASSWORD)@redis.data.svc.cluster.local:6379/2`；envFrom `guanliao-redis-secret`（`:94-95`）。**agent 版仍是默认 cookie 存储**（`proxy-deployment.yaml` 无 session-store 参数）。
+- **所有 oauth2-proxy 现在都用 Redis 存 session**（cookie 里只剩一个会话 ID）—— 见下一小节。原先只有游戏版这么做（`game-proxy-deployment.yaml:73-74` 的 `/2`），2026-10-15 起 16 个实例全部切过去，agent 版不再用默认 cookie 存储。
 - 应用层自己**不设会话 cookie**：全仓 grep `Set-Cookie` 无匹配。应用统一是"信任 oauth2-proxy 注入的头"模型。
 
 > ⚠️ 含义：新服务若走 oauth2-proxy 且不覆盖 cookie-name/domain，就与现有全部子域**共享同一个 `_oauth2_proxy` 登录态**。任何"独立、隔离的会话"要求都需要显式覆盖 cookie-name 和 cookie-domain，这属于新设计。
 >
 > 📌 **现成写法**：`oauth/k8s/hermes-proxy-configmap.yaml` 的 `hermes-oauth` 用 `cookie_name = "__Host-hermes"` + 不设 cookie_domain 做到了独立 cookie。注意 `__Host-` 前缀**强制要求** Secure + `Path=/` + 无 Domain 三条同时成立，那份配置三条都满足。
+
+### 两种 oauth2-proxy 形态（2026-10-15 补）
+
+现网 16 个 oauth2-proxy 分成两族，**配置形式、部署形态、会话隔离度都不同**，改任何一处前先确认它属于哪一族。
+
+| | **A 族：`dsh` / `hermes` / `pi`** | **B 族：`oauth` 命名空间那 13 个** |
+|---|---|---|
+| 配置形式 | `--config=/oauth/oauth2-proxy.cfg`，`key = value` 文本 | `--alpha-config=…yaml`（YAML）+ 一批 legacy flag 写在 `args` 里 |
+| 配置文件 | ConfigMap `dsh-oauth` / `hermes-oauth` / `pi-oauth`，定义在 `oauth/k8s/{dsh,hermes,pi}-proxy-configmap.yaml` | ConfigMap `oauth2-proxy-config-<app>`；模板 `oauth/k8s/proxy-configmap.yaml`（agent 类）、`game-proxy-configmap.yaml`（游戏类）、`hublog-proxy-configmap.yaml`、`txt2img-proxy-configmap.yaml` |
+| 部署形态 | **sidecar**，与业务容器同 Pod（`panghu_chat/{dsh,hermes,pi}/k8s/`），上游是 `127.0.0.1:<port>`；`pi` 甚至依赖上游只绑 loopback | **独立 Deployment** 2 副本（`proxy-deployment.yaml`、`game-proxy-deployment.yaml`），上游是集群内 Service |
+| 凭据来源 | `envFrom: <ns>-oidc`（各自一份 Vault 接线） | `envFrom: oauth2-proxy-secret`（**全站共用一份** `COOKIE_SECRET`） |
+| cookie | `__Host-dsh` / `__Host-hermes` / `__Host-pi`，不设 domain → **每域名独立会话** | 统一 `_oauth2_proxy` @ `.panghuer.top` → **所有子域共享一个登录态** |
+| 会话时长 | `cookie_expire = "8h"`，**刻意不刷新** | `cookie_expire = "720h"` + `cookie_refresh = "24h"` |
+
+> ⚠️ A 族能用命令行 flag 覆盖 cfg 文件，是因为 `--config` 提供基础项、flag 与环境变量在其上叠加 —— 它们本来就是这么传 `OAUTH2_PROXY_*` 的。所以给 A 族加选项**不必改那个 cfg 文件**，改 Deployment 的 `args` 风险更小。
+
+### Redis 会话存储与 DB 分配（2026-10-15）
+
+**动机**：cookie 存储会把整个会话加密塞进浏览器 cookie，超过 4 KB 就被拆成多个，回传的 `Cookie:` 头涨到 8–10 KB；链路上任何一跳只要用 nginx 默认的 `4x8k` 就会直接 400（`tewu.panghuer.top` 实测过）。改存 Redis 后 cookie 只剩一个会话 ID（约 200B），这类问题结构上不再可能发生。
+
+**做法**：两族都在代理容器上加
+
+```
+--session-store-type=redis
+--redis-connection-url=redis://:$(REDIS_PASSWORD)@redis.data.svc.cluster.local:6379/<DB>
+```
+
+`$(REDIS_PASSWORD)` 由 oauth2-proxy 自己从环境展开（**不是** shell 展开），env 来自 Vault：B 族复用既有的 `oauth/guanliao-redis-secret`，A 族是 `{dsh,hermes,pi}/oauth2-proxy-redis`，两者都指向 Vault 的 `secret/data/redis/app`。
+
+| DB | 归属 |
+|---|---|
+| 0 | school-of-one **应用自身**的运行时（不是代理） |
+| 2 | 游戏家族（既有约定）：guanliao / qianfu / shapan / tewu / xuye / school-of-one |
+| 3 | `oauth2-proxy-baijiazhengming`（一实例服务八个域名） |
+| 4 / 5 / 6 | `dsh` / `hermes` / `pi`（A 族 sidecar，DB4/5 预留值已用上） |
+| 7 / 11 / 12 | `hublog` / `txt2img` / `literature-downloader` |
+| 13 / 14 / 15 | `scientific-agent` / `game-review-agent` / `research-agent` |
+| 8 / 9 / 10 | 空闲（新服务从这里取号） |
+
+一个应用一个 DB，因为 B 族共用同一份 `COOKIE_SECRET`，会话键由它派生。分配表也写在 `oauth/k8s/deploy-agent-proxy.sh` 的 case 里，改前先看线上实际值。
+
+> ⚠️ **Redis 因此成了全站认证的硬依赖**：oauth2-proxy **启动时会先 ping Redis**（写一个 initialization key），连不上就拒绝启动，实测报错
+> `invalid configuration: unable to set a redis initialization key: dial tcp 10.103.125.196:6379: i/o timeout`，
+> 表现为整个 Pod `CrashLoopBackOff`（不只是"要重新登录"）。所以：
+> 1. 三个 default-deny 命名空间必须放行到 `data:6379`（`panghu_chat/dsh/k8s/networkpolicies.yaml` 的 `web-egress`、`panghu_chat/hermes/k8s/core.yaml` 的 `research-egress`、`panghu_chat/pi/k8s/networkpolicies.yaml` 的 `web-egress`）——原有白名单里没有 data，公网那条 443 规则还明确排除了 `10.0.0.0/8`；
+> 2. `redis-0` 是**单副本**，它一重启 16 个代理会一起拒绝启动。**建议**给 Redis 加 PDB / priorityClassName 与"Redis 不可用"告警。
+
+**`cookie_refresh` 的取舍**（A 族，2026-10-15 统一为不刷新）：改存 Redis 之后，"刷新要求 token 在会话里"这条 4 KB 约束不再成立，但**刷新循环的风险与会话存哪里无关** —— refresh token 一旦被吊销，oauth2-proxy 会对每个请求重试刷新且永不放弃（当时实测 dsh-web 对 `/api/login/oauth` 每秒约 98 个 token 请求，耗尽 MySQL 连接，在无关服务的登录页上报 `Error 1040: Too many connections`）。所以三者统一**不设** `cookie_refresh`，代价是会话满 8h 后需重新登录一次。`pi` 还留着 `session_cookie_minimal = true`，那对 Redis 存储是空转，保留只为留下当时的判断依据。
+
+**怎么验证**（比 grep ConfigMap 直接）：
+
+```bash
+kubectl -n dsh logs -l app=dsh-web -c oauth2-proxy --tail=60 | grep 'Cookie settings'
+# 期望结尾是 refresh:disabled；曾经是 refresh:after 1h0m0s，那一行就能证明改动是否真的生效
+```
 
 ## 五、WebSocket / SSE 反代
 
@@ -154,3 +214,5 @@ sed -e 's/__TARGET_NAME__/guanliao/g' -e '/proxyWebSockets: true/a\          tim
 3. MFA 想开就得先在 Casdoor 侧确认是否支持，仓库里查不到。
 4. 要独立会话 → 覆盖 cookie-name 为 `__Host-*` 且不设 cookie-domain（见上），否则与现网所有子域共享 `_oauth2_proxy`。
 5. 有流式响应 → `proxyWebSockets: true` + 长流的 `timeout`，应用侧加 `x-accel-buffering: no`。
+6. 新服务的会话**默认就已走 Redis**（照 `oauth/k8s/proxy-deployment.yaml` 部署即带 `--session-store-type=redis`）→ 记得①在 `deploy-agent-proxy.sh` 的 case 里给它**登记一个独占 DB 号**（8/9/10 空闲），②它的命名空间若是 default-deny，要**放行到 `data:6379`**，否则 sidecar 会因启动时 ping 不通 Redis 而 `CrashLoopBackOff`。
+7. 想给 A 族（sidecar + cfg 文件）加参数 → 改 Deployment 的 `args` 即可，**不必动那个 cfg 文件**（`--config` 提供基础项，flag 在其上叠加）；验证一律看 oauth2-proxy 自己打印的 `Cookie settings:` 日志行。
