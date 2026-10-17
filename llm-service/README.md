@@ -68,7 +68,7 @@
 ### `POST /v1/chat/completions`
 
 ```json
-{"model": "custom-trusted", "messages": [{"role": "user", "content": "你好"}], "temperature": 0.7}
+{"model": "llm-trusted", "messages": [{"role": "user", "content": "你好"}], "temperature": 0.7}
 ```
 
 `model` 是**别名**，不是上游模型名。服务按别名解析 provider / base_url / 模型 / 凭据后转发，响应与 OpenAI 兼容（含 `usage`）。
@@ -166,12 +166,14 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 | **`trusted`** | content 生成、RAG、**内部机器对话** | 标准字段透传（含 `tools`）；`max_tokens` ≤ 8192、消息 ≤ 200 |
 | **`guarded`** | **用户会写 prompt** 的对话型 Agent | 禁 `tools` / `response_format`；`max_tokens` ≤ 2048、消息 ≤ 60 |
 
-**默认 `guarded`** —— 漏配的后果是"更严"而不是"更松"，这是安全默认。
+新格式的每条路由必须显式指定 tier，缺少档位会报配置错误。
 
-现有别名（常规格式为 `<provider>-<tier>`）：
+稳定业务别名与显式固定上游别名：
 
 | 别名 | provider | 类别 | 用途 |
 |---|---|---|---|
+| `llm-guarded` | active_upstream | guarded | 对话及游戏业务，集中切换上游 |
+| `llm-trusted` | active_upstream | trusted | RAG、生成及工具调用，集中切换上游 |
 | `deepseek-guarded` | deepseek | guarded | 保留的 DeepSeek guarded 别名 |
 | `deepseek-trusted` | deepseek | trusted | 保留的 DeepSeek trusted 别名 |
 | `openai-trusted` | openai | trusted | **预留**：Vault 里还没有 `OPENAI_API_KEY`，点名它会得到 503「缺少凭据」 |
@@ -187,7 +189,7 @@ VPS 站点配置见 `vps/nginx/custom-llm-proxy.conf`。
 
 ### 档位上限的真实语义
 
-`max_tokens_cap` / `max_messages` 这类限制**只在调用方自己传了对应字段时才生效**：
+`max_tokens_cap` 校验最终合并参数（包括路由 defaults 和请求参数），`max_messages` 始终校验消息数量：
 
 ```python
 if request.max_tokens and request.max_tokens > policy["max_tokens_cap"]:
@@ -207,9 +209,9 @@ if request.max_tokens and request.max_tokens > policy["max_tokens_cap"]:
 
 ### 别名命名约定
 
-**格式固定为 `<provider>-<tier>`**：
+**业务默认使用 `llm-<tier>`，需要固定供应商时才用 `<provider>-<tier>`**：
 
-- **前缀必须与配置里的 `provider` 字段一致** —— 让人一眼看出数据发给谁、谁计费。
+- 固定路由的前缀与 provider 一致；稳定路由的 `llm` 前缀表示由 active_upstream 决定供应商。
 - 后缀只有 `guarded` / `trusted` 两档（策略见上表）。
 - **按真实存在的差别分档，不要按「用途」造名字。** 历史上曾用 `chat-default` / `chat-tools` 区分
   「纯生成」和「函数调用」，但两者的 tier 都是 trusted、策略完全相同，只差默认 temperature 和

@@ -18,7 +18,7 @@
 
 ## 1. 选别名
 
-别名格式固定为 **`<provider>-<tier>`**，`tier` 只有两档：
+业务使用稳定别名 **`llm-guarded` / `llm-trusted`**，上游由网关的 `active_upstream` 集中选择，`tier` 只有两档：
 
 | 别名 | tier | 能力 | 给谁用 |
 |---|---|---|---|
@@ -32,6 +32,8 @@
 - 不能（RAG 生成、定时任务、Agent 内部的中间步骤）→ `trusted`。
 
 **选错的典型症状**：`400 ... does not allow tools` / `does not allow response_format`。
+
+trusted 表示网关允许字段，不保证供应商支持全部参数组合。DeepSeek 默认思考模式支持 `tool_choice=auto`，不支持 `required`（上游返回 400）；跨供应商业务应使用共同支持的参数。本服务不静默改写 tool_choice 或关闭思考模式。
 
 **需要别的 provider 或档位**时，在 `llm-service/k8s.yaml` 的新格式配置中登记 upstream，并通过 routes 引用，
 不要按「用途」造名字（历史教训见 README「别名命名约定」）。加别名不需要改任何代码。

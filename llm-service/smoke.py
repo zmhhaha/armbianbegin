@@ -22,7 +22,7 @@ with httpx.Client(base_url='http://127.0.0.1:8000', timeout=150, headers={'Autho
     response.raise_for_status()
     assert isinstance(json.loads(response.json()['choices'][0]['message']['content']), dict)
     print('trusted JSON OK', flush=True)
-    response = client.post('/v1/chat/completions', json={'model':'llm-trusted','messages':[{'role':'user','content':'Call echo with text ok.'}], 'max_tokens':128,'tools':[{'type':'function','function':{'name':'echo','parameters':{'type':'object','properties':{'text':{'type':'string'}},'required':['text']}}}],'tool_choice':'required'})
+    response = client.post('/v1/chat/completions', json={'model':'llm-trusted','messages':[{'role':'user','content':'Call echo with text ok.'}], 'max_tokens':2048,'tools':[{'type':'function','function':{'name':'echo','parameters':{'type':'object','properties':{'text':{'type':'string'}},'required':['text']}}}],'tool_choice':'auto'})
     response.raise_for_status()
     assert response.json()['choices'][0]['message']['tool_calls']
     print('trusted tools OK', flush=True)
