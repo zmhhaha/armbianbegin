@@ -13,9 +13,9 @@ with httpx.Client(base_url='http://127.0.0.1:8000', timeout=150, headers={'Autho
     routes = ready.json()['routes']
     for tier in ('guarded', 'trusted'):
         model = 'llm-'+tier
-        response = client.post('/v1/chat/completions', json={'model':model,'messages':[{'role':'user','content':'Reply with OK.'}],'max_tokens':128})
+        response = client.post('/v1/chat/completions', json={'model':model,'messages':[{'role':'user','content':'Reply with OK.'}],'max_tokens':1024})
         response.raise_for_status()
-        assert response.json()['choices']
+        assert response.json()['choices'][0]['message']['content'].strip()
         assert response.headers['X-LLM-Route-Revision'] == routes[model]['route_revision']
         print(model, routes[model]['resolved_upstream'], 'text OK', flush=True)
     response = client.post('/v1/chat/completions', json={'model':'llm-trusted','messages':[{'role':'user','content':'Return a JSON object with status equal to ok.'}],'max_tokens':128,'response_format':{'type':'json_object'}})

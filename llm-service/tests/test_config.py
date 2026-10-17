@@ -31,7 +31,7 @@ class RoutingConfigTests(unittest.TestCase):
             self.assertEqual((a.tier, b.tier), (tier, tier))
             self.assertNotEqual(a.revision, b.revision)
             self.assertEqual(before['custom-'+tier], after['custom-'+tier])
-            self.assertEqual(_payload(a, [], {})['model'], 'gpt-6')
+            self.assertEqual(_payload(a, [], {})['model'], 'gpt-6-astra')
 
     def test_rejects_old_missing_unknown_version_and_unknown_reference(self):
         cases = [{'aliases': {}}, {**self.data, 'version': 1}, {**self.data, 'version': 3},
