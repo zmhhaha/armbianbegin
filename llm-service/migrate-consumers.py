@@ -11,8 +11,9 @@ import subprocess
 parser = argparse.ArgumentParser()
 parser.add_argument('--image-tag', required=True)
 parser.add_argument('--backup-dir', type=Path, required=True)
+parser.add_argument('--resume', action='store_true', help='resume using the original snapshots without overwriting them')
 args = parser.parse_args()
-args.backup_dir.mkdir(parents=True, exist_ok=False)
+args.backup_dir.mkdir(parents=True, exist_ok=args.resume)
 K = ['kubectl', '--kubeconfig=/etc/kubernetes/super-admin.conf']
 targets = [
     ('data', 'rag-service', 'trusted'), ('content-agents', 'content-llm-service', 'trusted'),
@@ -46,8 +47,10 @@ for ns, name, tier in targets:
     deployments.append((ns, name, tier, obj))
     if tier:
         for container in obj['spec']['template']['spec']['containers']:
-            for ref in container.get('envFrom', []):
-                cm = ref.get('configMapRef', {}).get('name')
+            names = [ref.get('configMapRef', {}).get('name') for ref in container.get('envFrom', [])]
+            names += [env.get('valueFrom', {}).get('configMapKeyRef', {}).get('name')
+                      for env in container.get('env', []) if env['name'] == 'LLM_MODEL']
+            for cm in names:
                 if cm and (ns, cm) not in configs:
                     config = get(ns, 'configmap', cm)
                     if config.get('data', {}).get('LLM_MODEL'):
@@ -56,6 +59,7 @@ for ns, name, tier in targets:
 for (ns, name), (obj, tier) in configs.items():
     if obj['data']['LLM_MODEL'] not in ('custom-'+tier, 'llm-'+tier):
         raise RuntimeError(f'unexpected model configuration in {ns}/{name}')
+for (ns, name), (obj, tier) in configs.items():
     subprocess.run(K + ['-n', ns, 'patch', 'configmap', name, '--type=merge', '-p',
                        json.dumps({'data': {'LLM_MODEL': 'llm-'+tier}})], check=True)
 for ns, name, tier, obj in deployments:
@@ -63,7 +67,7 @@ for ns, name, tier, obj in deployments:
     for container in obj['spec']['template']['spec']['containers']:
         update = {'name': container['name']}
         if tier:
-            update['env'] = [{'name': 'LLM_MODEL', 'value': 'llm-'+tier}]
+            update['env'] = [{'name': 'LLM_MODEL', 'value': 'llm-'+tier, 'valueFrom': None}]
         image = images.get((ns, name))
         if image and len(obj['spec']['template']['spec']['containers']) == 1:
             update['image'] = f'arm-cluster-master:5000/{image}:{args.image_tag}'
