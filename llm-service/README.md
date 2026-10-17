@@ -68,7 +68,7 @@
 ### `POST /v1/chat/completions`
 
 ```json
-{"model": "deepseek-trusted", "messages": [{"role": "user", "content": "你好"}], "temperature": 0.7}
+{"model": "custom-trusted", "messages": [{"role": "user", "content": "你好"}], "temperature": 0.7}
 ```
 
 `model` 是**别名**，不是上游模型名。服务按别名解析 provider / base_url / 模型 / 凭据后转发，响应与 OpenAI 兼容（含 `usage`）。
@@ -148,7 +148,7 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 
 重试只在**同一个别名**上做（超时 / 5xx / 429，最多 `max_retries` 次）。本服务**不做跨上游转移**：
 别名必须唯一对应一个模型，失败就返回错误，绝不静默换成另一个 provider 或另一个模型——否则调用方
-点名要 `deepseek-guarded`，实际作答的可能已经是别的模型，别名就失去意义了。
+点名要 `custom-guarded`，实际作答的可能已经是别的模型，别名就失去意义了。
 
 上游返回 2xx 但响应体不是合法 JSON、或 `choices` 缺失/为空时，同样按上游故障返回 502，
 不把无效响应透传给调用方。注意**不校验 `message.content` 是否为空**：工具调用时它本来就是 `null`。
@@ -180,14 +180,16 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 
 | 别名 | provider | 类别 | 用途 |
 |---|---|---|---|
-| `deepseek-guarded` | deepseek | guarded | 8 家本法系列等对外 Agent（用户可写 prompt） |
-| `deepseek-trusted` | deepseek | trusted | 纯文本生成（RAG、literature_downloader）与函数调用（content-llm-service、research/scientific/game_review） |
+| `deepseek-guarded` | deepseek | guarded | 保留的 DeepSeek guarded 别名 |
+| `deepseek-trusted` | deepseek | trusted | 保留的 DeepSeek trusted 别名 |
 | `openai-trusted` | openai | trusted | **预留**：Vault 里还没有 `OPENAI_API_KEY`，点名它会得到 503「缺少凭据」 |
-| `custom-guarded` | custom | guarded | `gpt-6`，面向用户可写 prompt 的调用方 |
-| `custom-trusted` | custom | trusted | `gpt-6`，面向内部受信调用方 |
+| `custom-guarded` | custom | guarded | `gpt-6`，用户可写 prompt 的 Agent 与游戏服务 |
+| `custom-trusted` | custom | trusted | `gpt-6`，RAG、结构化输出和工具调用服务 |
 
 这两个 custom 别名直接使用配置中的 `gpt-6`，不查询上游模型列表。将 `CUSTOM_API_KEY` 写入 Vault 的
 `secret/llm-service/providers`，等待 ExternalSecret 同步后重启 Deployment，环境变量才会更新。
+它们经 `https://custom-llm-proxy.panghuer.top/v1` 到 VPS 的 Nginx，再由 Nginx 转发至上游 9080；
+VPS 站点配置见 `vps/nginx/custom-llm-proxy.conf`。
 提供的客户端配置声明 `wire_api = "responses"`；本服务目前仍走 Chat Completions，
 因此该别名能否调用成功取决于代理是否同时提供 `/v1/chat/completions`。
 
@@ -233,11 +235,12 @@ bash build.sh --push     # 国内 pip 源，构建并推送
 bash deploy.sh           # 应用 Vault ExternalSecret + k8s，重启并等待就绪
 ```
 
-部署到命名空间 `llm`。NetworkPolicy 只允许带 `llm-client: "true"` 标签的 Pod 访问；出站只放行 DNS 与 443。
+部署到命名空间 `llm`。2026-10-17 集群实测 NetworkPolicy 已存在：入站要求调用方 Pod
+带 `llm-client: "true"`，出站只放行 DNS 与 TCP 443。custom 模型经 VPS HTTPS 代理访问上游。
 
-> 🔴 **2026-09-20 更正**：该 NetworkPolicy 在本集群**未生效**——CNI 是 `kube-flannel`，不实现 NetworkPolicy。从 `dsh-runner` 容器直连 `llm-service.llm.svc:80` 实测 **CONNECTED**。打标签仍应保留（策略生效后即为准入条件），但**当前它不提供任何隔离**。见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
->
-> ✅ **2026-09-29 更正：策略引擎现在生效了，但 `llm` 命名空间里根本没有这条策略——`llm-client` 标签至今不是门槛。** 集群 CNI 已于 2026-09-21 换成 **Calico**（`calico-node` 5/5）、NetworkPolicy 全面生效，端到端边界复验 2026-09-23 **退出码 0**（见 [../panghu_chat/dsh/docs/closeout-2026-09-23.md](../panghu_chat/dsh/docs/closeout-2026-09-23.md)）。但当前全集群 **13 条**策略里**没有** `llm/llm-service`，所以任何 Pod 仍能访问本服务，**缺 `llm-client: "true"` 也不会被拒**（与 `rag-client` 不同：`data/rag-service` 才是真正生效的那一条）。上文那句"NetworkPolicy 只允许带标签的 Pod 访问"描述的是 `k8s.yaml` 里的残留清单，不是集群现状。当前清单见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
+历史记录：2026-09-20 使用 `kube-flannel` 时策略未生效；2026-09-29 切换到 Calico 后，
+`llm` 命名空间仍未部署此策略。2026-10-17 已在集群确认 `llm/llm-service` 存在并与本清单一致。
+早期网络边界调查见 [../docs/network-policy-engine.md](../docs/network-policy-engine.md)。
 
 ## 迁移现有服务
 

@@ -12,10 +12,10 @@ data:
   # 只放非敏感路由：provider、上游 base URL、模型别名、默认参数、超时、重试。
   # 凭据一律通过 api_key_env 引用，实际值来自 llm-service-secret（Vault 注入）。
   #
-  # 常规别名采用 <provider>-<tier>；custom-gpt-6 保留为 trusted 兼容别名。
+  # 别名采用 <provider>-<tier>。
   # 策略由各别名的 tier 字段决定（见 config.py 的 TIERS）。
-  #   deepseek-guarded —— tier=guarded，给「用户会写 prompt」的对话型 Agent（禁扩权字段、收紧上限）
-  #   deepseek-trusted —— tier=trusted，纯文本生成与函数调用
+  #   custom-guarded   —— tier=guarded，给「用户会写 prompt」的对话型 Agent（禁扩权字段、收紧上限）
+  #   custom-trusted   —— tier=trusted，纯文本生成与函数调用
   #                        （RAG、literature_downloader、content-llm-service、research/scientific）
   #   openai-trusted   —— tier=trusted，**预留**：Vault 里还没有 OPENAI_API_KEY，
   #                        点名它会得到 503「缺少凭据」，不影响 readiness。
@@ -55,7 +55,7 @@ data:
         "custom-guarded": {
           "tier": "guarded",
           "provider": "custom",
-          "base_url": "https://jingsi.asia:9080/v1",
+          "base_url": "https://custom-llm-proxy.panghuer.top/v1",
           "model": "gpt-6",
           "api_key_env": "CUSTOM_API_KEY",
           "timeout_seconds": 60,
@@ -64,7 +64,7 @@ data:
         "custom-trusted": {
           "tier": "trusted",
           "provider": "custom",
-          "base_url": "https://jingsi.asia:9080/v1",
+          "base_url": "https://custom-llm-proxy.panghuer.top/v1",
           "model": "gpt-6",
           "api_key_env": "CUSTOM_API_KEY",
           "timeout_seconds": 120,
@@ -157,11 +157,8 @@ spec:
   selector: {app: llm-service}
   ports: [{name: http, port: 80, targetPort: http}]
 ---
-# ⚠️ 2026-09-29 实测：**这条策略在集群里不存在**。全集群共 13 条 NetworkPolicy，分布在
-# data（只有 rag-service）/ dsh / dsh-runners / hermes 四个命名空间，`llm` 命名空间里一条都没有。
-# 所以下面那句"只有显式打上 llm-client: "true" 的 Pod 能调用"目前不是事实——缺标签也不会被拦。
-# 要么把它应用上去（标签才真正成为门槛，但**先确认所有调用方都带了该标签**，否则会直接切
-# 断调用），要么删掉这段声明；这是所有者的决定，不是文档措辞问题。
+# 2026-10-17 集群实测：此策略已存在。入站要求调用方 Pod 带 llm-client: "true"，
+# 出站仅允许 DNS 与 TCP 443；custom 模型通过 VPS HTTPS 代理访问上游 9080。
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
