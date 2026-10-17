@@ -176,13 +176,20 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 
 **默认 `guarded`** —— 漏配的后果是"更严"而不是"更松"，这是安全默认。
 
-现有别名（格式固定为 `<provider>-<tier>`，约定见下）：
+现有别名（常规格式为 `<provider>-<tier>`）：
 
 | 别名 | provider | 类别 | 用途 |
 |---|---|---|---|
 | `deepseek-guarded` | deepseek | guarded | 8 家本法系列等对外 Agent（用户可写 prompt） |
 | `deepseek-trusted` | deepseek | trusted | 纯文本生成（RAG、literature_downloader）与函数调用（content-llm-service、research/scientific/game_review） |
 | `openai-trusted` | openai | trusted | **预留**：Vault 里还没有 `OPENAI_API_KEY`，点名它会得到 503「缺少凭据」 |
+| `custom-guarded` | custom | guarded | `gpt-6`，面向用户可写 prompt 的调用方 |
+| `custom-trusted` | custom | trusted | `gpt-6`，面向内部受信调用方 |
+
+这两个 custom 别名直接使用配置中的 `gpt-6`，不查询上游模型列表。将 `CUSTOM_API_KEY` 写入 Vault 的
+`secret/llm-service/providers`，等待 ExternalSecret 同步后重启 Deployment，环境变量才会更新。
+提供的客户端配置声明 `wire_api = "responses"`；本服务目前仍走 Chat Completions，
+因此该别名能否调用成功取决于代理是否同时提供 `/v1/chat/completions`。
 
 ### 档位上限的真实语义
 
