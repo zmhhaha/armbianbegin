@@ -1,6 +1,6 @@
-# 稳定模型路由设计（待实施）
+# 稳定模型路由设计（已实施）
 
-日期：2026-10-17，2026-10-18 登记并修订为直接迁移。本文为评审草稿，尚未实施或部署。已通过 `.openspec-project.json` 指定的 MCP 项目登记为 `add-stable-llm-routing`，校验通过、尚未 apply；最新提案提交为 `896a988a024ff1ba2823f082cb8cec719c8b8b28`。
+日期：2026-10-17，2026-10-18 登记并修订为直接迁移，现已实施部署。OpenSpec 变更为 `add-stable-llm-routing`；首次设计确认提交为 `896a988a024ff1ba2823f082cb8cec719c8b8b28`。实施及验收记录见 [stable-routing-validation.md](stable-routing-validation.md)。
 
 ## 目标与选择
 
@@ -78,4 +78,4 @@ guarded/trusted 由请求所选路由确定，切换上游不得改变档位。g
 5. 仅修改 active_upstream 为 deepseek，滚动 llm-service；确认业务配置未变，两个档位的新请求命中 DeepSeek，再回滚 custom 并复验。
 6. 验证滚动期请求快照、错误配置不 ready、旧报告不被稳定路由复用。记录每个 Pod revision 及切换窗口。
 
-所有步骤当前均未完成；本次只设计。
+实现已完成。custom 最终模型按用户要求改为 gpt-6-astra。百家争鸣、文献下载稳定路由禁用结果缓存复用；School Of One 的判定数据库缓存及前端结果缓存也已停用。报告新增 requested_alias 和可空 route_revision；CrewAI 不暴露响应头时保持 NULL，不把单独预查询的配置版本伪装成实际调用版本。日常 --skip-build 自动沿用运行镜像，UPSTREAM 环境变量可覆盖本次发布的集中上游选择。
