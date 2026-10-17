@@ -2,6 +2,8 @@
 
 日期：2026-10-18；集群主机：192.168.137.101。
 
+OpenSpec `add-stable-llm-routing` 已校验通过并合入正式规格，提交 `b45739f3cb8f12ebdd9d0f2579e4f9d945cc8447`：新增 stable-llm-routing 的 6 项要求，更新 custom-llm-integration 的 3 项要求，无警告。
+
 ## 实现与发布
 
 - 网关代码提交 547980f，运行镜像 `arm-cluster-master:5000/llm-service:547980f`。
@@ -19,6 +21,7 @@
 - 百家争鸣及文献下载 unittest：13 项通过，包括稳定路由不复用缓存、公共与内部模型来源、旧表幂等迁移及可空版本字段。
 - School Of One 镜像内 Node 测试通过：相同判定两次请求和前端两次调用都实际转发，不复用旧结果。
 - 版本化 ConfigMap 与 Deployment 镜像/配置引用配套渲染检查通过。
+- 25 份调用方回滚快照的整体 replace 服务端 dry-run 通过，网关上一版本模板的 rollout undo 服务端 dry-run 通过；没有执行生产全量回退。
 - DeepSeek：两档文本、trusted JSON、trusted 工具调用、guarded SSE 及受限字段拒绝均通过。
 - custom/gpt-6-astra：两档非空文本、trusted JSON、trusted 工具调用、guarded SSE 及受限字段拒绝均通过。
 - 在迁移业务前，稳定路由已完成 custom → deepseek → custom 切换；最终 custom 按用户新要求使用 gpt-6-astra。固定 custom 路由未因 active_upstream=deepseek 而改到 DeepSeek。
