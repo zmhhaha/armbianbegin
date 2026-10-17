@@ -6,13 +6,14 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: llm-service-config
+  name: llm-service-config-v2
   namespace: llm
+immutable: true
 data:
   # 只放非敏感路由：provider、上游 base URL、模型别名、默认参数、超时、重试。
   # 凭据一律通过 api_key_env 引用，实际值来自 llm-service-secret（Vault 注入）。
   #
-  # 别名采用 <provider>-<tier>。
+  # 稳定别名 llm-guarded/llm-trusted 由 active_upstream 集中切换；固定路由显式定义。
   # 策略由各别名的 tier 字段决定（见 config.py 的 TIERS）。
   #   custom-guarded   —— tier=guarded，给「用户会写 prompt」的对话型 Agent（禁扩权字段、收紧上限）
   #   custom-trusted   —— tier=trusted，纯文本生成与函数调用
@@ -22,56 +23,78 @@ data:
   # 不配 fallback：别名必须唯一对应一个模型，失败就报错，不跨上游转移。
   LLM_ALIASES: |
     {
-      "aliases": {
-        "deepseek-guarded": {
-          "tier": "guarded",
+      "version": 2,
+      "active_upstream": "custom",
+      "upstreams": {
+        "deepseek": {
           "provider": "deepseek",
           "base_url": "https://api.deepseek.com/v1",
           "model": "deepseek-v4-flash",
           "api_key_env": "DEEPSEEK_API_KEY",
-          "timeout_seconds": 60,
-          "max_retries": 2,
-          "defaults": {"temperature": 0.8}
+          "max_retries": 2
         },
-        "deepseek-trusted": {
-          "tier": "trusted",
-          "provider": "deepseek",
-          "base_url": "https://api.deepseek.com/v1",
-          "model": "deepseek-v4-flash",
-          "api_key_env": "DEEPSEEK_API_KEY",
-          "timeout_seconds": 120,
-          "max_retries": 2,
-          "defaults": {"temperature": 0.7, "max_tokens": 2048}
-        },
-        "openai-trusted": {
-          "tier": "trusted",
+        "openai": {
           "provider": "openai",
           "base_url": "https://api.openai.com/v1",
           "model": "gpt-4o-mini",
           "api_key_env": "OPENAI_API_KEY",
-          "timeout_seconds": 120,
           "max_retries": 1
         },
-        "custom-guarded": {
-          "tier": "guarded",
+        "custom": {
           "provider": "custom",
           "base_url": "https://custom-llm-proxy.panghuer.top/v1",
           "model": "gpt-6",
           "api_key_env": "CUSTOM_API_KEY",
-          "timeout_seconds": 60,
-          "max_retries": 1
-        },
-        "custom-trusted": {
-          "tier": "trusted",
-          "provider": "custom",
-          "base_url": "https://custom-llm-proxy.panghuer.top/v1",
-          "model": "gpt-6",
-          "api_key_env": "CUSTOM_API_KEY",
-          "timeout_seconds": 120,
           "max_retries": 1
         }
       },
-      "limits": {"requests_per_minute_per_caller": 120}
+      "routes": {
+        "deepseek-guarded": {
+          "tier": "guarded",
+          "upstream": "deepseek",
+          "timeout_seconds": 60,
+          "defaults": {
+            "temperature": 0.8
+          }
+        },
+        "deepseek-trusted": {
+          "tier": "trusted",
+          "upstream": "deepseek",
+          "timeout_seconds": 120,
+          "defaults": {
+            "temperature": 0.7,
+            "max_tokens": 2048
+          }
+        },
+        "openai-trusted": {
+          "tier": "trusted",
+          "upstream": "openai",
+          "timeout_seconds": 120
+        },
+        "custom-guarded": {
+          "tier": "guarded",
+          "upstream": "custom",
+          "timeout_seconds": 60
+        },
+        "custom-trusted": {
+          "tier": "trusted",
+          "upstream": "custom",
+          "timeout_seconds": 120
+        },
+        "llm-guarded": {
+          "tier": "guarded",
+          "upstream": "$active",
+          "timeout_seconds": 60
+        },
+        "llm-trusted": {
+          "tier": "trusted",
+          "upstream": "$active",
+          "timeout_seconds": 120
+        }
+      },
+      "limits": {
+        "requests_per_minute_per_caller": 120
+      }
     }
   # 防护配置。默认值刻意保守：上线当天行为不变，只多日志。
   #   spotlight/canary —— 唯一会改写发给上游 prompt 的两个机制，所以按档位开关；
@@ -97,11 +120,12 @@ metadata:
   namespace: llm
 spec:
   replicas: 1
-  strategy: {type: Recreate}
+  strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
   selector: {matchLabels: {app: llm-service}}
   template:
     metadata: {labels: {app: llm-service}}
     spec:
+      terminationGracePeriodSeconds: 150
       automountServiceAccountToken: false
       nodeSelector:
         # 2026-09-27 由 orangepi5-max-server1 挪到 master。本服务**没有任何卷挂载**
@@ -124,7 +148,7 @@ spec:
             - name: PYTHONDONTWRITEBYTECODE
               value: "1"
           envFrom:
-            - configMapRef: {name: llm-service-config}
+            - configMapRef: {name: llm-service-config-v2}
             - secretRef: {name: llm-service-secret, optional: true}
           resources:
             requests: {cpu: 100m, memory: 128Mi}

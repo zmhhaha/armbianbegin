@@ -7,7 +7,7 @@ if [[ -f "${SCRIPT_DIR}/../cluster_config.sh" ]]; then
 fi
 
 REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
-IMAGE="${REGISTRY}/llm-service:latest"
+IMAGE="${IMAGE:-${REGISTRY}/llm-service:$(git -C "${SCRIPT_DIR}" rev-parse --short HEAD)}"
 PIP_INDEX_URL="${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 
 usage() {

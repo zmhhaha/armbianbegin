@@ -22,8 +22,8 @@
 
 | 别名 | tier | 能力 | 给谁用 |
 |---|---|---|---|
-| `custom-guarded` | guarded | **禁** `tools` / `response_format`；`max_tokens` ≤ 2048、消息 ≤ 60 | 用户能自己写 prompt 的对话型服务 |
-| `custom-trusted` | trusted | 标准字段透传（含 `tools`）；`max_tokens` ≤ 8192、消息 ≤ 200 | 服务端生成、RAG、函数调用、内部机器对话 |
+| `llm-guarded` | guarded | **禁** `tools` / `response_format`；`max_tokens` ≤ 2048、消息 ≤ 60 | 用户能自己写 prompt 的对话型服务 |
+| `llm-trusted` | trusted | 标准字段透传（含 `tools`）；`max_tokens` ≤ 8192、消息 ≤ 200 | 服务端生成、RAG、函数调用、内部机器对话 |
 | `openai-trusted` | trusted | 同 trusted | **预留**：Vault 里只有一个占位 key，点名会带着它打到 OpenAI 拿 401 |
 
 **判断标准就一条：用户能不能左右这段 prompt？**
@@ -33,7 +33,7 @@
 
 **选错的典型症状**：`400 ... does not allow tools` / `does not allow response_format`。
 
-**需要别的 provider 或档位**时，按 `<provider>-<tier>` 往 `llm-service/k8s.yaml` 的 `LLM_ALIASES` 里加一条，
+**需要别的 provider 或档位**时，在 `llm-service/k8s.yaml` 的新格式配置中登记 upstream，并通过 routes 引用，
 不要按「用途」造名字（历史教训见 README「别名命名约定」）。加别名不需要改任何代码。
 
 **同一个服务两种用法**（对外的走 guarded、机内的走 trusted）→ 按代码路径选不同别名，不用开两个服务。
@@ -165,7 +165,7 @@ spec:
             - name: LLM_BASE_URL
               value: http://llm-service.llm.svc.cluster.local/v1
             - name: LLM_MODEL
-              value: custom-trusted            # ← 按 §1 选
+              value: llm-trusted            # ← 按 §1 选
             - name: LLM_SERVICE_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -186,7 +186,7 @@ import os
 
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").rstrip("/")
 LLM_TOKEN = os.getenv("LLM_SERVICE_TOKEN", "").strip()
-LLM_ALIAS = os.getenv("LLM_MODEL", "custom-trusted")
+LLM_ALIAS = os.getenv("LLM_MODEL", "llm-trusted")
 
 if not LLM_BASE_URL or not LLM_TOKEN:
     raise RuntimeError("未配置 llm-service：需要 LLM_BASE_URL 与 LLM_SERVICE_TOKEN")
@@ -235,7 +235,7 @@ tools  tool_choice  response_format  seed  n
 LLM(model=alias, provider="openai", base_url=LLM_BASE_URL, api_key=LLM_TOKEN, temperature=0.2)
 ```
 
-写成 `LLM(model="openai/custom-trusted")` 会落到未安装的 litellm 分支，报
+写成 `LLM(model="openai/llm-trusted")` 会落到未安装的 litellm 分支，报
 `did not match any supported native provider ... LiteLLM fallback package is not installed`。
 
 **② 不要自己实现 fallback**

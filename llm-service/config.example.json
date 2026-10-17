@@ -1,0 +1,74 @@
+{
+  "version": 2,
+  "active_upstream": "custom",
+  "upstreams": {
+    "deepseek": {
+      "provider": "deepseek",
+      "base_url": "https://api.deepseek.com/v1",
+      "model": "deepseek-v4-flash",
+      "api_key_env": "DEEPSEEK_API_KEY",
+      "max_retries": 2
+    },
+    "openai": {
+      "provider": "openai",
+      "base_url": "https://api.openai.com/v1",
+      "model": "gpt-4o-mini",
+      "api_key_env": "OPENAI_API_KEY",
+      "max_retries": 1
+    },
+    "custom": {
+      "provider": "custom",
+      "base_url": "https://custom-llm-proxy.panghuer.top/v1",
+      "model": "gpt-6",
+      "api_key_env": "CUSTOM_API_KEY",
+      "max_retries": 1
+    }
+  },
+  "routes": {
+    "deepseek-guarded": {
+      "tier": "guarded",
+      "upstream": "deepseek",
+      "timeout_seconds": 60,
+      "defaults": {
+        "temperature": 0.8
+      }
+    },
+    "deepseek-trusted": {
+      "tier": "trusted",
+      "upstream": "deepseek",
+      "timeout_seconds": 120,
+      "defaults": {
+        "temperature": 0.7,
+        "max_tokens": 2048
+      }
+    },
+    "openai-trusted": {
+      "tier": "trusted",
+      "upstream": "openai",
+      "timeout_seconds": 120
+    },
+    "custom-guarded": {
+      "tier": "guarded",
+      "upstream": "custom",
+      "timeout_seconds": 60
+    },
+    "custom-trusted": {
+      "tier": "trusted",
+      "upstream": "custom",
+      "timeout_seconds": 120
+    },
+    "llm-guarded": {
+      "tier": "guarded",
+      "upstream": "$active",
+      "timeout_seconds": 60
+    },
+    "llm-trusted": {
+      "tier": "trusted",
+      "upstream": "$active",
+      "timeout_seconds": 120
+    }
+  },
+  "limits": {
+    "requests_per_minute_per_caller": 120
+  }
+}

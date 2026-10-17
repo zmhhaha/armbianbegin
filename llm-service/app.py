@@ -16,12 +16,12 @@ from collections import defaultdict, deque
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from auth import resolve, token_map
-from config import ALLOWED_PARAMS, ConfigError, load_config, load_guard_config
+from config import ALLOWED_PARAMS, ConfigError, load_config, load_guard_config, thaw, validate_params
 from guard import detect, harden, leaked, new_canary, user_texts
 from upstream import UpstreamError, UpstreamStream, forward, open_stream
 
@@ -48,6 +48,7 @@ except ConfigError as error:
 _usage: dict[str, dict[str, int]] = defaultdict(lambda: {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0})
 # 按别名记账：它回答的是「哪个模型被用了多少」，与「谁在用」是两个维度，所以两张表都留着。
 _alias_usage: dict[str, dict[str, int]] = defaultdict(lambda: {"requests": 0, "prompt_tokens": 0, "completion_tokens": 0})
+_route_usage: dict[str, dict] = {}
 _windows: dict[str, deque] = defaultdict(deque)
 
 # 防护计数（内存态；Pod 重启归零，日报里会带 since 时间戳说明这一点）
@@ -70,6 +71,14 @@ def _record_usage(alias_name: str, caller: str, tokens: dict) -> None:
         counter["requests"] += 1
         counter["prompt_tokens"] += int(tokens.get("prompt_tokens") or 0)
         counter["completion_tokens"] += int(tokens.get("completion_tokens") or 0)
+
+
+def _record_route(alias, tokens):
+    key = alias.name + ":" + alias.revision
+    counter = _route_usage.setdefault(key, {**alias.metadata(), "requests": 0, "prompt_tokens": 0, "completion_tokens": 0})
+    counter["requests"] += 1
+    counter["prompt_tokens"] += int(tokens.get("prompt_tokens") or 0)
+    counter["completion_tokens"] += int(tokens.get("completion_tokens") or 0)
 
 
 class ChatRequest(BaseModel):
@@ -130,6 +139,8 @@ def ready():
     if CONFIG_ERROR:
         raise HTTPException(503, f"config error: {CONFIG_ERROR}")
     credentialed = [name for name, alias in ALIASES.items() if alias.api_key()]
+    if any(alias.active and not alias.api_key() for alias in ALIASES.values()):
+        raise HTTPException(503, "active upstream credential missing")
     if not credentialed:
         raise HTTPException(503, "no provider credential available")
     return {
@@ -138,6 +149,7 @@ def ready():
         "credentialed": len(credentialed),
         # 已注入几个调用方令牌；为 0 时服务能起来但谁都调不通
         "callers": len(token_map()),
+        "routes": {name: alias.metadata() for name, alias in ALIASES.items()},
     }
 
 
@@ -159,6 +171,7 @@ def usage(authorization: str | None = Header(default=None)):
         "usage": _usage[caller],
         # 别名维度：回答「哪个模型被用了多少」，与「谁在用」是两个问题
         "by_alias": {name: dict(counter) for name, counter in _alias_usage.items()},
+        "by_route": list(_route_usage.values()),
     }
 
 
@@ -202,6 +215,7 @@ def guard_report(authorization: str | None = Header(default=None)):
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "callers": {name: {**_usage[name], **_guard_view(name)} for name in sorted(_usage)},
         "by_alias": {name: dict(counter) for name, counter in sorted(_alias_usage.items())},
+        "by_route": list(_route_usage.values()),
     }
 
 
@@ -228,12 +242,13 @@ def _stream_usage(text: str) -> dict:
     return {}
 
 
-async def _relay(stream: UpstreamStream, canary: str | None, caller: str, alias_name: str, started: float):
+async def _relay(stream: UpstreamStream, canary: str | None, caller: str, alias, started: float):
     """把上游字节转发给调用方，顺带做 canary 检查与用量统计。
 
     流式下 `canary_action=reject` 的语义是**截断**而不是「拒绝」：已经吐出去的字收不回来，
     所以发现泄漏时只能停止继续转发。这一点写进了 README。
     """
+    alias_name = alias.name
     keep = 8192  # 只留尾部：usage 在最后，canary 检测也不需要留全文
     tail = ""
     leak_seen = False
@@ -249,13 +264,15 @@ async def _relay(stream: UpstreamStream, canary: str | None, caller: str, alias_
                 _guard_stats[caller]["rejected"] += 1
                 log.info(json.dumps({"event": "guard_stream_truncated", "caller": caller,
                                      "alias": alias_name}, ensure_ascii=False))
+                await stream.aclose()
                 return
         yield chunk
 
     tokens = _stream_usage(tail)
     _record_usage(alias_name, caller, tokens)
+    _record_route(alias, tokens)
     log.info(json.dumps({
-        "event": "chat", "caller": caller, "alias": alias_name, "stream": True,
+        "event": "chat", "caller": caller, "alias": alias_name, "stream": True, **alias.metadata(),
         "prompt_tokens": tokens.get("prompt_tokens"),
         "completion_tokens": tokens.get("completion_tokens"),
         "latency_ms": int((time.time() - started) * 1000),
@@ -265,6 +282,7 @@ async def _relay(stream: UpstreamStream, canary: str | None, caller: str, alias_
 @app.post("/v1/chat/completions")
 async def chat(
     request: ChatRequest,
+    response: Response,
     authorization: str | None = Header(default=None),
 ):
     caller = authorize(authorization)
@@ -274,6 +292,14 @@ async def chat(
         raise HTTPException(400, f"unknown model alias: {request.model}")
     # 按别名的「类别」施加策略：trusted 透传标准字段；guarded 收窄能力面，防提示词劫持
     alias = ALIASES[request.model]
+    snapshot = {request.model: alias}
+    response.headers["X-LLM-Route-Revision"] = alias.revision
+    params = thaw(alias.defaults)
+    params.update({key: getattr(request, key) for key in ALLOWED_PARAMS if getattr(request, key) is not None})
+    try:
+        validate_params(params, alias.tier)
+    except ConfigError as error:
+        raise HTTPException(400, str(error))
     policy = alias.policy
     if request.tools and not policy["allow_tools"]:
         raise HTTPException(400, f"model alias '{request.model}' (tier={alias.tier}) does not allow tools")
@@ -305,13 +331,13 @@ async def chat(
     canary = new_canary() if GUARD.canary_for(alias.tier) else None
     messages = harden(request.messages, spotlight=GUARD.spotlight_for(alias.tier), canary=canary)
 
-    params = {key: getattr(request, key) for key in ALLOWED_PARAMS}
     started = time.time()
+    log.info(json.dumps({"event": "route_selected", "caller": caller, **alias.metadata()}, ensure_ascii=False))
 
     # --- 流式分支：连接与读取分开，让「上游不可用」在还没写任何字节前变成正常的 5xx ---
     if request.stream:
         try:
-            stream = await open_stream(ALIASES, request.model, messages, params)
+            stream = await open_stream(snapshot, request.model, messages, params)
         except UpstreamError as error:
             log.info(json.dumps({"event": "upstream_error", "caller": caller, "alias": request.model,
                                  "status": error.status, "detail": error.message, "stream": True},
@@ -326,12 +352,13 @@ async def chat(
             raise HTTPException(stream.status_code, detail[:500])
 
         return StreamingResponse(
-            _relay(stream, canary, caller, request.model, started),
+            _relay(stream, canary, caller, alias, started),
             media_type=stream.content_type,
+            headers={"X-LLM-Route-Revision": alias.revision},
         )
 
     try:
-        response = await forward(ALIASES, request.model, messages, params)
+        response = await forward(snapshot, request.model, messages, params)
     except UpstreamError as error:
         log.info(json.dumps({"event": "upstream_error", "caller": caller, "alias": request.model,
                              "status": error.status, "detail": error.message}, ensure_ascii=False))
@@ -369,8 +396,9 @@ async def chat(
 
     tokens = data.get("usage") or {}
     _record_usage(request.model, caller, tokens)
+    _record_route(alias, tokens)
     log.info(json.dumps({
-        "event": "chat", "caller": caller, "alias": request.model,
+        "event": "chat", "caller": caller, "alias": request.model, **alias.metadata(),
         "model": data.get("model"), "prompt_tokens": tokens.get("prompt_tokens"),
         "completion_tokens": tokens.get("completion_tokens"),
         "latency_ms": int((time.time() - started) * 1000),

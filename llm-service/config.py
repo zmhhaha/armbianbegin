@@ -7,6 +7,11 @@ from __future__ import annotations
 
 import json
 import os
+import hashlib
+import math
+import re
+from types import MappingProxyType
+from urllib.parse import urlsplit
 from dataclasses import dataclass, field
 
 # 请求体里禁止出现的字段：任何"调用方自己指定上游"的尝试都必须被拒绝
@@ -73,6 +78,13 @@ class Alias:
     defaults: dict = field(default_factory=dict)
     # 类别：策略在 TIERS 里定义，别名只选档位
     tier: str = DEFAULT_TIER
+    upstream: str = ""
+    revision: str = ""
+    active: bool = False
+
+    def metadata(self) -> dict:
+        return {"requested_alias": self.name, "resolved_upstream": self.upstream,
+                "configured_model": self.model, "tier": self.tier, "route_revision": self.revision}
 
     @property
     def policy(self) -> dict:
@@ -86,46 +98,139 @@ class Alias:
         return os.getenv(self.api_key_env, "").strip()
 
 
-def _alias_from(name: str, item: dict) -> Alias:
-    missing = [key for key in ("provider", "base_url", "model", "api_key_env") if not item.get(key)]
-    if missing:
-        raise ConfigError(f"别名 {name} 缺少字段: {', '.join(missing)}")
-    if any("key" in key.lower() or key.lower().endswith("secret") for key in item if key != "api_key_env"):
-        raise ConfigError(f"别名 {name} 不能内嵌凭据，只能通过 api_key_env 引用")
-    tier = str(item.get("tier") or DEFAULT_TIER).strip().lower()
-    if tier not in TIERS:
-        raise ConfigError(f"别名 {name} 的 tier={tier} 未定义，可选值：{', '.join(TIERS)}")
-    return Alias(
-        name=name,
-        provider=item["provider"],
-        base_url=item["base_url"],
-        model=item["model"],
-        api_key_env=item["api_key_env"],
-        timeout_seconds=float(item.get("timeout_seconds", 60)),
-        max_retries=int(item.get("max_retries", 2)),
-        defaults=dict(item.get("defaults") or {}),
-        tier=tier,
-    )
+def freeze(value):
+    if isinstance(value, dict):
+        return MappingProxyType({k: freeze(v) for k, v in value.items()})
+    if isinstance(value, list):
+        return tuple(freeze(v) for v in value)
+    return value
+
+
+def thaw(value):
+    if isinstance(value, (dict, MappingProxyType)):
+        return {k: thaw(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [thaw(v) for v in value]
+    return value
+
+
+def _object(value, allowed, label):
+    if not isinstance(value, dict) or set(value) - set(allowed):
+        raise ConfigError(f"{label}: invalid object or unsupported fields")
+    return value
+
+
+def _number(value, low, high, label, integer=False):
+    if (isinstance(value, bool) or not isinstance(value, (int, float))
+            or not math.isfinite(value) or not low <= value <= high
+            or (integer and not isinstance(value, int))):
+        raise ConfigError(f"{label}: invalid number")
+    return value
+
+
+def _unique(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ConfigError("duplicate configuration key")
+        result[key] = value
+    return result
+
+
+def validate_params(params, tier):
+    _object(params, ALLOWED_PARAMS, "defaults")
+    bounds = {"temperature": (0, 2), "top_p": (0, 1), "max_tokens": (1, TIERS[tier]["max_tokens_cap"]),
+              "presence_penalty": (-2, 2), "frequency_penalty": (-2, 2), "n": (1, 4)}
+    for key, value in params.items():
+        if value is None:
+            continue
+        if key in bounds:
+            _number(value, *bounds[key], key, integer=key in ("max_tokens", "n"))
+        if key == "seed" and (isinstance(value, bool) or not isinstance(value, int)):
+            raise ConfigError("invalid seed")
+        if key in ("tools", "tool_choice", "response_format") and not TIERS[tier]["allow_tools"]:
+            raise ConfigError(f"tier {tier} does not allow {key}")
+        if key == "tools" and (not isinstance(value, list) or len(value) > 32 or any(not isinstance(v, dict) for v in value)):
+            raise ConfigError("invalid tools")
+        if key == "response_format" and not isinstance(value, dict):
+            raise ConfigError("invalid response_format")
+        if key == "tool_choice" and not isinstance(value, (str, dict)):
+            raise ConfigError("invalid tool_choice")
+        if key == "stop" and (not isinstance(value, list) or len(value) > 4 or any(not isinstance(v, str) for v in value)):
+            raise ConfigError("invalid stop")
 
 
 def load_config() -> tuple[dict[str, Alias], float]:
     """返回 (别名表, 每调用方每分钟请求上限)。"""
     inline = os.getenv("LLM_ALIASES", "").strip()
     path = os.getenv("LLM_CONFIG_FILE", "").strip()
-    if inline:
-        data = json.loads(inline)
-    elif path:
-        with open(path, encoding="utf-8") as handle:
-            data = json.load(handle)
-    else:
-        raise ConfigError("LLM_ALIASES 或 LLM_CONFIG_FILE 未配置")
-
-    aliases = {name: _alias_from(name, item) for name, item in (data.get("aliases") or {}).items()}
-    if not aliases:
-        raise ConfigError("未配置任何模型别名")
-
-    limits = data.get("limits") or {}
-    return aliases, float(limits.get("requests_per_minute_per_caller", 60))
+    try:
+        if inline:
+            data = json.loads(inline, object_pairs_hook=_unique)
+        elif path:
+            with open(path, encoding="utf-8") as handle:
+                data = json.load(handle, object_pairs_hook=_unique)
+        else:
+            raise ConfigError("LLM_ALIASES 或 LLM_CONFIG_FILE 未配置")
+    except (ValueError, OSError) as error:
+        raise ConfigError("cannot read valid routing JSON") from error
+    _object(data, ("version", "active_upstream", "upstreams", "routes", "limits"), "config")
+    if type(data.get("version")) is not int or data["version"] != 2:
+        raise ConfigError("only configuration version=2 is supported")
+    upstreams, routes = data.get("upstreams"), data.get("routes")
+    if not isinstance(upstreams, dict) or not upstreams or not isinstance(routes, dict) or not routes:
+        raise ConfigError("upstreams and routes must be nonempty objects")
+    active = data.get("active_upstream")
+    if not isinstance(active, str) or active not in upstreams:
+        raise ConfigError("unknown active_upstream")
+    for name, item in upstreams.items():
+        if not re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", name):
+            raise ConfigError("invalid upstream name")
+        _object(item, ("provider", "base_url", "model", "api_key_env", "max_retries"), "upstream")
+        if any(not isinstance(item.get(k), str) or not item[k].strip() for k in ("provider", "base_url", "model", "api_key_env")):
+            raise ConfigError("upstream missing required string")
+        try:
+            url = urlsplit(item["base_url"])
+            url.port
+        except ValueError as error:
+            raise ConfigError("invalid upstream URL") from error
+        if url.scheme not in ("http", "https") or not url.hostname or url.username or url.password or url.query or url.fragment:
+            raise ConfigError("invalid upstream URL")
+        if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", item["api_key_env"]):
+            raise ConfigError("invalid credential environment reference")
+        _number(item.get("max_retries", 2), 0, 5, "max_retries", integer=True)
+    if not os.getenv(upstreams[active]["api_key_env"], "").strip():
+        raise ConfigError("active upstream credential missing")
+    guard = load_guard_config()
+    guard_revision = {"spotlight": guard.spotlight, "canary": guard.canary,
+                      "canary_action": guard.canary_action, "detection": guard.detection}
+    aliases = {}
+    for name, route in routes.items():
+        if not re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", name):
+            raise ConfigError("invalid route name")
+        _object(route, ("upstream", "tier", "timeout_seconds", "defaults"), "route")
+        tier, target = route.get("tier"), route.get("upstream")
+        if not isinstance(tier, str) or tier not in TIERS:
+            raise ConfigError("unknown tier")
+        target = active if target == "$active" else target
+        if not isinstance(target, str) or target not in upstreams:
+            raise ConfigError("unknown route upstream")
+        if name in ("llm-guarded", "llm-trusted") and (tier != name[4:] or route["upstream"] != "$active"):
+            raise ConfigError("stable routes must keep their tier and use $active")
+        item = upstreams[target]
+        defaults = route.get("defaults", {})
+        validate_params(defaults, tier)
+        timeout = _number(route.get("timeout_seconds", 60), 1, 600, "timeout_seconds")
+        resolved = {**item, "upstream": target, "tier": tier, "timeout_seconds": timeout, "defaults": defaults, "guard": guard_revision}
+        revision = hashlib.sha256(json.dumps(resolved, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:24]
+        aliases[name] = Alias(name=name, **item, tier=tier, defaults=freeze(defaults), timeout_seconds=timeout,
+                              upstream=target, revision=revision, active=route["upstream"] == "$active")
+    for name in ("llm-guarded", "llm-trusted"):
+        if name not in aliases:
+            raise ConfigError("both stable tier routes are required")
+    limits = _object(data.get("limits", {}), ("requests_per_minute_per_caller",), "limits")
+    rpm = _number(limits.get("requests_per_minute_per_caller", 60), 1, 1000000, "rpm")
+    return MappingProxyType(aliases), float(rpm)
 
 
 # ---------------------------------------------------------------------------

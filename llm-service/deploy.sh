@@ -5,7 +5,7 @@ ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 export KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
 
 REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
-IMAGE="${REGISTRY}/llm-service:latest"
+export IMAGE="${IMAGE:-${REGISTRY}/llm-service:$(git -C "${SCRIPT_DIR}" rev-parse --short HEAD)}"
 VAULT_MANIFEST="${ROOT_DIR}/vault/inventory/llm-service-externalsecret.yaml"
 
 if [[ "${1:-}" != "--skip-build" ]]; then
@@ -27,10 +27,8 @@ else
 fi
 
 echo "=== Applying llm-service resources ==="
-sed "s|arm-cluster-master:5000/llm-service:latest|${IMAGE}|g" "${SCRIPT_DIR}/k8s.yaml" | kubectl apply -f -
-
-# latest 不变更 Deployment 模板，必须显式重启才能拉到新镜像
-kubectl -n llm rollout restart deployment/llm-service
+# Render a content-addressed ConfigMap and pin the image in the same Pod template update.
+python3 "${SCRIPT_DIR}/render-deploy.py" --image "${IMAGE}" | kubectl apply -f -
 kubectl -n llm rollout status deployment/llm-service --timeout=300s
 
 echo "=== Status ==="

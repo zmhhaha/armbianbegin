@@ -16,7 +16,7 @@ from collections.abc import AsyncIterator
 
 import httpx
 
-from config import Alias
+from config import Alias, thaw
 
 # 流式时让上游在最后一帧带上 usage，否则流式请求拿不到 token 数、用量统计会缺口。
 # DeepSeek 与 OpenAI 都支持这个字段。
@@ -31,7 +31,7 @@ class UpstreamError(RuntimeError):
 
 
 def _payload(alias: Alias, messages: list, params: dict, *, stream: bool = False) -> dict:
-    body = dict(alias.defaults)
+    body = thaw(alias.defaults)
     body.update({key: value for key, value in params.items() if value is not None})
     body["model"] = alias.model  # 调用方传的是别名，真正发给上游的是配置里的模型名
     body["messages"] = messages

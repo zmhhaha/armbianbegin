@@ -101,25 +101,17 @@ canary 改为**边转发边累积检查**，命中时计数一次并记日志；
 
 ## 配置
 
-ConfigMap `llm-service-config`：
+只支持 `version: 2`，旧 `aliases` 格式、缺少版本和未知版本会导致 not-ready。完整示例见 [config.example.json](config.example.json)。环境变量仍叫 `LLM_ALIASES`，内容已改为 upstreams/routes；也可通过 LLM_CONFIG_FILE 指定 JSON 文件。
 
-```json
-{
-  "aliases": {
-    "deepseek-trusted": {
-      "tier": "trusted",
-      "provider": "deepseek",
-      "base_url": "https://api.deepseek.com/v1",
-      "model": "deepseek-v4-flash",
-      "api_key_env": "DEEPSEEK_API_KEY",
-      "timeout_seconds": 120,
-      "max_retries": 2,
-      "defaults": {"temperature": 0.7, "max_tokens": 2048}
-    }
-  },
-  "limits": {"requests_per_minute_per_caller": 120}
-}
-```
+业务统一使用 `llm-guarded` / `llm-trusted`。只需修改 `k8s.yaml` 中 `active_upstream`（custom 或 deepseek），运行 `bash deploy.sh --skip-build` 即可集中切换。明确指定供应商的固定路由仍在新格式中显式配置。
+
+`deploy.sh` 使用 Git 提交作为镜像标签，并按 ConfigMap 内容生成名称，将镜像和配置引用作为同一次 Deployment 模板更新。更新策略为 RollingUpdate（maxUnavailable=0/maxSurge=1），终止宽限 150 秒；滚动期间新旧路由可短暂并存，超长 SSE 可能在宽限到期被中断。每个请求固定自己的路由快照。日常只改配置时，应设置 IMAGE 为当前运行镜像的固定标签或 digest，避免引用不存在的标签。
+
+首次迁移需一起发布新镜像和新格式配置，待网关 rollout 完成才迁移消费者。回滚首次迁移时先恢复消费者旧别名，再恢复旧镜像及旧 ConfigMap；不得给新镜像配旧格式。后续切换回滚可用 `kubectl -n llm rollout undo deploy/llm-service` 恢复上一模板，旧 ConfigMap 保留用于回滚。
+
+请求日志、`/v1/usage` 的 `by_route` 和 `/health/ready` 的 routes 记录 requested_alias、resolved_upstream、configured_model、tier、route_revision；普通和 SSE 成功响应都有 X-LLM-Route-Revision。revision 不含密钥值。凭据缺失的活动上游阻止 ready；未使用的固定预留路由缺凭据不阻止 ready。
+
+缓存：百家争鸣稳定路由不读取历史报告缓存；报告记录 requested_alias 和可空 route_revision（CrewAI 当前不暴露响应头，因此为空，不伪造版本）。文献下载稳定路由不复用或写入检索计划缓存。School Of One 判定的数据库和前端结果缓存停用；已有文献文件、业务记录和游戏历史不属于模型结果复用缓存。
 
 凭据（Vault → `llm-service-secret`）：
 
@@ -255,8 +247,8 @@ bash deploy.sh           # 应用 Vault ExternalSecret + k8s，重启并等待�
 ```bash
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 LLM_TOKEN_DEV=dev \
-LLM_ALIASES='{"aliases":{"deepseek-trusted":{"tier":"trusted","provider":"deepseek","base_url":"https://api.deepseek.com/v1","model":"deepseek-v4-flash","api_key_env":"DEEPSEEK_API_KEY"}}}' \
-DEEPSEEK_API_KEY=... uvicorn app:app --port 8000
+LLM_CONFIG_FILE=config.example.json \
+CUSTOM_API_KEY=... uvicorn app:app --port 8000
 
 python -m unittest discover -s tests
 ```

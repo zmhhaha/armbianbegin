@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import json
 import sys
 import unittest
 from contextlib import ExitStack
@@ -15,15 +16,13 @@ import auth  # noqa: E402  （必须在 sys.path 插入之后）
 import guard  # noqa: E402
 from upstream import UpstreamError  # noqa: E402
 
-ALIASES = (
-    '{"aliases":{'
-    '"deepseek-guarded":{"tier":"guarded","provider":"deepseek","base_url":"https://up.invalid/v1",'
-    '"model":"real-model","api_key_env":"TEST_KEY"},'
-    '"deepseek-trusted":{"tier":"trusted","provider":"deepseek","base_url":"https://up.invalid/v1",'
-    '"model":"real-model","api_key_env":"TEST_KEY"}'
-    '},'
-    '"limits":{"requests_per_minute_per_caller":2}}'
-)
+ALIASES = json.dumps({
+    "version": 2, "active_upstream": "deepseek",
+    "upstreams": {"deepseek": {"provider": "deepseek", "base_url": "https://up.invalid/v1", "model": "real-model", "api_key_env": "TEST_KEY"}},
+    "routes": {name: {"tier": tier, "upstream": "$active" if name.startswith("llm-") else "deepseek"}
+               for name, tier in [("deepseek-guarded", "guarded"), ("deepseek-trusted", "trusted"), ("llm-guarded", "guarded"), ("llm-trusted", "trusted")]},
+    "limits": {"requests_per_minute_per_caller": 2}
+})
 
 
 class FakeResponse:
@@ -128,7 +127,7 @@ class LlmServiceTests(unittest.TestCase):
         self.assertEqual(self.client.get("/health/live").status_code, 200)
         self.assertEqual(self.client.get("/health/ready").status_code, 200)
         response = self.client.get("/v1/models", headers=self.headers)
-        self.assertEqual([item["id"] for item in response.json()["data"]], ["deepseek-guarded", "deepseek-trusted"])
+        self.assertEqual([item["id"] for item in response.json()["data"]], ["deepseek-guarded", "deepseek-trusted", "llm-guarded", "llm-trusted"])
 
     def test_chat_resolves_alias_and_records_usage(self):
         with self._patch_forward():
@@ -138,10 +137,29 @@ class LlmServiceTests(unittest.TestCase):
                 json={"model": "deepseek-trusted", "messages": [{"role": "user", "content": "hi"}], "temperature": 0.5},
             )
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["X-LLM-Route-Revision"], self.module.ALIASES["deepseek-trusted"].revision)
         self.assertEqual(response.json()["model"], "real-model")
         usage = self.client.get("/v1/usage", headers=self.headers).json()["usage"]
         self.assertEqual(usage["requests"], 1)
         self.assertEqual(usage["completion_tokens"], 5)
+
+    def test_stable_stream_keeps_snapshot_when_global_routes_change(self):
+        original = self.module.ALIASES
+        captured = {}
+        async def opened(routes, name, messages, params):
+            captured['route'] = routes[name]
+            self.module.ALIASES = {name: replace(routes[name], model='other', revision='other')}
+            return FakeUpstreamStream([b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n', b'data: [DONE]\n\n'])
+        try:
+            with patch.object(self.module, 'open_stream', opened):
+                response = self.client.post('/v1/chat/completions', headers=self.headers,
+                    json={'model':'llm-trusted','messages':[{'role':'user','content':'hi'}],'stream':True})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers['X-LLM-Route-Revision'], captured['route'].revision)
+            self.assertIn('[DONE]', response.text)
+            self.assertEqual(self.module._route_usage['llm-trusted:'+captured['route'].revision]['configured_model'], 'real-model')
+        finally:
+            self.module.ALIASES = original
 
     def test_forwards_tools_to_upstream(self):
         """函数调用相关字段（tools/tool_choice）必须透传给上游：CrewAI 的网页工具依赖它。"""
