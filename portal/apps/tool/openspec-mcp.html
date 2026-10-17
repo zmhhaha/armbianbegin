@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📐 OpenSpec MCP 接入</title>
+<title>📐 OpenSpec 使用指南</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.75}
@@ -36,104 +36,129 @@ td code{font-size:.85em}
 <body>
 <div class="wrap">
   <a class="back" href="index.html">← 返回工具</a>
-  <h1>📐 OpenSpec MCP 接入</h1>
-  <p class="sub">让 Codex、Claude Code、Cursor 这类 AI 编程工具直接读写你的 OpenSpec 规格库。不需要在本地装任何 OpenSpec 环境，加一个远程 MCP 就行。</p>
+  <h1>📐 OpenSpec 使用指南</h1>
+  <p class="sub">在你的 AI 编程工具中管理项目规范、提出变更、跟踪任务，让每次开发都有清晰的依据。</p>
 
-  <h2>三步走完</h2>
+  <p>你需要一个可登录本服务的账号，以及支持 MCP 的 AI 编程工具。OpenSpec 提供规范与变更管理；AI 模型由你使用的客户端提供。项目源码可以继续放在 GitHub。</p>
+
+  <h2>1. 准备你的项目</h2>
+  <p>新项目请打开 <a href="https://openspec.panghuer.top/project-requests">项目申请表</a>，登录后按表单填写项目名称、GitHub 仓库地址等信息并提交。保存提交后返回的申请链接，用它查看审批进度和处理结果。</p>
+  <p>审批通过后，即可在 AI 客户端中选择该项目。如果要加入已有项目，请联系项目管理员为你的账号开通访问权限，无需重复申请。</p>
+  <div class="note">首次使用时，登录账号与 Gitea 账号的邮箱需要一致，用户名可以不同。遇到账号关联问题，请联系管理员。</div>
+
+  <h2>2. 连接你的 AI 客户端</h2>
+  <p>选择下面与你使用的客户端对应的方法，完成配置后，在浏览器中登录并授权。</p>
+  <table>
+    <tr><th>配置项</th><th>填写内容</th></tr>
+    <tr><td>服务名称</td><td><code>openspec</code></td></tr>
+    <tr><td>MCP 地址</td><td><code>https://openspec.panghuer.top/mcp</code></td></tr>
+    <tr><td>传输方式</td><td>Streamable HTTP</td></tr>
+    <tr><td>认证方式</td><td>OAuth（浏览器登录授权）</td></tr>
+    <tr><td>Client ID</td><td><code>315cbdaf565b82103c6f</code></td></tr>
+    <tr><td>Client Secret</td><td>留空，不需要填写</td></tr>
+  </table>
+  <p>直接通过 OAuth 连接时，请使用上面的 Client ID。它是本服务共用的公开应用标识，不是你的个人令牌，无需自行申请。如果使用已配置好的本机网关，则按网关说明连接，无需在 AI 客户端重复填写这个 ID。</p>
+
+  <h3>Claude Code</h3>
+  <p>在终端执行：</p>
+  <pre><code>claude mcp add --transport http --client-id 315cbdaf565b82103c6f openspec https://openspec.panghuer.top/mcp</code></pre>
+  <p>进入 Claude Code，使用 <code>/mcp</code> 查看连接状态，并按提示完成 openspec 的登录授权。</p>
+
+  <h3>Codex CLI</h3>
+  <p>在终端依次执行：</p>
+  <pre><code>codex mcp add openspec --url https://openspec.panghuer.top/mcp --oauth-client-id 315cbdaf565b82103c6f
+codex mcp login openspec</code></pre>
+  <p>完成浏览器授权后，启动或重新打开客户端会话。若提示不支持上述参数，请先更新客户端。</p>
+
+  <h3>其他客户端</h3>
+  <p>在客户端的 MCP 设置中添加远程服务，按上表填写地址、传输方式和 OAuth Client ID，再完成登录。不同客户端的设置入口和 OAuth 支持情况可能不同。</p>
+  <p>如果客户端不支持 OAuth 或无法指定 Client ID（例如需要通过网关接入的 DSH），请见下一节。</p>
+
+  <h3>不支持 OAuth 的客户端（如 DSH）：经本机网关接入</h3>
+  <p>有些客户端的 MCP 实现不走 OAuth 授权码流程，也无法携带 <code>client_id</code> —— DSH 的 MCP 客户端就是这种情况（按其源码实测确认）。这类客户端不直连 <code>openspec.panghuer.top</code>，而是连一个<strong>只监听本机</strong>的小网关：由网关代为完成「发现 → 浏览器授权 → 令牌续期」，客户端只拿一个本地令牌，真正的长期凭据不出现在任何配置文件里。</p>
+  <p>这套方式是本机 DSH 目前在用的配置，与下面的通用表一一对应：</p>
+  <table>
+    <tr><th>配置项</th><th>填写内容</th></tr>
+    <tr><td>服务名称</td><td><code>openspec</code></td></tr>
+    <tr><td>MCP 地址</td><td><code>http://127.0.0.1:33419/mcp</code>（网关端口，只监听本机）</td></tr>
+    <tr><td>传输方式</td><td>Streamable HTTP</td></tr>
+    <tr><td>上游地址</td><td><code>https://openspec.panghuer.top/mcp</code>（由网关配置）</td></tr>
+    <tr><td>认证方式</td><td>自定义请求头 <code>x-mcp-gateway-token</code>，值为网关的本地令牌</td></tr>
+    <tr><td>Client ID</td><td>不需要填（由网关代填 <code>315cbdaf565b82103c6f</code>）</td></tr>
+  </table>
+  <p>客户端侧配置片段（DSH 的 profile patch；其他客户端写成对应的 headers 即可）：</p>
+  <pre><code>- insert:
+    - id: openspec-mcp
+      name: "@deepseek-ai/dsh-mcp-client"
+      config:
+        serverName: openspec
+        transport: streamable-http
+        url: http://127.0.0.1:33419/mcp
+        headers:
+          x-mcp-gateway-token: '&lt;网关的本地令牌&gt;'
+        failOnStartupError: false
+        reconnect:
+          maxAttempts: 20</code></pre>
+  <p>本地令牌由网关自己生成并保管，不在服务端任何配置里，位置是：</p>
+  <pre><code>%APPDATA%\mcp-oauth-gateway\&lt;state&gt;.json      # 取其中的 localToken 字段</code></pre>
+  <div class="note">不要把本地令牌写进公开页面、代码仓库或工单。它只在本机有效，但泄漏后本机上任何程序都能用它访问你可访问的 OpenSpec 项目。需要更换时：改状态文件里的 <code>localToken</code> → 同步客户端配置 → 重启网关。</div>
+  <p>首次连接或授权过期后，在浏览器打开网关的登录页完成授权，然后重新连接客户端：</p>
+  <pre><code>http://localhost:33419/oauth/login</code></pre>
+  <p>网关可以设为开机自启（本机用的是 <code>wscript %APPDATA%\mcp-oauth-gateway\serve-hidden.vbs</code>）。连接成功后，用第 3 节的「列出我可以访问的项目」验证即可。</p>
+
+  <h2>3. 选择项目并确认连接</h2>
+  <p>在 AI 客户端中发送：</p>
+  <pre><code>请通过 openspec MCP 列出我可以访问的项目。</code></pre>
+  <p>看到项目列表后，选择这次要开发的项目，并发送下面的指令，将占位内容替换为实际信息：</p>
+  <pre><code>本次使用 OpenSpec 项目「你的项目名称」，projectId 为「列表中返回的 ID」。
+请读取该项目的现有规范和未完成变更，概括当前状态，先不要修改内容。</code></pre>
+  <p>能够读取项目内容，就说明接入成功。新项目没有规范或变更是正常的，可以从第一个需求开始。</p>
+  <div class="note">打开本地代码目录不会自动选择 OpenSpec 项目。新会话或切换项目时，请明确告诉 AI 使用哪个项目，避免把变更写到其他项目。</div>
+
+  <h2>日常怎么使用</h2>
   <ol class="steps">
     <li>
-      <span class="st">提交项目申请，等管理员审批</span>
-      <p>打开 <a href="https://openspec.panghuer.top/project-requests">openspec.panghuer.top/project-requests</a>，用 Casdoor 登录后填表：显示名称、slug、GitHub 公开仓库地址、默认 ref、脚本 profile、说明。</p>
-      <p>提交后服务端会校验字段并自动建一个 Gitea Issue。管理员检查后加上 <code>status:approved</code> 标签，系统随即创建该项目的<strong>私有 Gitea OpenSpec store</strong>，把申请人加为 Admin，并在 Issue 里评论 projectId 和仓库地址。</p>
-      <div class="note">审批通过之前，下面的步骤拿不到可用的 projectId。Issue 地址就是你的进度条。</div>
+      <span class="st">描述需求，先形成变更提案</span>
+      <p>告诉 AI 你想实现的功能，让它先读取现有规范，再整理提案、规范变更和任务清单。检查内容是否符合你的预期。</p>
+      <pre><code>请为当前 OpenSpec 项目创建一个变更：添加用户收藏功能。
+先读取相关规范，整理提案、行为与验收场景、开发任务。
+有不明确的地方先问我，暂时不要修改代码。</code></pre>
     </li>
     <li>
-      <span class="st">填上 MCP 地址，让客户端自己授权</span>
-      <p>不需要先取 JWT。多数标准 MCP 客户端会在首次连接时<strong>自动完成 OAuth 授权</strong>：它先撞到 401，再按 RFC 9728 发现 <code>auth.panghuer.top</code>，拉起浏览器让你同意一次，然后带着 token 回来。</p>
-      <p>需要手工指定 client_id 的客户端填 <code>315cbdaf565b82103c6f</code>（MCP 专用应用 <code>panghu-mcp</code>），<strong>不需要 secret</strong>。授权后你在 MCP 上的身份权限<strong>完全以该项目的 Gitea 仓库 ACL 为准</strong>：viewer 能读、editor 能写、owner 才能归档。</p>
-      <h3>Claude Code</h3>
-      <pre><code>claude mcp add --transport http openspec \
-  https://openspec.panghuer.top/mcp</code></pre>
-      <h3>Codex CLI</h3>
-      <pre><code>codex mcp add openspec --transport streamable-http \
-  https://openspec.panghuer.top/mcp</code></pre>
-      <h3>Cursor / Windsurf / 其他支持远程 MCP 的工具</h3>
-      <p>设置 → MCP → 添加远程 MCP server，URL 填 <code>https://openspec.panghuer.top/mcp</code>，然后按客户端提示完成浏览器授权。</p>
-      <h3>不支持自动授权的客户端 / 命令行兜底</h3>
-      <p>只有不支持 OAuth 发现的客户端才需要手工配 header。用命令行取 JWT：</p>
-      <pre><code>bash openspec_service/scripts/get-token.sh
-export CASDOOR_JWT="$(cat /tmp/casdoor.jwt)"</code></pre>
-      <p>再把 <code>$CASDOOR_JWT</code> 作为 header 传给客户端（<code>Authorization: Bearer &lt;JWT&gt;</code>）。脚本走 MCP 专用应用，<strong>不需要 client_secret</strong>。</p>
-      <h3>验证连通性</h3>
-      <pre><code>curl -s -X POST https://openspec.panghuer.top/mcp \
-  -H "Authorization: Bearer $CASDOOR_JWT" -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize",
-       "params":{"protocolVersion":"2025-06-18","capabilities":{},
-                 "clientInfo":{"name":"test","version":"0"}}}'</code></pre>
+      <span class="st">确认方案并校验</span>
+      <p>让 AI 按你的反馈更新变更，并调用 OpenSpec 校验。校验通过表示文档符合要求，功能是否满足需求仍需要你审阅。</p>
+      <pre><code>请根据刚才的反馈更新这个变更，并执行 OpenSpec 校验。
+告诉我校验结果和还需要确认的问题。</code></pre>
     </li>
     <li>
-      <span class="st">按规范写</span>
-      <p>接进来之后不要直接改代码。规范驱动的顺序是：<strong>先写 change（提案 + spec delta + 任务），校验通过、合并进主 specs，再照着自己写的 spec 实现。</strong></p>
-      <p>把这个顺序明确告诉你的 AI 工具，或者在项目里放一条规则，否则它多半会先写代码。</p>
+      <span class="st">实现功能，记录进度</span>
+      <p>方案确认后，让 AI 在你的源码工作区实现并测试，同时更新变更中的任务清单。代码修改和测试由你的开发工具完成。</p>
+      <pre><code>方案已确认，请按这个变更的任务清单实现并测试。
+完成后更新任务状态，说明测试结果和剩余事项。</code></pre>
+    </li>
+    <li>
+      <span class="st">完成验收，归档变更</span>
+      <p>确认实现和测试结果符合要求后，让 AI 再次校验并归档变更，将规范变更纳入正式规范。归档需要项目管理员权限；没有权限时，请联系项目管理员完成。</p>
+      <pre><code>这个变更已完成验收。请检查任务状态并再次校验，
+确认满足归档条件后归档，将结果告诉我。</code></pre>
     </li>
   </ol>
+  <p>你也可以随时让 AI「列出当前规范」「查看未完成变更」或「总结某个变更的进度」。通常不需要自己编写 API 请求或填写工具参数。</p>
 
-  <h2>工具清单</h2>
+  <h2>常见问题</h2>
   <table>
-    <tr><th>工具</th><th>必填参数</th><th>权限</th><th>说明</th></tr>
-    <tr><td><code>list_projects</code></td><td>—</td><td>任意已认证</td><td>列出你可见的项目</td></tr>
-    <tr><td><code>list_specs</code></td><td>projectId</td><td>Read</td><td>列出主 specs（返回 revision）</td></tr>
-    <tr><td><code>list_changes</code></td><td>projectId</td><td>Read</td><td>列出 active changes（返回 revision）</td></tr>
-    <tr><td><code>get_change</code></td><td>projectId, changeId</td><td>Read</td><td>读 change 工件与 taskStatus</td></tr>
-    <tr><td><code>create_proposal</code></td><td>projectId, changeId, expectedRevision</td><td>Write</td><td>创建 change</td></tr>
-    <tr><td><code>update_proposal</code></td><td>projectId, changeId, expectedRevision, files</td><td>Write</td><td>更新已有 change 工件</td></tr>
-    <tr><td><code>validate_change</code></td><td>projectId, changeId</td><td>Write</td><td>校验 change/spec</td></tr>
-    <tr><td><code>apply_specs</code></td><td>projectId, changeId, expectedRevision</td><td>Write</td><td>delta 合并进主 specs，保留 change</td></tr>
-    <tr><td><code>archive_change</code></td><td>projectId, changeId, expectedRevision</td><td><strong>Admin</strong></td><td>归档 change</td></tr>
+    <tr><th>遇到的情况</th><th>如何处理</th></tr>
+    <tr><td>连接时要求 Client ID，或提示客户端注册失败</td><td>填写 <code>315cbdaf565b82103c6f</code>，Client Secret 留空；若客户端没有对应设置，请使用支持该配置的客户端或本机网关。</td></tr>
+    <tr><td>提示未授权或登录已过期</td><td>在客户端重新登录 openspec 并完成浏览器授权。Codex CLI 可执行 <code>codex mcp login openspec</code>。</td></tr>
+    <tr><td>能连接，但项目列表为空或找不到项目</td><td>确认登录的是申请项目时的账号，检查申请是否已通过；已有项目请联系项目管理员确认访问权限。</td></tr>
+    <tr><td>可以查看，但不能修改或归档</td><td>联系项目管理员确认你是否有相应权限。查看权限不代表可以修改；归档需要管理员权限。</td></tr>
+    <tr><td>提示会话失效（session expired）</td><td>在客户端重新连接 MCP，必要时重新打开客户端会话，再选择项目。</td></tr>
+    <tr><td>提示版本冲突（409）</td><td>让 AI 重新读取最新内容，核对其他人的修改后再提交更新。</td></tr>
+    <tr><td>变更校验失败</td><td>让 AI 根据返回的问题修改变更文档，然后再次校验。</td></tr>
+    <tr><td>服务无法连接，或返回 502 / 503</td><td>稍后重试；持续失败时，将错误信息和发生时间提供给管理员。</td></tr>
   </table>
 
-  <h2>标准工作流</h2>
-  <pre><code>1. list_projects                → 找到 projectId
-2. list_specs / list_changes    → 取当前 revision（乐观并发基准）
-3. create_proposal              → changeId + expectedRevision +
-                                  files = { "proposal.md": …, "specs/<cap>/spec.md": … }
-4. validate_change              → 确认 valid=true（失败按 message 修内容）
-5. update_proposal              → 需要改时，用最新 revision
-6. apply_specs                  → delta 合入主 specs
-7. archive_change               → 归档（需 owner 权限）</code></pre>
-
-  <h2>几条要守的规矩</h2>
-  <ul>
-    <li><strong>写操作要带 <code>expectedRevision</code></strong>。它来自上一步的读，过期会返回 409，重新读一次再写即可。</li>
-    <li><strong>幂等</strong>：写工具不传 <code>Idempotency-Key</code> 时，服务按「用户 + 项目 + 工具 + 参数」派生确定性键。所以超时重试同一次调用不会重复写入，换个参数就是新调用。</li>
-    <li><strong>先 spec 后码</strong>。字段名别乱起：用 <code>### Requirement</code> + <code>#### Scenario</code>，场景写 <code>WHEN / THEN / AND THEN</code>。</li>
-    <li><strong>归档要 owner</strong>。editor 能写能校验，但归档需要 Gitea 仓库 owner 权限。</li>
-    <li><strong>projectId 是唯一边界</strong>。客户端只传 projectId，服务端按 Gitea 仓库实时查 ACL；无权限一律 404（刻意不区分「不存在」和「无权」）。</li>
-  </ul>
-
-  <h2>常见错误</h2>
-  <table>
-    <tr><th>状态</th><th>含义</th><th>怎么办</th></tr>
-    <tr><td>401</td><td>JWT 无效 / 过期 / aud 不符</td><td>支持 OAuth 的客户端会自动重新授权，重试即可；命令行场景用 <code>openspec_service/scripts/get-token.sh</code> 重新取 JWT，不要再去 <code>/token</code></td></tr>
-    <tr><td>404</td><td>项目不存在，或你无权访问</td><td>查 projectId；确认自己在该 Gitea 仓库里</td></tr>
-    <tr><td>409</td><td>revision 过期，或幂等键与上次内容不一致</td><td>重新读 revision 再写</td></tr>
-    <tr><td>422</td><td>validate/archive 的内容不合法</td><td>按返回的 message 修 spec 内容</td></tr>
-    <tr><td>503</td><td>Gitea / DB / Vault 依赖不可用</td><td>稍后重试</td></tr>
-  </table>
-
-  <div class="note">
-    这个服务<strong>只给所有者和一位朋友使用</strong>，没有自助注册，也不是开放平台。
-    项目登记走上面的申请 + 审批流程，没有别的入口。
-  </div>
-
-  <div class="note">
-    旧路已于 <strong>2026-10-02 退役</strong>：过去要在浏览器打开 <code>https://openspec.panghuer.top/token</code>
-    登录 Casdoor、复制页面显示的长期 JWT，再手工贴进各 AI 工具的 header —— 那条路由已不存在，也用不着了。
-    归档说明与复活步骤见 <a href="../../../oauth/token-dispenser/README.md">oauth/token-dispenser</a>，
-    设计记录见 <a href="../../../docs/platform-mcp-auth.md">docs/platform-mcp-auth.md</a>。
-  </div>
-
-  <div class="footer">Powered by ArmbianBegin &copy; 2026</div>
+  <div class="footer">使用指南更新：2026-10-18 · Powered by ArmbianBegin &copy; 2026</div>
 </div>
 </body>
 </html>
