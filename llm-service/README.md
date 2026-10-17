@@ -105,7 +105,9 @@ canary 改为**边转发边累积检查**，命中时计数一次并记日志；
 
 业务统一使用 `llm-guarded` / `llm-trusted`。只需修改 `k8s.yaml` 中 `active_upstream`（custom 或 deepseek），运行 `bash deploy.sh --skip-build` 即可集中切换。明确指定供应商的固定路由仍在新格式中显式配置。
 
-`deploy.sh` 使用 Git 提交作为镜像标签，并按 ConfigMap 内容生成名称，将镜像和配置引用作为同一次 Deployment 模板更新。更新策略为 RollingUpdate（maxUnavailable=0/maxSurge=1），终止宽限 150 秒；滚动期间新旧路由可短暂并存，超长 SSE 可能在宽限到期被中断。每个请求固定自己的路由快照。日常只改配置时，应设置 IMAGE 为当前运行镜像的固定标签或 digest，避免引用不存在的标签。
+`deploy.sh` 使用 Git 提交作为构建镜像标签，并按 ConfigMap 内容生成名称，将镜像和配置引用作为同一次 Deployment 模板更新。更新策略为 RollingUpdate（maxUnavailable=0/maxSurge=1），终止宽限 150 秒；滚动期间新旧路由可短暂并存，超长 SSE 可能在宽限到期被中断。每个请求固定自己的路由快照。日常 `--skip-build` 自动沿用当前 Deployment 镜像，也可用 IMAGE 显式指定标签或 digest。
+
+仅切换上游：`UPSTREAM=deepseek bash llm-service/deploy.sh --skip-build`；切回用 `UPSTREAM=custom`。该环境变量只覆盖本次渲染，不改 Git 中的默认值；若要持久改变默认值，应同时提交 k8s.yaml 和 config.example.json 的 active_upstream。
 
 首次迁移需一起发布新镜像和新格式配置，待网关 rollout 完成才迁移消费者。回滚首次迁移时先恢复消费者旧别名，再恢复旧镜像及旧 ConfigMap；不得给新镜像配旧格式。后续切换回滚可用 `kubectl -n llm rollout undo deploy/llm-service` 恢复上一模板，旧 ConfigMap 保留用于回滚。
 

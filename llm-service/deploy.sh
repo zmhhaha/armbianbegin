@@ -5,7 +5,14 @@ ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 export KUBECONFIG="${KUBECONFIG:-/etc/kubernetes/super-admin.conf}"
 
 REGISTRY="${REGISTRY:-arm-cluster-master:5000}"
-export IMAGE="${IMAGE:-${REGISTRY}/llm-service:$(git -C "${SCRIPT_DIR}" rev-parse --short HEAD)}"
+if [[ -z "${IMAGE:-}" ]]; then
+    if [[ "${1:-}" == "--skip-build" ]]; then
+        IMAGE="$(kubectl -n llm get deployment llm-service -o jsonpath='{.spec.template.spec.containers[0].image}')"
+    else
+        IMAGE="${REGISTRY}/llm-service:$(git -C "${SCRIPT_DIR}" rev-parse --short HEAD)"
+    fi
+fi
+export IMAGE
 VAULT_MANIFEST="${ROOT_DIR}/vault/inventory/llm-service-externalsecret.yaml"
 
 if [[ "${1:-}" != "--skip-build" ]]; then
