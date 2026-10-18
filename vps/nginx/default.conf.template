@@ -1,4 +1,4 @@
-# 唯一的对外 server 块：全部 *.${BASE_DOMAIN} 共用（端口 ${HTTPS_PORT}）
+# 唯一的对外 server 块：全部 ${BASE_DOMAIN} 及其子域共用（端口 ${HTTPS_PORT}）
 #
 # 设计要点（改之前先读 ../docs/vps-ingress-design.md §4）：
 #   - 通配符证书覆盖所有子域 → 新增服务**不需要改这个文件** ✓
@@ -24,10 +24,17 @@ server {
 
 server {
     # 注：老版本 nginx（<1.25）用这个写法；新版本会有 deprecation 警告但不影响功能
-    listen ${HTTPS_PORT} ssl http2;
-    listen [::]:${HTTPS_PORT} ssl http2;
+    #
+    # ★ default_server 不能省：它让这个块成为 443 的兜底块，从而与下面那句
+    #   "保险丝" 的意图一致。不加的话，443 的默认块是"按文件名排序第一个监听 443
+    #   的 server"，其它配置文件一加进来就可能把兜底抢走 ——
+    #   2026-10-18 实测踩过：新增 custom-llm-proxy.conf（排序在本文件之前）后，
+    #   根域 panghuer.top 落到它的 location / { return 404; }，根域整站 404 ✗
+    listen ${HTTPS_PORT} ssl http2 default_server;
+    listen [::]:${HTTPS_PORT} ssl http2 default_server;
 
-    server_name *.${BASE_DOMAIN};
+    # 裸域名必须显式列出：nginx 的 *.domain 只匹配子域，不匹配 panghuer.top 本身 ✗
+    server_name ${BASE_DOMAIN} *.${BASE_DOMAIN};
 
     # ★ 请求头缓冲：oauth2-proxy 的会话 cookie 会分成多个分片由浏览器回传，
     #   Cookie 头可达数万字节 → 默认每行 8k 会返回 400 Bad Request ✗
