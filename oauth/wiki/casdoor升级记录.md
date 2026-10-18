@@ -1,5 +1,7 @@
 # Casdoor 升级记录：3.113.0 → 4.11.0（2026-09-29）
 
+> 后续升级：2026-10-18 已准备 [4.20.0 升级配置与部署步骤](casdoor-4.20.0-upgrade.md)，等待手动部署。下文保留 4.11.0 的历史实测结果。
+
 > 执行人：所有者。本文按升级后的实测复盘整理，保留可复用的判据与本次踩到的坑。
 > 相关：[deployment-guide.md](deployment-guide.md)（部署手册）、[casdoor不下发第三方token.md](casdoor不下发第三方token.md)（JWT 字段白名单）、[casdoorAlipay.md](casdoorAlipay.md)（已放弃的支付宝集成）。
 

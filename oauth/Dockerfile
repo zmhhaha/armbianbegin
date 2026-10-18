@@ -4,7 +4,7 @@
 #
 #  组件:
 #    oauth2-proxy — 认证代理网关 (quay.io/oauth2-proxy/oauth2-proxy:v7.8.0)
-#    Casdoor      — 统一身份平台 (casbin/casdoor:latest, 非 all-in-one)
+#    Casdoor      — 统一身份平台 (casbin/casdoor:4.20.0, 非 all-in-one)
 #
 #  镜像均为 ARM64 多架构官方镜像，通过 build.sh 拉取并推送到私有 registry
 # ============================================================

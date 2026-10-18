@@ -33,7 +33,7 @@ OAUTH_TAG="${OAUTH_TAG:-v7.8.0}"
 #    （build.yml: `version=${GITHUB_REF_NAME#v}`，注释写明 "tag `v1.2.3` publishes `1.2.3`"）。
 #    所以 GitHub 上游是 v4.11.0、**Docker Hub 上是 4.11.0** —— 写成 v4.11.0 会 403/404，
 #    然后 fallback 到 registry-1.docker.io 报一个和真实原因无关的 EOF。
-CASDOOR_TAG="${CASDOOR_TAG:-4.11.0}"
+CASDOOR_TAG="${CASDOOR_TAG:-4.20.0}"
 
 # 国内加速前缀。默认已指向实测可用的源（2026-09-29 验证 casbin/casdoor:4.11.0 返回 200 且含 arm64）；
 # 传空串则改用服务器 Docker daemon 的 registry-mirrors（见 debian_begin.sh 的 daemon.json）。

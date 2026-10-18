@@ -10,7 +10,7 @@
 #     ⚠️ tag 形状：GitHub 上游是 `v4.11.0`，但 Casdoor 的 CI 去掉 `v` 再推镜像
 #        （build.yml: version=${GITHUB_REF_NAME#v}），**Docker Hub 上是 `4.11.0`**。
 #        写错形状会 403/404，然后 fallback 到 registry-1.docker.io 报一个无关的 EOF。
-#  3) 取镜像并推送：  CASDOOR_TAG=4.11.0 bash oauth/build.sh
+#  3) 取镜像并推送：  CASDOOR_TAG=4.20.0 bash oauth/build.sh
 #  4) 应用：          kubectl apply -f oauth/k8s/casdoor-deployment.yaml
 #     （或 kubectl -n oauth set image deploy/casdoor casdoor=$REGISTRY/casdoor:X.Y.Z）
 #  5) 验证，按顺序：  /api/health → /api/get-version-info →
@@ -43,7 +43,7 @@ spec:
     spec:
       containers:
       - name: casdoor
-        image: arm-cluster-master:5000/casdoor:4.11.0
+        image: arm-cluster-master:5000/casdoor:4.20.0
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
