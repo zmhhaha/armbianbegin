@@ -14,3 +14,5 @@ Gitea 工单审批自动创建项目请参阅 [`PROJECT_REQUEST_APPROVAL.md`](PR
 项目申请入口：`https://openspec.panghuer.top/project-requests`。
 
 Agent 接入见 `MCP_INTEGRATION.md`；跑通过程遇到的问题与解决见 `TROUBLESHOOTING.md`。
+
+2026-10-19 接入决策：DCR 已由用户关闭，统一使用 `Normal-User/panghu-mcp` 的公共 Client ID `315cbdaf565b82103c6f`，无需 Client Secret；浏览器 OAuth 登录后按 Gitea 仓库权限访问项目。详见 [`MCP_INTEGRATION.md`](MCP_INTEGRATION.md)。

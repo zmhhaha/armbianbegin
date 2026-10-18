@@ -1,5 +1,15 @@
 # OpenSpec MCP 接入说明
 
+## 当前接入决策（2026-10-19）
+
+- 用户已在 Casdoor 后台关闭 DCR；统一复用 `Normal-User/panghu-mcp`，不再为客户端动态创建应用。
+- MCP URL：`https://openspec.panghuer.top/mcp`；公共 Client ID：`315cbdaf565b82103c6f`；Client Secret 留空。
+- 固定 Client ID 用于选择已有应用，不是用户密码或共享令牌。每位用户仍通过浏览器 OAuth 登录自己的账号。
+- `panghu-mcp` 控制登录资格；OpenSpec 首次按唯一匹配邮箱绑定 Gitea 身份，再按 Gitea 仓库权限控制项目访问。
+- DSH 继续通过本机 OAuth 网关连接，网关使用该固定 Client ID，DSH 仅配置本机地址和本地令牌。
+- 保留 Casdoor 4.20.0。此次只记录决策；没有删除测试应用、撤销入口代理或改变已有客户端凭据。
+- DCR 注册成功不代表应继续采用：它创建独立应用，不能假定继承 `panghu-mcp` 的访问策略；本次还遇到新应用 `dcr` 标签限制普通用户登录。
+
 让 Codex、Claude Code、Cursor 等 AI 编程工具直接读写你的 OpenSpec 规格库。
 OpenSpec Service 对外提供**一个远程 MCP server**，复用 Casdoor JWT 认证与 Gitea 权限，
 AI 工具只需"加一个远程 MCP"即可，不需要在本地装任何 OpenSpec 环境。
@@ -53,7 +63,7 @@ AI 工具只需"加一个远程 MCP"即可，不需要在本地装任何 OpenSpe
 
 ### 2.1 推荐：让 MCP 客户端自动授权（不需要取 JWT）
 
-支持 MCP OAuth 的客户端只需要填 MCP 地址，其余自己完成：
+支持 MCP OAuth 的客户端填入 MCP 地址和上述固定 Client ID 后，通过浏览器完成授权：
 
 ```text
 ① POST https://openspec.panghuer.top/mcp（无凭据）
@@ -117,7 +127,7 @@ bash openspec_service/scripts/register-project.sh
 ### Claude Code
 ```bash
 # 推荐：不加 header，客户端自己走 OAuth
-claude mcp add --transport http openspec https://openspec.panghuer.top/mcp
+claude mcp add --transport http --client-id 315cbdaf565b82103c6f openspec https://openspec.panghuer.top/mcp
 
 # 兜底：客户端不支持 OAuth 时，用 §2.2 取来的 JWT
 claude mcp add --transport http openspec \
@@ -204,16 +214,15 @@ DSH 客户端不支持 OAuth（见上），而把 7 天过期的 JWT 写进配�
 
 ### Codex CLI
 ```bash
-codex mcp add openspec --transport streamable-http \
-  https://openspec.panghuer.top/mcp \
-  --header "Authorization: Bearer $CASDOOR_JWT"
+codex mcp add openspec --url https://openspec.panghuer.top/mcp --oauth-client-id 315cbdaf565b82103c6f
+codex mcp login openspec
 ```
 
 ### Cursor / Windsurf / 其他支持远程 MCP 的工具
 设置 → MCP → 添加远程 MCP server：
 - URL：`https://openspec.panghuer.top/mcp`
-- 认证：**优先留空**，让客户端走 OAuth；只有客户端不支持 OAuth 时，才填
-  `Authorization: Bearer <JWT>`，并手工指定 client_id `315cbdaf565b82103c6f`（**不要 secret**）
+- 认证：OAuth，指定 Client ID `315cbdaf565b82103c6f`，Client Secret 留空，再完成浏览器授权。
+- 不支持预配置 OAuth Client ID 的客户端使用本机网关；不要启用 DCR 来绕过已有应用的访问策略。
 
 ### 用 MCP Inspector 调试
 ```bash
@@ -317,6 +326,5 @@ bash openspec_service/scripts/mcp-call.sh --call list_specs \
   `HMAC(secret, sub)` 派生、不落内存），那样部署对客户端完全透明；尚未做。
 - 写操作是"先读后写"乐观并发，不适合无 revision 概念的纯流式调用。
 - `archive_change` 要求 Gitea Admin 权限，普通编辑者无法归档。
-- 跨副本部署、OAuth **动态客户端注册（DCR）** 在 backlog P2。注意 DCR 在本集群 Casdoor 4.11.0 上
-  开关存在但默认关闭，而且**与固定 audience 天然不兼容**（注册出来的是随机 client_id，没法预先
-  加进 `OIDC_AUDIENCE`）—— 详见 [../docs/platform-mcp-auth.md](../docs/platform-mcp-auth.md)。
+- 跨副本部署仍待完善。DCR 已于 2026-10-19 决定不采用，不再作为当前接入目标。
+  OpenSpec 已接受 MCP URL 作为 audience；放弃 DCR 的原因是统一复用已有应用策略，而不是协议上不能支持。

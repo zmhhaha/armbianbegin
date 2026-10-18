@@ -57,7 +57,8 @@ td code{font-size:.85em}
     <tr><td>Client ID</td><td><code>315cbdaf565b82103c6f</code></td></tr>
     <tr><td>Client Secret</td><td>留空，不需要填写</td></tr>
   </table>
-  <p>直接通过 OAuth 连接时，请使用上面的 Client ID。它是本服务共用的公开应用标识，不是你的个人令牌，无需自行申请。如果使用已配置好的本机网关，则按网关说明连接，无需在 AI 客户端重复填写这个 ID。</p>
+  <p>直接通过 OAuth 连接时，请选择使用现有应用，填写上面的 Client ID，并在浏览器中登录自己的账号。授权页面的应用名称为 <strong>panghu-mcp</strong>。Client ID 是公开的应用标识，不是个人令牌；使用相同 ID 不会共享账号或项目权限。</p>
+  <div class="note">本服务使用固定应用登录，不开放动态客户端注册（DCR）。如果客户端提供注册方式选项，请选择已有 Client ID，不要选择自动注册。Client Secret 留空，也无需自行创建应用。</div>
 
   <h3>Claude Code</h3>
   <p>在终端执行：</p>
@@ -74,37 +75,19 @@ codex mcp login openspec</code></pre>
   <p>在客户端的 MCP 设置中添加远程服务，按上表填写地址、传输方式和 OAuth Client ID，再完成登录。不同客户端的设置入口和 OAuth 支持情况可能不同。</p>
   <p>如果客户端不支持 OAuth 或无法指定 Client ID（例如需要通过网关接入的 DSH），请见下一节。</p>
 
-  <h3>不支持 OAuth 的客户端（如 DSH）：经本机网关接入</h3>
-  <p>有些客户端的 MCP 实现不走 OAuth 授权码流程，也无法携带 <code>client_id</code> —— DSH 的 MCP 客户端就是这种情况（按其源码实测确认）。这类客户端不直连 <code>openspec.panghuer.top</code>，而是连一个<strong>只监听本机</strong>的小网关：由网关代为完成「发现 → 浏览器授权 → 令牌续期」，客户端只拿一个本地令牌，真正的长期凭据不出现在任何配置文件里。</p>
-  <p>这套方式是本机 DSH 目前在用的配置，与下面的通用表一一对应：</p>
+  <h3>通过本机网关接入（如 DSH）</h3>
+  <p>如果客户端无法配置 OAuth Client ID，可以使用本机 OAuth 网关。请先按管理员提供的安装说明启动网关；网关连接上面的 MCP 地址，使用相同的 Client ID，Client Secret 留空。</p>
+  <p>在网关提供的登录页面中，使用自己的账号完成浏览器授权，再将网关显示的连接信息填入 AI 客户端：</p>
   <table>
     <tr><th>配置项</th><th>填写内容</th></tr>
     <tr><td>服务名称</td><td><code>openspec</code></td></tr>
-    <tr><td>MCP 地址</td><td><code>http://127.0.0.1:33419/mcp</code>（网关端口，只监听本机）</td></tr>
+    <tr><td>MCP 地址</td><td>网关提供的本机地址（以 <code>http://127.0.0.1:</code> 开头，端口以实际配置为准）</td></tr>
     <tr><td>传输方式</td><td>Streamable HTTP</td></tr>
-    <tr><td>上游地址</td><td><code>https://openspec.panghuer.top/mcp</code>（由网关配置）</td></tr>
     <tr><td>认证方式</td><td>自定义请求头 <code>x-mcp-gateway-token</code>，值为网关的本地令牌</td></tr>
     <tr><td>Client ID</td><td>不需要填（由网关代填 <code>315cbdaf565b82103c6f</code>）</td></tr>
   </table>
-  <p>客户端侧配置片段（DSH 的 profile patch；其他客户端写成对应的 headers 即可）：</p>
-  <pre><code>- insert:
-    - id: openspec-mcp
-      name: "@deepseek-ai/dsh-mcp-client"
-      config:
-        serverName: openspec
-        transport: streamable-http
-        url: http://127.0.0.1:33419/mcp
-        headers:
-          x-mcp-gateway-token: '&lt;网关的本地令牌&gt;'
-        failOnStartupError: false
-        reconnect:
-          maxAttempts: 20</code></pre>
-  <p>本地令牌由网关自己生成并保管，不在服务端任何配置里，位置是：</p>
-  <pre><code>%APPDATA%\mcp-oauth-gateway\&lt;state&gt;.json      # 取其中的 localToken 字段</code></pre>
-  <div class="note">不要把本地令牌写进公开页面、代码仓库或工单。它只在本机有效，但泄漏后本机上任何程序都能用它访问你可访问的 OpenSpec 项目。需要更换时：改状态文件里的 <code>localToken</code> → 同步客户端配置 → 重启网关。</div>
-  <p>首次连接或授权过期后，在浏览器打开网关的登录页完成授权，然后重新连接客户端：</p>
-  <pre><code>http://localhost:33419/oauth/login</code></pre>
-  <p>网关可以设为开机自启（本机用的是 <code>wscript %APPDATA%\mcp-oauth-gateway\serve-hidden.vbs</code>）。连接成功后，用第 3 节的「列出我可以访问的项目」验证即可。</p>
+  <p>本机网关需要保持运行。授权过期时，重新打开网关提供的登录页面并连接客户端。尚未安装网关时，请联系管理员获取安装说明，不能直接把示例本机地址当作公共服务地址。</p>
+  <div class="note">本地令牌属于你的个人连接凭据，请勿分享或提交到代码仓库、工单中。</div>
 
   <h2>3. 选择项目并确认连接</h2>
   <p>在 AI 客户端中发送：</p>
@@ -149,6 +132,7 @@ codex mcp login openspec</code></pre>
   <table>
     <tr><th>遇到的情况</th><th>如何处理</th></tr>
     <tr><td>连接时要求 Client ID，或提示客户端注册失败</td><td>填写 <code>315cbdaf565b82103c6f</code>，Client Secret 留空；若客户端没有对应设置，请使用支持该配置的客户端或本机网关。</td></tr>
+    <tr><td>登录页提示用户不被应用允许，或标签不匹配</td><td>确认使用上面的 Client ID 登录 <code>panghu-mcp</code>；仍被拒绝时，请联系管理员检查该账号的应用登录资格。</td></tr>
     <tr><td>提示未授权或登录已过期</td><td>在客户端重新登录 openspec 并完成浏览器授权。Codex CLI 可执行 <code>codex mcp login openspec</code>。</td></tr>
     <tr><td>能连接，但项目列表为空或找不到项目</td><td>确认登录的是申请项目时的账号，检查申请是否已通过；已有项目请联系项目管理员确认访问权限。</td></tr>
     <tr><td>可以查看，但不能修改或归档</td><td>联系项目管理员确认你是否有相应权限。查看权限不代表可以修改；归档需要管理员权限。</td></tr>
@@ -158,7 +142,7 @@ codex mcp login openspec</code></pre>
     <tr><td>服务无法连接，或返回 502 / 503</td><td>稍后重试；持续失败时，将错误信息和发生时间提供给管理员。</td></tr>
   </table>
 
-  <div class="footer">使用指南更新：2026-10-18 · Powered by ArmbianBegin &copy; 2026</div>
+  <div class="footer">使用指南更新：2026-10-19 · Powered by ArmbianBegin &copy; 2026</div>
 </div>
 </body>
 </html>

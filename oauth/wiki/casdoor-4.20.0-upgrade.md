@@ -1,5 +1,7 @@
 # Casdoor 4.11.0 → 4.20.0
 
+> **最终决策（2026-10-19）**：用户已完成升级，并在后台关闭 DCR。保留 4.20.0，统一复用 `Normal-User/panghu-mcp`（Client ID `315cbdaf565b82103c6f`）进行浏览器 OAuth 登录，Gitea 控制项目权限。下文开启 DCR、入口适配和自动注册验收是历史试验记录，不再作为待执行步骤。此次仅更新文档，入口代理和测试客户端未自动清理。
+
 2026-10-18：已更新仓库构建默认版本和部署镜像，等待用户手动部署；不代表线上已升级。
 OpenSpec 变更：`upgrade-casdoor-enable-dcr`（armbianbegin 项目）。
 
