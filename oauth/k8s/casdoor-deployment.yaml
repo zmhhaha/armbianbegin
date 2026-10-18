@@ -11,7 +11,7 @@
 #        （build.yml: version=${GITHUB_REF_NAME#v}），**Docker Hub 上是 `4.11.0`**。
 #        写错形状会 403/404，然后 fallback 到 registry-1.docker.io 报一个无关的 EOF。
 #  3) 取镜像并推送：  CASDOOR_TAG=4.20.0 bash oauth/build.sh
-#  4) 应用：          kubectl apply -f oauth/k8s/casdoor-deployment.yaml
+#  4) 应用：          bash oauth/deploy-casdoor.sh
 #     （或 kubectl -n oauth set image deploy/casdoor casdoor=$REGISTRY/casdoor:X.Y.Z）
 #  5) 验证，按顺序：  /api/health → /api/get-version-info →
 #       /.well-known/openid-configuration → JWKS →
@@ -47,7 +47,7 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
-          name: http
+          name: casdoor-http
         env:
         - name: origin
           value: "https://auth.panghuer.top"
@@ -83,7 +83,44 @@ spec:
             port: 8000
           initialDelaySeconds: 10
           periodSeconds: 15
+      # Shared entry for public tunnels and the internal issuer Ingress.
+      - name: entry
+        image: arm-cluster-master:5000/nginx:1.28.0-alpine
+        imagePullPolicy: IfNotPresent
+        command: [nginx]
+        args: [-g, "daemon off;"]
+        ports:
+        - containerPort: 8080
+          name: http
+        volumeMounts:
+        - name: entry-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+        - name: entry-tmp
+          mountPath: /tmp
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 101
+          runAsGroup: 101
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: {drop: [ALL]}
+        resources:
+          requests: {cpu: 10m, memory: 16Mi}
+          limits: {cpu: 200m, memory: 64Mi}
+        readinessProbe:
+          httpGet: {path: /api/health, port: http}
+          periodSeconds: 5
+        livenessProbe:
+          tcpSocket: {port: http}
+          periodSeconds: 20
       volumes:
+      - name: entry-config
+        configMap:
+          name: casdoor-entry-config
+      - name: entry-tmp
+        emptyDir: {}
       - name: casdoor-config
         configMap:
           name: casdoor-config
@@ -103,5 +140,5 @@ spec:
     app: casdoor
   ports:
   - port: 8000
-    targetPort: 8000
+    targetPort: http
     name: http

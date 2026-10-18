@@ -34,6 +34,7 @@ OAUTH_TAG="${OAUTH_TAG:-v7.8.0}"
 #    所以 GitHub 上游是 v4.11.0、**Docker Hub 上是 4.11.0** —— 写成 v4.11.0 会 403/404，
 #    然后 fallback 到 registry-1.docker.io 报一个和真实原因无关的 EOF。
 CASDOOR_TAG="${CASDOOR_TAG:-4.20.0}"
+CASDOOR_ENTRY_TAG="${CASDOOR_ENTRY_TAG:-1.28.0-alpine}"
 
 # 国内加速前缀。默认已指向实测可用的源（2026-09-29 验证 casbin/casdoor:4.11.0 返回 200 且含 arm64）；
 # 传空串则改用服务器 Docker daemon 的 registry-mirrors（见 debian_begin.sh 的 daemon.json）。
@@ -71,6 +72,10 @@ pull_and_push_all() {
     [[ -n "${DOCKERHUB_MIRROR}" ]] && casdoor_src="${DOCKERHUB_MIRROR%/}/${casdoor_src}"
     pull_and_push "${casdoor_src}" \
         "${REGISTRY}/casdoor:${CASDOOR_TAG}" "Casdoor"
+    local entry_src="nginx:${CASDOOR_ENTRY_TAG}"
+    [[ -n "${DOCKERHUB_MIRROR}" ]] && entry_src="${DOCKERHUB_MIRROR%/}/${entry_src}"
+    pull_and_push "${entry_src}" \
+        "${REGISTRY}/nginx:${CASDOOR_ENTRY_TAG}" "Casdoor entry"
     # ⚠️ 这里**故意不再**把新版本同时打成 :latest。
     # 之前会把 :latest 覆盖成刚拉到的版本，等于每升一次就抹掉一次回滚点：
     # 想 `kubectl rollout undo` 回旧版时，:latest 已经指向新版本了（清单里也没人再用
@@ -105,7 +110,7 @@ deploy_k8s() {
     # 2026-09-29 修正：这里原写作 k8s/deployment.yaml，而该文件并不存在（实际叫
     # casdoor-deployment.yaml）。配合 set -e，--deploy 会中止在这一行，后面的
     # mysql.yaml / ExternalSecret 全都不会被 apply。
-    kubectl apply ${K} -f k8s/casdoor-deployment.yaml   # Casdoor deployment
+    bash ./deploy-casdoor.sh
     kubectl apply ${K} -f k8s/mysql.yaml          # MySQL for Casdoor
 
     # ExternalSecret 同步：原来在 deploy_proxy() 里做，deploy_proxy 不再部署实例后挪到此处。
