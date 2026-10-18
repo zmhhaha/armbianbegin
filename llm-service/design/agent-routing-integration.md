@@ -21,12 +21,20 @@ OpenSpec change：`add-independent-agent-routes`，项目映射见仓库根 `.op
 
 ## 后续客户端接入
 
-本次只准备网关路由，三个客户端尚未迁移。网关可用不代表 Agent 原生协议已经通过验收。
+网关路由与三个主 Agent Pod 的网络通路已纳入配置；应用里的模型设置由所有者另行配置。
+网络可达不代表原生模型协议已经通过验收。
 
 共同地址：`http://llm-service.llm.svc.cluster.local/v1`，协议为 Chat Completions。
 分别申请 `LLM_TOKEN_DSH`、`LLM_TOKEN_PI`、`LLM_TOKEN_HERMES`，客户端 Secret
-只映射自己的调用令牌。给实际请求模型的 Pod 加 `llm-client: "true"`，并在客户端
-出站策略中精确允许 `llm` namespace 的 `app=llm-service`（Service 80 / Pod 8000）。
+只映射自己的调用令牌。网络采用专属策略，无需修改 Pod 标签或重启 Agent：
+
+- 三个应用各自的 `k8s/llm-egress.yaml` 只选择 `dsh/app=dsh-web`、`pi/app=pi`、
+  `hermes/app=hermes-web`，目标同时匹配 `namespace=llm` 和 `app=llm-service`。
+- `llm-service/k8s.yaml` 的 `llm-agent-clients` 入站规则只接受上述三个 namespace + app 组合。
+- 端口为 TCP 8000，Calico 按 Service DNAT 后的目标 Pod 端口匹配；客户端仍访问 Service 80。
+- 普通调用方继续使用 `llm-client: "true"` 规则。DSH runner、Hermes publisher 和旧 pi-cage
+  未包含在此次例外中。NetworkPolicy 的作用范围是整个 Pod，包含同 Pod 的其他容器和进程。
+- 本阶段只开放网络，没有签发新调用令牌，也没有修改应用模型设置。无令牌请求模型接口应返回 401。
 
 ### DSH
 
@@ -37,7 +45,7 @@ OpenSpec change：`add-independent-agent-routes`，项目映射见仓库根 `.op
 - 已安装 pi-ai 的兼容选项可关闭 `supportsUsageInStreaming`，并将 `maxTokensField`
   设为 `max_tokens`；DSH 模型设置支持 `reasoningEfforts: false`。这些是待验收的接入候选配置，
   不能据此声称工具循环已可运行。
-- 仓库入口：`panghu_chat/dsh/k8s/web.yaml`、`k8s/networkpolicies.yaml` 的 web-egress、
+- 仓库入口：`panghu_chat/dsh/k8s/web.yaml`、`k8s/llm-egress.yaml`、
   `vault/inventory/dsh-externalsecret.yaml`。原生用户 profile 由 DSH 持久化管理。
 - 模型请求由 web 发出，runner 负责远端工具执行；后续验证应包含工具执行和结果回传。
 
@@ -47,10 +55,10 @@ OpenSpec change：`add-independent-agent-routes`，项目映射见仓库根 `.op
   `api: openai-completions`、凭据环境变量和模型列表，模型填写 `pi-trusted`。
 - 原生 `/model` 可选择并重新加载模型配置，Ctrl+S 保存新会话默认；`/scoped-models`
   设置 Ctrl+P 的轮换范围。网页封装的实际入口需对应部署实例确认。
-- 仓库入口：`panghu_chat/pi/k8s/core.yaml`、`k8s/networkpolicies.yaml`、
+- 仓库入口：`panghu_chat/pi/k8s/core.yaml`、`k8s/llm-egress.yaml`、
   `vault/inventory/pi-externalsecret.yaml`，持久 home 是 `/home/pi`。
-- 集群存在 `pi/pi` 与旧 `pi-cage/pi-cage` 两个实例；迁移前先核对实际访问域名的路由，
-  确认目标实例和原生配置文件路径，不能自动同时迁移两套。
+- 已核对 frpc 的 `pi.panghuer.top` 路由指向 `pi-web.pi.svc.cluster.local:4180`，本阶段目标是
+  `pi/pi`。集群另有旧 `pi-cage/pi-cage`，此次不为它开放网关访问。原生模型配置文件路径仍需确认。
 - 本次未验证 Pi 实际发送的全部参数，仍需检查输出上限、推理字段、流式与工具循环。
 
 ### Hermes
@@ -60,7 +68,7 @@ OpenSpec change：`add-independent-agent-routes`，项目映射见仓库根 `.op
 - 通过原生 provider 配置改为网关地址、自己的令牌和 `hermes-trusted`，保留其他 profile 设置。
 - 线上日报任务的 model、provider、base_url 当前均为空；迁移后仍需验证网页会话和原生调度器
   实际继承网关配置，不以单独的连通探测代替原生任务验证。
-- 仓库入口：`panghu_chat/hermes/k8s/core.yaml` 的 web Pod 与 research-egress、
+- 仓库入口：`panghu_chat/hermes/k8s/core.yaml` 的 web Pod、`k8s/llm-egress.yaml`、
   `vault/inventory/hermes-externalsecret.yaml`。无模型的 publisher 不参与接入。
 
 ### 接入验收边界

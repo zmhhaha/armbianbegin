@@ -208,7 +208,7 @@ spec:
   podSelector: {matchLabels: {app: llm-service}}
   policyTypes: [Ingress, Egress]
   ingress:
-    # 只有显式打上 llm-client: "true" 的 Pod 能调用
+    # 通用调用方使用 llm-client 标签；三个 Agent 由下方专属策略按 namespace + app 放行。
     - from:
         - namespaceSelector: {}
           podSelector:
@@ -221,3 +221,40 @@ spec:
         - {protocol: TCP, port: 53}
     - ports:
         - {protocol: TCP, port: 443}
+---
+# Independent of the generic llm-client rule; applies to existing Pods without
+# changing their templates or restarting their Recreate Deployments.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: llm-agent-clients
+  namespace: llm
+spec:
+  podSelector:
+    matchLabels:
+      app: llm-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: dsh
+          podSelector:
+            matchLabels:
+              app: dsh-web
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: pi
+          podSelector:
+            matchLabels:
+              app: pi
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: hermes
+          podSelector:
+            matchLabels:
+              app: hermes-web
+      ports:
+        - protocol: TCP
+          port: 8000

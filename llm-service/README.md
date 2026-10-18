@@ -111,7 +111,7 @@ DSH、Pi、Hermes 分别预留 `dsh-trusted`、`pi-trusted`、`hermes-trusted`�
 
 这些绑定应保存在仓库配置中；部署会完整重渲染配置，只在线上临时修改的绑定会被下次部署覆盖。共享上游的 `model` 若被修改，所有绑定该上游的别名都会采用新模型。独立切换指的是各别名独立选择上游，并非各自拥有一份上游模型配置。
 
-新增别名只准备网关路由；三个 Agent 的客户端、专属调用令牌和网络接入仍需分别配置和验收。别名不构成调用方访问控制，调用者身份仍由令牌决定。
+三个 Agent 的主 Pod 通过专属 NetworkPolicy 访问网关，模型设置和专属调用令牌由后续接入配置。别名不构成调用方访问控制，调用者身份仍由令牌决定。网络规则、实际 Pi 入口及客户端步骤见 [Agent 接入说明](design/agent-routing-integration.md)。
 
 `deploy.sh` 使用 Git 提交作为构建镜像标签，并按 ConfigMap 内容生成名称，将镜像和配置引用作为同一次 Deployment 模板更新。更新策略为 RollingUpdate（maxUnavailable=0/maxSurge=1），终止宽限 150 秒；滚动期间新旧路由可短暂并存，超长 SSE 可能在宽限到期被中断。每个请求固定自己的路由快照。日常 `--skip-build` 自动沿用当前 Deployment 镜像，也可用 IMAGE 显式指定标签或 digest。
 
@@ -241,8 +241,10 @@ bash build.sh --push     # 国内 pip 源，构建并推送
 bash deploy.sh           # 应用 Vault ExternalSecret + k8s，重启并等待就绪
 ```
 
-部署到命名空间 `llm`。2026-10-17 集群实测 NetworkPolicy 已存在：入站要求调用方 Pod
-带 `llm-client: "true"`，出站只放行 DNS 与 TCP 443。custom 模型经 VPS HTTPS 代理访问上游。
+部署到命名空间 `llm`。通用入站规则要求调用方 Pod 带 `llm-client: "true"`；
+`llm-agent-clients` 为 DSH web、Pi、Hermes web 提供精确的 namespace + app 入站例外。
+Agent 侧对应的 `llm-service-egress` 只允许到网关 Pod TCP 8000。网关出站只放行 DNS
+与 TCP 443，custom 模型经 VPS HTTPS 代理访问上游。
 
 历史记录：2026-09-20 使用 `kube-flannel` 时策略未生效；2026-09-29 切换到 Calico 后，
 `llm` 命名空间仍未部署此策略。2026-10-17 已在集群确认 `llm/llm-service` 存在并与本清单一致。

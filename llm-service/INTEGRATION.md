@@ -38,7 +38,7 @@
 
 DSH、Pi、Hermes 是所有者使用的通用工具 Agent，需要工具调用，因此明确选择 trusted。三条路由初始均指向共享 `custom`，可分别将 `routes.<应用>-trusted.upstream` 改为 `deepseek` 或其他已配置上游；不跟随普通业务的 `active_upstream`。上游模型和凭据共用，修改共享 upstream 会影响所有引用它的路由。路由名不是授权身份，每个 Agent 仍应持有自己的调用令牌。
 
-当前只配置了网关别名，尚未迁移三个客户端。接入时分别设置自己的别名与网关地址、调用令牌和网络放行，并验收 Chat Completions 参数、流式响应及工具调用。当前请求体拒绝未知字段；`stream_options`、`max_completion_tokens`、`reasoning_effort` 等字段不能直接发送，输出长度及工具数量也须符合网关限制。
+网关别名和三个主 Agent Pod 的专属网络规则已配置，应用模型设置仍待所有者完成。接入时分别设置自己的别名与网关地址、调用令牌，并验收 Chat Completions 参数、流式响应及工具调用。当前请求体拒绝未知字段；`stream_options`、`max_completion_tokens`、`reasoning_effort` 等字段不能直接发送，输出长度及工具数量也须符合网关限制。
 
 trusted 表示网关允许字段，不保证供应商支持全部参数组合。DeepSeek 默认思考模式支持 `tool_choice=auto`，不支持 `required`（上游返回 400）；跨供应商业务应使用共同支持的参数。本服务不静默改写 tool_choice 或关闭思考模式。
 
@@ -165,8 +165,7 @@ spec:
   template:
     metadata:
       labels:
-        llm-client: "true"        # ← NetworkPolicy 的放行条件。写上是对的，但见下方更正：
-                                  #   本集群当前没有策略引擎，缺了**不会**被拦。
+        llm-client: "true"        # 通用调用方的入站放行条件，当前 Calico 会实际执行。
     spec:
       containers:
         - name: api
@@ -183,6 +182,10 @@ spec:
 ```
 
 `LLM_BASE_URL` 是**基址**（已含 `/v1`），代码自己拼 `/chat/completions`。
+
+DSH web、Pi、Hermes web 使用独立的 `llm-agent-clients` 入站策略及各自的
+`llm-service-egress` 出站策略，按 namespace + app 匹配，因此无需另加 llm-client 标签。
+规则作用于整个 Pod；具体范围见 [Agent 接入说明](design/agent-routing-integration.md)。
 
 ---
 
@@ -362,7 +365,7 @@ llm-service  →  200 OK，latency 35s（它不知道你已经走了，还在继
 - [ ] 别名按 §1 选好，确认不会用到 `guarded` 禁的能力；判「有没有玩家文本」时对照 §1.1
 - [ ] Vault `secret/llm-service/callers` 里有 `LLM_TOKEN_<CALLER>`（`kv patch` 加的，没用 `kv put` 覆盖）
 - [ ] ExternalSecret 已 apply，`kubectl get externalsecret llm-token -n <ns>` 是 `SecretSynced=True`
-- [ ] Pod 带 `llm-client: "true"` 标签
+- [ ] Pod 带 `llm-client: "true"` 标签，或属于已登记的专属入站规则；客户端出站也允许访问网关
 - [ ] 三个环境变量都注入了（`LLM_BASE_URL` / `LLM_MODEL` / `LLM_SERVICE_TOKEN`）
 - [ ] 代码在变量缺失时早失败，或在健康检查里报 degraded
 - [ ] 用 `guarded` 档的话，确认 §4.4 的 prompt 改写不影响你的输出解析或缓存策略
