@@ -68,6 +68,13 @@ nginx -t                                     # 改配置后先校验
 **新增一个对外域名**：**不需要动本机** ✓ —— 只要在集群的 `frpc` 配置里加一条 `[[proxies]]`，
 再到 Cloudflare 加一条 A 记录（DNS only → 本机 IP）✓。通配符证书与 nginx 配置都无需改 ✓。
 
+`custom-llm-proxy.panghuer.top` 是例外：它在 VPS 上直接转发至外部 LLM 上游，不经过 frps。
+它是模板 `nginx/custom-llm-proxy.conf.template`，由 `install.sh` 用 `envsubst` 渲染后装到
+`/etc/nginx/sites-available/custom-llm-proxy.conf`，并建立 `sites-enabled` 同名软链接
+（2026-10-18 起由脚本统一安装，**不再手工拷贝** ✗）。
+它只把 `/v1/` 转发到固定的第三方上游，其余路径一律 404 —— 因此**不是开放的正向代理** ✓。
+它复用现有通配符证书；Cloudflare A 记录设为 `62.234.50.20`、DNS only。
+
 **证书**：`certbot.timer` 自动续期 ✓。手动检查：
 
 ```bash
