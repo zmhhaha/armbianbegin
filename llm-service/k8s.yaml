@@ -14,6 +14,7 @@ data:
   # 凭据一律通过 api_key_env 引用，实际值来自 llm-service-secret（Vault 注入）。
   #
   # 稳定别名 llm-guarded/llm-trusted 由 active_upstream 集中切换；固定路由显式定义。
+  # dsh-trusted/pi-trusted/hermes-trusted 各自显式绑定共享上游，不跟随 active_upstream。
   # 策略由各别名的 tier 字段决定（见 config.py 的 TIERS）。
   #   custom-guarded   —— tier=guarded，给「用户会写 prompt」的对话型 Agent（禁扩权字段、收紧上限）
   #   custom-trusted   —— tier=trusted，纯文本生成与函数调用
@@ -77,6 +78,21 @@ data:
           "timeout_seconds": 60
         },
         "custom-trusted": {
+          "tier": "trusted",
+          "upstream": "custom",
+          "timeout_seconds": 120
+        },
+        "dsh-trusted": {
+          "tier": "trusted",
+          "upstream": "custom",
+          "timeout_seconds": 120
+        },
+        "pi-trusted": {
+          "tier": "trusted",
+          "upstream": "custom",
+          "timeout_seconds": 120
+        },
+        "hermes-trusted": {
           "tier": "trusted",
           "upstream": "custom",
           "timeout_seconds": 120

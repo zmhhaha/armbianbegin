@@ -103,7 +103,15 @@ canary 改为**边转发边累积检查**，命中时计数一次并记日志；
 
 只支持 `version: 2`，旧 `aliases` 格式、缺少版本和未知版本会导致 not-ready。完整示例见 [config.example.json](config.example.json)。环境变量仍叫 `LLM_ALIASES`，内容已改为 upstreams/routes；也可通过 LLM_CONFIG_FILE 指定 JSON 文件。
 
-业务统一使用 `llm-guarded` / `llm-trusted`。只需修改 `k8s.yaml` 中 `active_upstream`（custom 或 deepseek），运行 `bash deploy.sh --skip-build` 即可集中切换。明确指定供应商的固定路由仍在新格式中显式配置。
+普通业务使用 `llm-guarded` / `llm-trusted`。只需修改 `k8s.yaml` 中 `active_upstream`（custom 或 deepseek），运行 `bash deploy.sh --skip-build` 即可集中切换。明确指定供应商的固定路由仍在新格式中显式配置。
+
+DSH、Pi、Hermes 分别预留 `dsh-trusted`、`pi-trusted`、`hermes-trusted`。三条路由初始均显式绑定共享的 `custom` 上游（`gpt-6-astra`），每条独立选择上游，不跟随 `active_upstream`。它们沿用 trusted 策略，没有新增或复制上游、API 地址或凭据。
+
+例如只把 DSH 切到 DeepSeek：将 `k8s.yaml` 的 `routes.dsh-trusted.upstream` 改为 `deepseek`，同步修改 `config.example.json`，提交并同步后运行 `bash llm-service/deploy.sh --skip-build`。Pi、Hermes 和普通业务的绑定保持各自的配置值。切回则将该字段改回 `custom`。路由只继承 upstream 的供应商、地址、模型和凭据引用，不继承 `deepseek-trusted` 等其他路由的 defaults。
+
+这些绑定应保存在仓库配置中；部署会完整重渲染配置，只在线上临时修改的绑定会被下次部署覆盖。共享上游的 `model` 若被修改，所有绑定该上游的别名都会采用新模型。独立切换指的是各别名独立选择上游，并非各自拥有一份上游模型配置。
+
+新增别名只准备网关路由；三个 Agent 的客户端、专属调用令牌和网络接入仍需分别配置和验收。别名不构成调用方访问控制，调用者身份仍由令牌决定。
 
 `deploy.sh` 使用 Git 提交作为构建镜像标签，并按 ConfigMap 内容生成名称，将镜像和配置引用作为同一次 Deployment 模板更新。更新策略为 RollingUpdate（maxUnavailable=0/maxSurge=1），终止宽限 150 秒；滚动期间新旧路由可短暂并存，超长 SSE 可能在宽限到期被中断。每个请求固定自己的路由快照。日常 `--skip-build` 自动沿用当前 Deployment 镜像，也可用 IMAGE 显式指定标签或 digest。
 
@@ -176,6 +184,9 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 |---|---|---|---|
 | `llm-guarded` | active_upstream | guarded | 对话及游戏业务，集中切换上游 |
 | `llm-trusted` | active_upstream | trusted | RAG、生成及工具调用，集中切换上游 |
+| `dsh-trusted` | 独立绑定，初始 custom | trusted | DSH 专属切换入口，客户端待接入 |
+| `pi-trusted` | 独立绑定，初始 custom | trusted | Pi 专属切换入口，客户端待接入 |
+| `hermes-trusted` | 独立绑定，初始 custom | trusted | Hermes 专属切换入口，客户端待接入 |
 | `deepseek-guarded` | deepseek | guarded | 保留的 DeepSeek guarded 别名 |
 | `deepseek-trusted` | deepseek | trusted | 保留的 DeepSeek trusted 别名 |
 | `openai-trusted` | openai | trusted | **预留**：Vault 里还没有 `OPENAI_API_KEY`，点名它会得到 503「缺少凭据」 |
@@ -211,13 +222,12 @@ if request.max_tokens and request.max_tokens > policy["max_tokens_cap"]:
 
 ### 别名命名约定
 
-**业务默认使用 `llm-<tier>`，需要固定供应商时才用 `<provider>-<tier>`**：
+**普通业务使用 `llm-<tier>`；固定供应商使用 `<provider>-<tier>`；需要独立切换模型的应用使用 `<application>-<tier>`**：
 
 - 固定路由的前缀与 provider 一致；稳定路由的 `llm` 前缀表示由 active_upstream 决定供应商。
+- `dsh`、`pi`、`hermes` 前缀标识各自独立的切换入口；通过显式 upstream 引用复用共享模型配置。
 - 后缀只有 `guarded` / `trusted` 两档（策略见上表）。
-- **按真实存在的差别分档，不要按「用途」造名字。** 历史上曾用 `chat-default` / `chat-tools` 区分
-  「纯生成」和「函数调用」，但两者的 tier 都是 trusted、策略完全相同，只差默认 temperature 和
-  timeout —— 而 temperature 调用方本来就能自己传。这种名字会固化一个并不存在的区别。
+- 档位表示能力策略，应用别名表示独立的路由绑定。只有默认 temperature、timeout 不同，而无需独立选择模型时，不必增加别名。
 - 需要新 provider 或新档位时**按需加一条**，不预先铺满 provider × tier 矩阵。
 
 **同一个服务要两种用法**（对外 + 机内）时用不同别名即可——服务侧按路径选别名。

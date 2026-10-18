@@ -18,25 +18,32 @@
 
 ## 1. 选别名
 
-业务使用稳定别名 **`llm-guarded` / `llm-trusted`**，上游由网关的 `active_upstream` 集中选择，`tier` 只有两档：
+普通业务使用稳定别名 **`llm-guarded` / `llm-trusted`**，上游由网关的 `active_upstream` 集中选择。DSH、Pi、Hermes 各有独立切换别名，`tier` 仍只有两档：
 
 | 别名 | tier | 能力 | 给谁用 |
 |---|---|---|---|
 | `llm-guarded` | guarded | **禁** `tools` / `response_format`；`max_tokens` ≤ 2048、消息 ≤ 60 | 用户能自己写 prompt 的对话型服务 |
 | `llm-trusted` | trusted | 标准字段透传（含 `tools`）；`max_tokens` ≤ 8192、消息 ≤ 200 | 服务端生成、RAG、函数调用、内部机器对话 |
+| `dsh-trusted` | trusted | 同 trusted；独立选择共享上游 | DSH，网关路由已配置，客户端待接入 |
+| `pi-trusted` | trusted | 同 trusted；独立选择共享上游 | Pi，网关路由已配置，客户端待接入 |
+| `hermes-trusted` | trusted | 同 trusted；独立选择共享上游 | Hermes，网关路由已配置，客户端待接入 |
 | `openai-trusted` | trusted | 同 trusted | **预留**：Vault 里只有一个占位 key，点名会带着它打到 OpenAI 拿 401 |
 
-**判断标准就一条：用户能不能左右这段 prompt？**
+**普通业务的默认判断标准：用户能不能左右这段 prompt？**
 
 - 能（对外对话 Agent）→ `guarded`。这是安全默认，选它最坏情况是「少了个能力」，选错 `trusted` 则是「用户能借你的服务白嫖任意 LLM 调用」。
 - 不能（RAG 生成、定时任务、Agent 内部的中间步骤）→ `trusted`。
 
 **选错的典型症状**：`400 ... does not allow tools` / `does not allow response_format`。
 
+DSH、Pi、Hermes 是所有者使用的通用工具 Agent，需要工具调用，因此明确选择 trusted。三条路由初始均指向共享 `custom`，可分别将 `routes.<应用>-trusted.upstream` 改为 `deepseek` 或其他已配置上游；不跟随普通业务的 `active_upstream`。上游模型和凭据共用，修改共享 upstream 会影响所有引用它的路由。路由名不是授权身份，每个 Agent 仍应持有自己的调用令牌。
+
+当前只配置了网关别名，尚未迁移三个客户端。接入时分别设置自己的别名与网关地址、调用令牌和网络放行，并验收 Chat Completions 参数、流式响应及工具调用。当前请求体拒绝未知字段；`stream_options`、`max_completion_tokens`、`reasoning_effort` 等字段不能直接发送，输出长度及工具数量也须符合网关限制。
+
 trusted 表示网关允许字段，不保证供应商支持全部参数组合。DeepSeek 默认思考模式支持 `tool_choice=auto`，不支持 `required`（上游返回 400）；跨供应商业务应使用共同支持的参数。本服务不静默改写 tool_choice 或关闭思考模式。
 
 **需要别的 provider 或档位**时，在 `llm-service/k8s.yaml` 的新格式配置中登记 upstream，并通过 routes 引用，
-不要按「用途」造名字（历史教训见 README「别名命名约定」）。加别名不需要改任何代码。
+需要独立切换模型的应用可登记自己的稳定别名，规则见 README「别名命名约定」。加别名不需要改任何代码。
 
 **同一个服务两种用法**（对外的走 guarded、机内的走 trusted）→ 按代码路径选不同别名，不用开两个服务。
 
