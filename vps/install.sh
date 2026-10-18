@@ -195,12 +195,15 @@ install_nginx_and_cert() {
   fi
 
   log "安装备案号注入（任务一：map 与页脚 snippet ✓）"
-  install -m 0644 "\/nginx/beian-map.conf" /etc/nginx/conf.d/beian-map.conf
-  install -m 0644 "\/nginx/beian-cache.conf" /etc/nginx/conf.d/beian-cache.conf
+  # ★ 必须用 ${SCRIPT_DIR}/nginx/...：若写成 "\/nginx/..." 会变成一个不存在的路径，
+  #   而脚本是 set -Eeuo pipefail → 跑到这里直接 exit。2026-10-14 的版本就是这个 bug，
+  #   当时靠手工拷文件才装上去；2026-10-18 修 ✓
+  install -m 0644 "${SCRIPT_DIR}/nginx/beian-map.conf" /etc/nginx/conf.d/beian-map.conf
+  install -m 0644 "${SCRIPT_DIR}/nginx/beian-cache.conf" /etc/nginx/conf.d/beian-cache.conf
   install -d -m 0755 -o www-data -g www-data /var/cache/nginx/static
 
   install -d -m 0755 /etc/nginx/snippets
-  install -m 0644 "\/nginx/beian-footer.conf" /etc/nginx/snippets/beian-footer.conf
+  install -m 0644 "${SCRIPT_DIR}/nginx/beian-footer.conf" /etc/nginx/snippets/beian-footer.conf
 
   log "安装站点配置"
   local rendered; rendered="$(mktemp)"
@@ -210,6 +213,17 @@ install_nginx_and_cert() {
   rm -f "$rendered"
   ln -sf "/etc/nginx/sites-available/${BASE_DOMAIN}.conf" "/etc/nginx/sites-enabled/${BASE_DOMAIN}.conf"
   rm -f /etc/nginx/sites-enabled/default
+
+  # custom-llm-proxy：另一个独立的 server 块（只把 /v1/ 转发到第三方，其余 404）。
+  # 它此前只存在于线上、仓库里没有 —— 于是 2026-10-18 根域 404 事故里看不出它的存在，
+  # 也是那次事故的肇事者（抢走了 443 的默认位）。现在统一由本脚本安装 ✓
+  log "安装 custom-llm-proxy 站点配置"
+  local clp; clp="$(mktemp)"
+  BASE_DOMAIN="$BASE_DOMAIN" envsubst '${BASE_DOMAIN}' \
+    < "${SCRIPT_DIR}/nginx/custom-llm-proxy.conf.template" | tr -d '\357\273\277\r' > "$clp"
+  install -m 0644 "$clp" /etc/nginx/sites-available/custom-llm-proxy.conf
+  rm -f "$clp"
+  ln -sf /etc/nginx/sites-available/custom-llm-proxy.conf /etc/nginx/sites-enabled/custom-llm-proxy.conf
   mkdir -p /var/www/certbot
 
   log "校验并加载 nginx"
