@@ -18,15 +18,12 @@
 
 ## 1. 选别名
 
-普通业务使用稳定别名 **`llm-guarded` / `llm-trusted`**，上游由网关的 `active_upstream` 集中选择。DSH、Pi、Hermes 各有独立切换别名，`tier` 仍只有两档：
+普通业务使用稳定别名 **`llm-guarded` / `llm-trusted`**，上游由网关的 `active_upstream` 集中选择。`tier` 只有两档：
 
 | 别名 | tier | 能力 | 给谁用 |
 |---|---|---|---|
 | `llm-guarded` | guarded | **禁** `tools` / `response_format`；`max_tokens` ≤ 2048、消息 ≤ 60 | 用户能自己写 prompt 的对话型服务 |
 | `llm-trusted` | trusted | 标准字段透传（含 `tools`）；`max_tokens` ≤ 8192、消息 ≤ 200 | 服务端生成、RAG、函数调用、内部机器对话 |
-| `dsh-trusted` | trusted | 同 trusted；独立选择共享上游 | DSH，网关路由已配置，客户端待接入 |
-| `pi-trusted` | trusted | 同 trusted；独立选择共享上游 | Pi，网关路由已配置，客户端待接入 |
-| `hermes-trusted` | trusted | 同 trusted；独立选择共享上游 | Hermes，网关路由已配置，客户端待接入 |
 | `openai-trusted` | trusted | 同 trusted | **预留**：Vault 里只有一个占位 key，点名会带着它打到 OpenAI 拿 401 |
 
 **普通业务的默认判断标准：用户能不能左右这段 prompt？**
@@ -36,9 +33,10 @@
 
 **选错的典型症状**：`400 ... does not allow tools` / `does not allow response_format`。
 
-DSH、Pi、Hermes 是所有者使用的通用工具 Agent，需要工具调用，因此明确选择 trusted。三条路由初始均指向共享 `custom`，可分别将 `routes.<应用>-trusted.upstream` 改为 `deepseek` 或其他已配置上游；不跟随普通业务的 `active_upstream`。上游模型和凭据共用，修改共享 upstream 会影响所有引用它的路由。路由名不是授权身份，每个 Agent 仍应持有自己的调用令牌。
+DSH、Hermes、Pi 使用应用内配置的 `custom-llm` 公网直连，其专用网关别名已退役。
+三者的配置方法见 [直连接入记录](../panghu_chat/docs/agents-custom-llm.md)。
 
-网关别名和三个主 Agent Pod 的专属网络规则已配置，应用模型设置仍待所有者完成。接入时分别设置自己的别名与网关地址、调用令牌，并验收 Chat Completions 参数、流式响应及工具调用。当前请求体拒绝未知字段；`stream_options`、`max_completion_tokens`、`reasoning_effort` 等字段不能直接发送，输出长度及工具数量也须符合网关限制。
+使用网关的调用方需验收 Chat Completions 参数、流式响应及工具调用。当前请求体拒绝未知字段；`stream_options`、`max_completion_tokens`、`reasoning_effort` 等字段不能直接发送，输出长度及工具数量也须符合网关限制。
 
 trusted 表示网关允许字段，不保证供应商支持全部参数组合。DeepSeek 默认思考模式支持 `tool_choice=auto`，不支持 `required`（上游返回 400）；跨供应商业务应使用共同支持的参数。本服务不静默改写 tool_choice 或关闭思考模式。
 
@@ -183,9 +181,8 @@ spec:
 
 `LLM_BASE_URL` 是**基址**（已含 `/v1`），代码自己拼 `/chat/completions`。
 
-DSH web、Pi、Hermes web 使用独立的 `llm-agent-clients` 入站策略及各自的
-`llm-service-egress` 出站策略，按 namespace + app 匹配，因此无需另加 llm-client 标签。
-规则作用于整个 Pod；具体范围见 [Agent 接入说明](design/agent-routing-integration.md)。
+DSH、Hermes、Pi 原有的专用网络例外已退役；未来如有新的网关调用方，仍需按本节
+配置鉴权及网络访问，不因应用名称自动放行。清理记录见 [专用网关退役记录](design/agent-routing-integration.md)。
 
 ---
 

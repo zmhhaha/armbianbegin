@@ -14,7 +14,6 @@ data:
   # 凭据一律通过 api_key_env 引用，实际值来自 llm-service-secret（Vault 注入）。
   #
   # 稳定别名 llm-guarded/llm-trusted 由 active_upstream 集中切换；固定路由显式定义。
-  # dsh-trusted/pi-trusted/hermes-trusted 各自显式绑定共享上游，不跟随 active_upstream。
   # 策略由各别名的 tier 字段决定（见 config.py 的 TIERS）。
   #   custom-guarded   —— tier=guarded，给「用户会写 prompt」的对话型 Agent（禁扩权字段、收紧上限）
   #   custom-trusted   —— tier=trusted，纯文本生成与函数调用
@@ -78,21 +77,6 @@ data:
           "timeout_seconds": 60
         },
         "custom-trusted": {
-          "tier": "trusted",
-          "upstream": "custom",
-          "timeout_seconds": 120
-        },
-        "dsh-trusted": {
-          "tier": "trusted",
-          "upstream": "custom",
-          "timeout_seconds": 120
-        },
-        "pi-trusted": {
-          "tier": "trusted",
-          "upstream": "custom",
-          "timeout_seconds": 120
-        },
-        "hermes-trusted": {
           "tier": "trusted",
           "upstream": "custom",
           "timeout_seconds": 120
@@ -208,7 +192,7 @@ spec:
   podSelector: {matchLabels: {app: llm-service}}
   policyTypes: [Ingress, Egress]
   ingress:
-    # 通用调用方使用 llm-client 标签；三个 Agent 由下方专属策略按 namespace + app 放行。
+    # 网关调用方使用 llm-client 标签；直连公网模型的 Agent 不设置此标签。
     - from:
         - namespaceSelector: {}
           podSelector:
@@ -221,40 +205,3 @@ spec:
         - {protocol: TCP, port: 53}
     - ports:
         - {protocol: TCP, port: 443}
----
-# Independent of the generic llm-client rule; applies to existing Pods without
-# changing their templates or restarting their Recreate Deployments.
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: llm-agent-clients
-  namespace: llm
-spec:
-  podSelector:
-    matchLabels:
-      app: llm-service
-  policyTypes:
-    - Ingress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: dsh
-          podSelector:
-            matchLabels:
-              app: dsh-web
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: pi
-          podSelector:
-            matchLabels:
-              app: pi
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: hermes
-          podSelector:
-            matchLabels:
-              app: hermes-web
-      ports:
-        - protocol: TCP
-          port: 8000

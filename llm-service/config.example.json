@@ -57,21 +57,6 @@
       "upstream": "custom",
       "timeout_seconds": 120
     },
-    "dsh-trusted": {
-      "tier": "trusted",
-      "upstream": "custom",
-      "timeout_seconds": 120
-    },
-    "pi-trusted": {
-      "tier": "trusted",
-      "upstream": "custom",
-      "timeout_seconds": 120
-    },
-    "hermes-trusted": {
-      "tier": "trusted",
-      "upstream": "custom",
-      "timeout_seconds": 120
-    },
     "llm-guarded": {
       "tier": "guarded",
       "upstream": "$active",

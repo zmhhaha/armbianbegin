@@ -105,13 +105,13 @@ canary 改为**边转发边累积检查**，命中时计数一次并记日志；
 
 普通业务使用 `llm-guarded` / `llm-trusted`。只需修改 `k8s.yaml` 中 `active_upstream`（custom 或 deepseek），运行 `bash deploy.sh --skip-build` 即可集中切换。明确指定供应商的固定路由仍在新格式中显式配置。
 
-DSH、Pi、Hermes 分别预留 `dsh-trusted`、`pi-trusted`、`hermes-trusted`。三条路由初始均显式绑定共享的 `custom` 上游（`gpt-6-astra`），每条独立选择上游，不跟随 `active_upstream`。它们沿用 trusted 策略，没有新增或复制上游、API 地址或凭据。
+固定路由显式引用共享 upstream；修改该 upstream 的模型会影响所有引用它的路由。
+路由只继承供应商、地址、模型和凭据引用，不继承其他路由的 defaults。
+配置应保存在仓库中；部署完整重渲染配置，临时线上修改会被下次部署覆盖。
 
-例如只把 DSH 切到 DeepSeek：将 `k8s.yaml` 的 `routes.dsh-trusted.upstream` 改为 `deepseek`，同步修改 `config.example.json`，提交并同步后运行 `bash llm-service/deploy.sh --skip-build`。Pi、Hermes 和普通业务的绑定保持各自的配置值。切回则将该字段改回 `custom`。路由只继承 upstream 的供应商、地址、模型和凭据引用，不继承 `deepseek-trusted` 等其他路由的 defaults。
-
-这些绑定应保存在仓库配置中；部署会完整重渲染配置，只在线上临时修改的绑定会被下次部署覆盖。共享上游的 `model` 若被修改，所有绑定该上游的别名都会采用新模型。独立切换指的是各别名独立选择上游，并非各自拥有一份上游模型配置。
-
-三个 Agent 的主 Pod 通过专属 NetworkPolicy 访问网关，模型设置和专属调用令牌由后续接入配置。别名不构成调用方访问控制，调用者身份仍由令牌决定。网络规则、实际 Pi 入口及客户端步骤见 [Agent 接入说明](design/agent-routing-integration.md)。
+DSH、Hermes、Pi 自行管理 `custom-llm` 公网直连配置，原专用路由和网络例外已从清单移除。
+配置步骤见 [Agent 直连接入记录](../panghu_chat/docs/agents-custom-llm.md)，
+原方案及集群清理步骤见 [专用网关退役记录](design/agent-routing-integration.md)。
 
 `deploy.sh` 使用 Git 提交作为构建镜像标签，并按 ConfigMap 内容生成名称，将镜像和配置引用作为同一次 Deployment 模板更新。更新策略为 RollingUpdate（maxUnavailable=0/maxSurge=1），终止宽限 150 秒；滚动期间新旧路由可短暂并存，超长 SSE 可能在宽限到期被中断。每个请求固定自己的路由快照。日常 `--skip-build` 自动沿用当前 Deployment 镜像，也可用 IMAGE 显式指定标签或 digest。
 
@@ -184,9 +184,6 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 |---|---|---|---|
 | `llm-guarded` | active_upstream | guarded | 对话及游戏业务，集中切换上游 |
 | `llm-trusted` | active_upstream | trusted | RAG、生成及工具调用，集中切换上游 |
-| `dsh-trusted` | 独立绑定，初始 custom | trusted | DSH 专属切换入口，客户端待接入 |
-| `pi-trusted` | 独立绑定，初始 custom | trusted | Pi 专属切换入口，客户端待接入 |
-| `hermes-trusted` | 独立绑定，初始 custom | trusted | Hermes 专属切换入口，客户端待接入 |
 | `deepseek-guarded` | deepseek | guarded | 保留的 DeepSeek guarded 别名 |
 | `deepseek-trusted` | deepseek | trusted | 保留的 DeepSeek trusted 别名 |
 | `openai-trusted` | openai | trusted | **预留**：Vault 里还没有 `OPENAI_API_KEY`，点名它会得到 503「缺少凭据」 |
@@ -241,9 +238,8 @@ bash build.sh --push     # 国内 pip 源，构建并推送
 bash deploy.sh           # 应用 Vault ExternalSecret + k8s，重启并等待就绪
 ```
 
-部署到命名空间 `llm`。通用入站规则要求调用方 Pod 带 `llm-client: "true"`；
-`llm-agent-clients` 为 DSH web、Pi、Hermes web 提供精确的 namespace + app 入站例外。
-Agent 侧对应的 `llm-service-egress` 只允许到网关 Pod TCP 8000。网关出站只放行 DNS
+部署到命名空间 `llm`。入站规则要求调用方 Pod 带 `llm-client: "true"`；
+DSH、Hermes、Pi 的专用入站和出站例外已退役。网关出站只放行 DNS
 与 TCP 443，custom 模型经 VPS HTTPS 代理访问上游。
 
 历史记录：2026-09-20 使用 `kube-flannel` 时策略未生效；2026-09-29 切换到 Calico 后，
