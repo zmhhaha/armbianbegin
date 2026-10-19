@@ -9,6 +9,8 @@ Chat Completions，由网关双向转换。切换活动上游时，业务入口�
 
 对应 OpenSpec change `add-rag-service` 中的 `llm-service` capability。
 
+2026-10-20 的业务 Responses 迁移范围、上线版本和验证证据见 [迁移记录](../docs/llm-service-responses-migration.md)。
+
 > **要把一个新服务接进来？** 看 [INTEGRATION.md](INTEGRATION.md) —— 那是**调用方视角**的步骤清单
 > （选别名 → 申请令牌 → 注入 k8s → 写代码 → 验证）。本文档讲的是**服务自身**的边界与运维。
 
