@@ -2,6 +2,10 @@
 
 本目录是设计与调研笔记。**实现规格以 OpenSpec store 为准**（`armbianbegin` 项目，见仓库根的 `.openspec-project.json` 与 `AGENTS.md`）；这里放的是过程材料、现状调查和决策记录。
 
+## Agent 模型接入
+
+- [DSH、Hermes、Pi 接入 custom-llm](../panghu_chat/docs/agents-custom-llm.md)：2026-10-19 的直连配置步骤、DSH 故障修复、模型切换与验证状态；Pi 配置结果仍待确认。
+
 > ## ⚡ 2026-09-20 更正：集群 NetworkPolicy 全部未生效
 >
 > 实测确认（非清单推断）：集群 CNI 是 **`kube-flannel`**，无 Calico / Cilium / kube-router / antrea。**flannel 不实现 NetworkPolicy，因此集群里现存的 13 个 NetworkPolicy 对象全部是空转的。**

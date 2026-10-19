@@ -2,6 +2,16 @@
 
 OpenSpec change：`add-independent-agent-routes`，项目映射见仓库根 `.openspec-project.json`。
 
+## 当前接入选择（2026-10-19）
+
+三个通用 Agent 选择自行管理提供方并直连 `custom-llm`，配置与验证状态见
+[DSH、Hermes、Pi 接入记录](../../panghu_chat/docs/agents-custom-llm.md)。DSH 已验证对话，
+Hermes 已收到用户成功反馈，Pi 已提供教程、待确认执行结果。
+
+本文件保留此前的可选网关方案及其验证记录。三条网关路由和网络例外仍保留；
+直连不使用网关调用令牌，也不受此处网关参数限制影响。下文的 DeepSeek 初始配置和
+待接入步骤是网关方案实施时的记录，不代表三个 Agent 当前都必须接入网关。
+
 ## 本次网关配置
 
 | 应用 | 固定请求别名 | 初始共享上游 | 初始实际模型 |
@@ -57,16 +67,17 @@ OpenSpec change：`add-independent-agent-routes`，项目映射见仓库根 `.op
   设置 Ctrl+P 的轮换范围。网页封装的实际入口需对应部署实例确认。
 - 仓库入口：`panghu_chat/pi/k8s/core.yaml`、`k8s/llm-egress.yaml`、
   `vault/inventory/pi-externalsecret.yaml`，持久 home 是 `/home/pi`。
-- 已核对 frpc 的 `pi.panghuer.top` 路由指向 `pi-web.pi.svc.cluster.local:4180`，本阶段目标是
-  `pi/pi`。集群另有旧 `pi-cage/pi-cage`，此次不为它开放网关访问。原生模型配置文件路径仍需确认。
+- 已核对 frpc 的 `pi.panghuer.top` 路由指向 `pi-web.pi.svc.cluster.local:4180`，目标是
+  `pi/pi`。旧 `pi-cage/pi-cage` 及其数据已删除。原生配置路径后续已核对为
+  `/home/pi/.pi/agent/models.json`，具体操作见上方直连接入记录。
 - 本次未验证 Pi 实际发送的全部参数，仍需检查输出上限、推理字段、流式与工具循环。
 
 ### Hermes
 
-- 线上已确认 `/opt/data/config.yaml` 的 model 使用 `deepseek-flash`、provider deepseek、
+- 网关方案调查时，线上 `/opt/data/config.yaml` 的 model 使用 `deepseek-flash`、provider deepseek、
   `https://api.deepseek.com/v1` 和 `api_mode: chat_completions`。
 - 通过原生 provider 配置改为网关地址、自己的令牌和 `hermes-trusted`，保留其他 profile 设置。
-- 线上日报任务的 model、provider、base_url 当前均为空；迁移后仍需验证网页会话和原生调度器
+- 当时核对的日报任务 model、provider、base_url 均为空；网关迁移仍需验证网页会话和原生调度器
   实际继承网关配置，不以单独的连通探测代替原生任务验证。
 - 仓库入口：`panghu_chat/hermes/k8s/core.yaml` 的 web Pod、`k8s/llm-egress.yaml`、
   `vault/inventory/hermes-externalsecret.yaml`。无模型的 publisher 不参与接入。
