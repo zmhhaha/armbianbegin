@@ -26,6 +26,16 @@
 - 会话 Cookie 为独立的 `__Host-dsh`，不设置父域。`__Host-` 前缀强制要求 Secure + `Path=/` + 无 Domain 三条同时成立，本配置三条都满足；改动时不要只改其中一条。
 - 客户端 ID、客户端密钥、Cookie 密钥都通过 Vault 同步的 `dsh-oidc` Secret 注入，**不复制到本 ConfigMap**。
 
+## OAuth 会话过期
+
+`api_routes = ["^/api/"]` 让 `/api/` 下的请求在 OAuth 会话缺失或过期时返回 HTTP 401 JSON，不跳转到 Casdoor，也不为后台重试新建 OAuth CSRF Cookie。模型目录请求和 WebSocket 重连都走这一规则；认证成功后仍按原流程转发，邮箱白名单和原生认证继续生效。
+
+用户遇到登录过期时，重新打开或刷新 `https://dsh.panghuer.top/` 完成登录，再重试原操作。根页面仍会启动正常的 OAuth 登录流程。这里使用的是 `api_routes`，不能改成会跳过认证的 `skip_auth_routes`。
+
+这一设置避免旧页面持续重试 API 时积累登录 CSRF Cookie，进而超过 Node 请求头大小限制并出现 HTTP 431 或代理错误。已积累的 Cookie 不会因为更新配置立即消失；如果登录后仍报请求头过大，清除 DSH 站点的 Cookie 后重新登录。
+
+修改 `dsh-oauth` 的代理配置后，需要应用 ConfigMap 并重启 `dsh-web`，让 oauth2-proxy 重新读取配置；邮箱白名单文件的动态更新规则保持独立。
+
 ## 原生 Cookie 与安全边界
 
 适配层给原生 Cookie 补充 `Secure`，保留 HttpOnly、SameSite 和公网 Host 绑定。已核对安装版本 `0.1.5-rc.2` 的根 URL 兑换代码；没有关闭原生认证、Host/Origin 校验。错误 Host/Origin、跨站请求及客户端 Token 查询参数均被拒绝；OAuth 检查不可用时拒绝访问。`set_xauthrequest = true` 用于让内部 `/oauth2/auth` 返回邮箱；`request_logging = false` 避免旧 Token URL 落入 OAuth 访问日志。
