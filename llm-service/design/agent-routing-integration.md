@@ -39,6 +39,16 @@
 
 这次撤销的是该预留接入方案。新的 OpenSpec change `retire-unused-agent-gateway-access` 记录别名与网络例外的退役，以及其他业务路由和网络隔离保留的要求；项目仍为根 `.openspec-project.json` 指定的独立 `armbianbegin` 项目。
 
+该变更已校验通过并应用到主规格，未归档；应用后规格版本为 `1558323180e9f80dfbaee26cbfaebe0f465b4596`。
+
 ## 验收记录
 
-集群清理执行后补记具体配置、网络和服务检查结果。Pi 直连配置仍待用户确认，不能把网络清理成功写成 Pi 模型对话成功。
+- 源变更：主仓库 `17ec945`、`panghu_chat` 子模块 `0208250`，已推送并同步到管理节点。
+- 本地现有网关测试 54 项通过；部署配置与示例一致，只移除三个路由，其他 YAML 资源 spec 不变；`custom` 与 `deepseek` 两种渲染均通过检查。
+- 备份与验收结果保存于管理节点 `/root/retire-agent-gateway-20261019T131916Z/`，包含 `networkpolicies.json`、`deployment.json`、`configmaps.json`、`network-before.json`、`network-after.json`、`network-final.json` 和 `gateway-after.json`。
+- 四条专用 NetworkPolicy 已删除，其余 21 条策略 spec 与基线完全一致。三个主 Agent 对网关 Service:80 和 Pod:8000 均超时，对公网中转站 `/v1/models` 均返回未鉴权 401；三个 Pod UID 与全部容器重启计数未变。
+- 网关沿用 `arm-cluster-master:5000/llm-service:547980f`，配置为 `llm-service-config-fa03fe6fac9c`。服务端 dry-run 确认 Deployment 只改变 ConfigMap 引用，滚动部署完成，readiness 为 ready。
+- 通过现有 `data/rag-service` 验证健康接口 200、鉴权模型目录恰为保留的七条路由。各路由解析元数据和 revision 均与清理前相同；对三个退役别名的鉴权请求均按未知模型返回 400。
+- 滚动更新后调用方计数由旧进程的 22 变为 25：新进程与当前 Secret 都有 25 个 `LLM_TOKEN_*` 键，其中包括 DSH、Hermes、Pi 三个键。本次没有更新 Secret、ExternalSecret 或 Vault，也没有删除这些凭据；此计数变化单独记录，不宣称调用方数量未变。
+
+公网探测只证明连接可达；Pi 直连配置与模型对话仍待用户确认，本次未触发实际模型推理或 Agent 工具循环。
