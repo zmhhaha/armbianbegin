@@ -3,6 +3,10 @@
 集群内统一的 LLM 入口：集中 provider 凭据、模型别名路由、超时与重试、限流与用量统计。
 **仅集群内可达（ClusterIP）**，不提供任何公网入口，也不做业务逻辑。
 
+业务统一调用 **`POST /v1/responses`**，请求与响应都采用 Responses 格式。
+网关按上游的 `wire_api` 选择出站协议：custom 原生使用 Responses；DeepSeek 仍使用
+Chat Completions，由网关双向转换。切换活动上游时，业务入口、别名、令牌和档位保持一致。
+
 对应 OpenSpec change `add-rag-service` 中的 `llm-service` capability。
 
 > **要把一个新服务接进来？** 看 [INTEGRATION.md](INTEGRATION.md) —— 那是**调用方视角**的步骤清单
@@ -10,10 +14,12 @@
 
 ## 边界
 
-- 调用方只能传**允许的模型别名 + 有界的非敏感生成参数**（`temperature`、`top_p`、`max_tokens`、`stop`、`presence_penalty`、`frequency_penalty`，以及函数调用相关的 `tools` / `tool_choice` / `response_format` / `seed` / `n`）。
+- 调用方传**允许的模型别名、`input` / `instructions` 和有界的生成参数**：`temperature`、`top_p`、`max_output_tokens`、`tools`、`tool_choice`、`text.format`、`stream`；每次请求携带完整历史，并使用 `store: false`。
 - 请求体里出现 `base_url` / `api_key` / `provider` 之类**改路由**的字段，或使用未知别名，一律拒绝。
 - 凭据只从 Vault 注入进程环境，**绝不回传给调用方**。
 - 非敏感路由（provider、上游 base URL、模型别名、默认参数、超时、重试）放 ConfigMap。
+
+未知字段和无法等价转换的结构明确拒绝。网关提供 Responses 的受支持子集，不提供服务端会话、后台任务或内置工具托管；详细范围见「上游协议与转换」。
 
 ## 防护（Prompt hijack resistance）
 
@@ -65,13 +71,17 @@
 没有 `X-Caller` 之类的自报字段。用量与限流一律按令牌推导出的调用者归因；
 `/v1/usage` 另外给出 `by_alias` 维度 —— 它回答的是「哪个模型被用了多少」，与「谁在用」是两个问题。
 
-### `POST /v1/chat/completions`
+### `POST /v1/responses`
 
 ```json
-{"model": "llm-trusted", "messages": [{"role": "user", "content": "你好"}], "temperature": 0.7}
+{"model": "llm-trusted", "input": "你好", "temperature": 0.7, "store": false}
 ```
 
-`model` 是**别名**，不是上游模型名。服务按别名解析 provider / base_url / 模型 / 凭据后转发，响应与 OpenAI 兼容（含 `usage`）。
+`model` 是**别名**，不是上游模型名。网关解析 provider / base_url / 模型 / 凭据和 `wire_api`，响应始终为 Responses 对象：`object: "response"`、`status`、`output`、`usage`。
+
+文本在 `output[].content[]` 中类型为 `output_text` 的项里；函数调用是独立的 `function_call` 输出项，拒绝内容是 `refusal` 内容项。不要只读取 `choices`，也不要把没有正文等同于没有工具调用。
+
+`completed` 表示正常终态；`incomplete` 保留 `max_output_tokens` 或 `content_filter` 原因。后者可以有部分输出，需要调用方判断是否接受。`usage` 使用 `input_tokens` / `output_tokens` / `total_tokens`，保留缓存和推理 token 计数；网关的 `/v1/usage` 仍沿用 `prompt_tokens` / `completion_tokens` 汇总字段。
 
 ### 其他
 
@@ -85,19 +95,23 @@
 
 1. 先建立上游连接、检查状态码并完成重试。这一步失败会抛 `UpstreamError`，
    于是调用方拿到的是**正常的 5xx**，而不是一个已经开始的流被中途掐断。
-2. 确认上游正常后才开始把字节转发给调用方。**一旦开始转发就没有重试可言** ——
-   流式中途出错只能断流，无法重放。
+2. 确认上游正常后才开始向调用方发送带 `type` 的 Responses SSE。custom 上游保留原生事件；DeepSeek 的 Chat 增量转为 `response.created`、`response.in_progress`、输出项、内容与函数参数增量等事件。**一旦开始转发就没有重试可言**，无法重放已经输出的内容。
 
 两个实现细节：
 
-- 服务会**自动注入** `stream_options: {include_usage: true}`，否则流式请求拿不到 token 数、
-  用量统计会缺这一笔。取不到 usage 不报错，只是那次不计入。
+- Chat 上游会**自动注入** `stream_options: {include_usage: true}`，再把用量映射到 Responses 终态；Responses 上游从终态响应取得 usage，不发送这个 Chat 专有字段。缺少 usage 时该次仍可能计为请求，但 token 用量没有有效值。
 - 上游的 **4xx 原样透传**（与非流式路径一致），不是 502。
+- 成功以 `response.completed` 或 `response.incomplete` 结束，完整终态对象携带 output 和 usage。Responses 流不使用 Chat 的 `[DONE]` 作为完成标志。
+- 上游失败、协议无效或提前断流时，网关发送 `type: "error"` 事件并结束，不伪造成功终态，也不记录成功用量。DeepSeek 转换必须收到 Chat 的 finish reason 和 `[DONE]` 才能生成正常终态。调用方必须识别错误事件与缺少终态的情况，不能把 HTTP 200 当作生成成功。
 
 **guard 在流式下的差异**：spotlight 照常生效（它改的是发给上游的 messages）。
 canary 改为**边转发边累积检查**，命中时计数一次并记日志；`canary_action=reject` 的语义
 是**截断**而不是「拒绝」—— 已经吐出去的字收不回来，只能停止继续转发。这一点与非流式不同，
 非流式下 reject 是完整地换掉响应。
+
+### 迁移期间的旧入口
+
+`POST /v1/chat/completions` 已标为 deprecated，仅用于滚动迁移期间接住尚未更新的 Pod。它接收旧 `messages`、`max_tokens`、`response_format`，并返回 Chat 格式；这不是新业务的接入接口。业务代码应使用 `/v1/responses`，不能把只改 URL、保留 Chat 请求体当成迁移。
 
 ## 配置
 
@@ -108,6 +122,8 @@ canary 改为**边转发边累积检查**，命中时计数一次并记日志；
 固定路由显式引用共享 upstream；修改该 upstream 的模型会影响所有引用它的路由。
 路由只继承供应商、地址、模型和凭据引用，不继承其他路由的 defaults。
 配置应保存在仓库中；部署完整重渲染配置，临时线上修改会被下次部署覆盖。
+
+upstream 的 `wire_api` 支持 `chat_completions` 和 `responses`，省略时为 `chat_completions`。当前仅 custom 显式配置 `"wire_api": "responses"`；DeepSeek 保持原配置，向其 `/v1/chat/completions` 发请求。这个字段只决定网关到上游的出站协议：活动上游切到 custom 或 deepseek 时，业务侧仍统一使用 `/v1/responses`。
 
 DSH、Hermes、Pi 自行管理 `custom-llm` 公网直连配置，原专用路由和网络例外已从清单移除。
 配置步骤见 [Agent 直连接入记录](../panghu_chat/docs/agents-custom-llm.md)，
@@ -152,8 +168,7 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 别名必须唯一对应一个模型，失败就返回错误，绝不静默换成另一个 provider 或另一个模型——否则调用方
 点名要 `custom-guarded`，实际作答的可能已经是别的模型，别名就失去意义了。
 
-上游返回 2xx 但响应体不是合法 JSON、或 `choices` 缺失/为空时，同样按上游故障返回 502，
-不把无效响应透传给调用方。注意**不校验 `message.content` 是否为空**：工具调用时它本来就是 `null`。
+上游返回 2xx 但响应体不是合法 JSON 时按上游故障返回 502。Chat 上游要求一个有效 choice，并转换成 Responses；原生 Responses 上游校验终态、输出项和用量。失败状态、无法转换的输出或无效结构均不当作成功返回。纯工具输出允许没有正文，推理内容不会被拼进用户看到的正文。
 
 ## 职责边界
 
@@ -173,8 +188,8 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 
 | 类别 | 给谁用 | 策略 |
 |---|---|---|
-| **`trusted`** | content 生成、RAG、**内部机器对话** | 标准字段透传（含 `tools`）；`max_tokens` ≤ 8192、消息 ≤ 200 |
-| **`guarded`** | **用户会写 prompt** 的对话型 Agent | 禁 `tools` / `response_format`；`max_tokens` ≤ 2048、消息 ≤ 60 |
+| **`trusted`** | content 生成、RAG、**内部机器对话** | 允许支持的函数工具和结构化输出；显式 `max_output_tokens` ≤ 8192、规范化后消息 ≤ 200 |
+| **`guarded`** | **用户会写 prompt** 的对话型 Agent | 禁 `tools` / `tool_choice` / `text.format`；显式 `max_output_tokens` ≤ 2048、规范化后消息 ≤ 60 |
 
 新格式的每条路由必须显式指定 tier，缺少档位会报配置错误。
 
@@ -186,7 +201,7 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 | `llm-trusted` | active_upstream | trusted | RAG、生成及工具调用，集中切换上游 |
 | `deepseek-guarded` | deepseek | guarded | 保留的 DeepSeek guarded 别名 |
 | `deepseek-trusted` | deepseek | trusted | 保留的 DeepSeek trusted 别名 |
-| `openai-trusted` | openai | trusted | **预留**：Vault 里还没有 `OPENAI_API_KEY`，点名它会得到 503「缺少凭据」 |
+| `openai-trusted` | openai | trusted | **预留**：需要有效的 `OPENAI_API_KEY`；占位值不能完成真实调用 |
 | `custom-guarded` | custom | guarded | `gpt-6-astra`，用户可写 prompt 的 Agent 与游戏服务 |
 | `custom-trusted` | custom | trusted | `gpt-6-astra`，RAG、结构化输出和工具调用服务 |
 
@@ -194,8 +209,36 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 `secret/llm-service/providers`，等待 ExternalSecret 同步后重启 Deployment，环境变量才会更新。
 它们经 `https://custom-llm-proxy.panghuer.top/v1` 到 VPS 的 Nginx，再由 Nginx 转发至上游 9080；
 VPS 站点配置见 `vps/nginx/custom-llm-proxy.conf`。
-提供的客户端配置声明 `wire_api = "responses"`；本服务目前仍走 Chat Completions，
-因此该别名能否调用成功取决于代理是否同时提供 `/v1/chat/completions`。
+custom upstream 配置 `wire_api: "responses"`，网关向该基址的 `/responses` 发送请求，即 `/v1/responses`。所有引用 custom 的路由共同生效；调用方统一调用网关的 `/v1/responses`。
+
+### 上游协议与转换
+
+出站协议只由 upstream 的 `wire_api` 决定，调用方不能在请求体中覆盖它。所有业务请求均使用 Responses 入口，别名、调用方令牌与 tier 继续使用原配置。
+
+| 业务侧 Responses | DeepSeek Chat 出站或回包 |
+|---|---|
+| 字符串 `input`、消息列表、`instructions` | `messages`；instructions 作为前置 system 消息，支持用户图片 URL |
+| `function_call`、`function_call_output` 历史项 | assistant `tool_calls`、tool `tool_call_id`，保留调用 ID 与结果顺序 |
+| 扁平 function `tools` 与命名 `tool_choice` | Chat 嵌套的 `function` 结构；显式 `strict` 保留，省略时按 Responses 的严格默认值处理 |
+| `max_output_tokens` | `max_tokens`，推理和正文共用输出预算 |
+| `text.format` | `response_format`，支持文本、JSON object、JSON Schema |
+| Chat 正文、工具调用、拒绝 | Responses `output_text`、`function_call`、`refusal` |
+| Chat finish reason `length` / `content_filter` | `status: "incomplete"` 与对应 incomplete_details |
+| Chat 输入、输出、缓存及推理 token 数 | Responses usage；兼容 DeepSeek 的 `prompt_cache_hit_tokens` 缓存计数 |
+
+请求采用无状态模式：显式发送 `store: false`，由调用方管理完整消息历史。仅支持函数工具，工具仍由业务服务执行，网关转换调用与结果。
+
+公共入口不接收 `messages`、`max_tokens`、`response_format`、`stop`、`seed`、`n`、penalties 等 Chat 字段，也不支持 `previous_response_id`、`conversation`、`background`、`include`、`reasoning`、内置 web/file/MCP 工具、音频或上游文件 ID。未知字段通常返回 422，已知字段中的不支持结构或 `store: true` 返回 400。历史中不能带无法转换的 reasoning 项或非空输出 annotations；这些限制也适用于 custom，以保持可切换的业务契约。
+
+SDK `model_dump()` 生成的可重放输出项可直接放回历史，包括 `namespace: null`、`phase: null`、`logprobs: null` 等可空字段。消息 phase 接受 `commentary` 和 `final_answer`；非空工具 namespace 无法映射到 Chat，明确拒绝。
+
+custom 输出中仅清理代理额外附加的 item 字段 `metadata`、`internal_chat_message_metadata_passthrough` 和 `response.metadata` 控制事件，使完整输出可以直接回放。标准响应顶层的 `metadata`、工具参数中的同名键及其他语义字段均保留。
+
+custom 使用原生 Responses 输出和 typed SSE；DeepSeek 转换为相同的外部格式。模型仍可能拒绝温度、强制工具选择或某些 JSON Schema 组合，网关不会静默更改参数或换供应商。
+
+路由 `defaults` 当前使用内部生成参数名（如 `max_tokens`），会与公共请求映射后的参数合并，并接受对应上游的协议校验。旧 Chat 入口的转换实现见 `responses_adapter.py`；公共 Responses 到 Chat 的桥接见 `chat_adapter.py`。
+
+官方参考链接：[Responses 迁移指南](https://developers.openai.com/api/docs/guides/migrate-to-responses)、[Responses API](https://platform.openai.com/docs/api-reference/responses)。
 
 ### 档位上限的真实语义
 
@@ -207,7 +250,7 @@ if request.max_tokens and request.max_tokens > policy["max_tokens_cap"]:
 ```
 
 所以它约束的是「**调用方不许向服务索要更多**」，**不是**「服务最多给这么多」。
-调用方不传 `max_tokens` 时服务不会注入任何值，预算由上游默认值决定。
+调用方不传 `max_output_tokens` 且路由 defaults 没有 `max_tokens` 时，服务不会额外注入预算，使用上游默认值。
 
 这个区别在两个方向上都有后果：
 
@@ -215,14 +258,14 @@ if request.max_tokens and request.max_tokens > policy["max_tokens_cap"]:
 - **对推理模型反而是对的默认。** 上游把输出分成 `reasoning_content`（思考）和 `content`（正文）
   两路、共用同一份预算；卡死在 `guarded` 的 2048 会让思考吃光配额、正文为空，
   而且**返回仍是 200**，只有 `completion_tokens` 正好顶格能看出来。长文生成类的调用方
-  应当不传 `max_tokens`。完整数据与症状识别见 [INTEGRATION.md](INTEGRATION.md) §4.5。
+  应根据实际输出需求设置 `max_output_tokens`，并检查 `status` / `incomplete_details`。完整说明见 [INTEGRATION.md](INTEGRATION.md) 的输出预算一节。
 
 ### 别名命名约定
 
 **普通业务使用 `llm-<tier>`；固定供应商使用 `<provider>-<tier>`；需要独立切换模型的应用使用 `<application>-<tier>`**：
 
 - 固定路由的前缀与 provider 一致；稳定路由的 `llm` 前缀表示由 active_upstream 决定供应商。
-- `dsh`、`pi`、`hermes` 前缀标识各自独立的切换入口；通过显式 upstream 引用复用共享模型配置。
+- 应用确有独立切换需求时，可以通过自己的路由名引用共享 upstream；DSH、Pi、Hermes 的旧专用路由已退役，不属于当前路由表。
 - 后缀只有 `guarded` / `trusted` 两档（策略见上表）。
 - 档位表示能力策略，应用别名表示独立的路由绑定。只有默认 temperature、timeout 不同，而无需独立选择模型时，不必增加别名。
 - 需要新 provider 或新档位时**按需加一条**，不预先铺满 provider × tier 矩阵。
@@ -301,8 +344,8 @@ kubectl rollout restart deployment/llm-service -n llm
 **每次往 `secret/llm-service/callers` 加调用方，都要顺手重启一次。**
 
 **6. 调用成功（200）但正文为空**
-如果调用方只读 `content`，而它收到的全是 `reasoning_content`，就是 `max_tokens` 被思考吃光了。
-特征：llm-service 日志里 `completion_tokens` **正好等于**调用方设的上限。
+公共 Responses 不暴露 DeepSeek 的 `reasoning_content` 为正文。若思考耗尽输出预算，正文可能为空；检查 `status: "incomplete"`、`incomplete_details.reason: "max_output_tokens"` 和 usage 中的推理 token 数。
+特征之一是 llm-service 日志里 `completion_tokens` 达到调用方设置的 `max_output_tokens`。
 见「档位上限的真实语义」与 [INTEGRATION.md](INTEGRATION.md) §4.5。
 
 **7. 清 Vault 凭据必须用 `metadata delete`，`kv delete` 等于没删**

@@ -18,12 +18,14 @@ from typing import Any
 
 from fastapi import FastAPI, Header, HTTPException, Response
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from auth import resolve, token_map
 from config import ALLOWED_PARAMS, ConfigError, load_config, load_guard_config, thaw, validate_params
 from guard import detect, harden, leaked, new_canary, user_texts
 from upstream import UpstreamError, UpstreamStream, forward, open_stream
+from responses_adapter import ResponsesRequestError
+from chat_adapter import to_chat_request
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger("llm-service")
@@ -100,6 +102,22 @@ class ChatRequest(BaseModel):
     seed: int | None = None
     n: int | None = Field(default=None, ge=1, le=4)
     stream: bool = False
+
+
+class ResponsesRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model: str = Field(min_length=1, max_length=64)
+    input: str | list[dict[str, Any]]
+    instructions: str | None = None
+    temperature: float | None = Field(default=None, ge=0, le=2)
+    top_p: float | None = Field(default=None, ge=0, le=1)
+    max_output_tokens: int | None = Field(default=None, ge=1, le=8192)
+    tools: list[dict[str, Any]] | None = Field(default=None, max_length=32)
+    tool_choice: str | dict[str, Any] | None = None
+    text: dict[str, Any] | None = None
+    stream: bool = False
+    store: bool = False
 
 
 def authorize(authorization: str | None) -> str:
@@ -237,9 +255,18 @@ def _stream_usage(text: str) -> dict:
         except ValueError:
             continue
         usage = data.get("usage")
+        if isinstance(data.get("response"), dict):
+            usage = data["response"].get("usage")
         if isinstance(usage, dict):
-            return usage
+            return _chat_usage(usage)
     return {}
+
+
+def _chat_usage(usage: dict) -> dict:
+    if "input_tokens" in usage:
+        return {"prompt_tokens": usage.get("input_tokens", 0),
+                "completion_tokens": usage.get("output_tokens", 0)}
+    return usage
 
 
 async def _relay(stream: UpstreamStream, canary: str | None, caller: str, alias, started: float):
@@ -253,9 +280,10 @@ async def _relay(stream: UpstreamStream, canary: str | None, caller: str, alias,
     tail = ""
     leak_seen = False
     async for chunk in stream.aiter():
-        tail = (tail + chunk.decode("utf-8", "ignore"))[-keep:]
+        combined = tail + chunk.decode("utf-8", "ignore")
+        tail = combined[-keep:]
         # canary 一旦落进尾部窗口就会一直留在里面，所以只判一次，否则每个后续 chunk 都会重复计数
-        if canary and not leak_seen and canary in tail:
+        if canary and not leak_seen and canary in combined:
             leak_seen = True
             _guard_stats[caller]["canary_leaks"] += 1
             log.info(json.dumps({"event": "guard_canary_leak", "caller": caller, "alias": alias_name,
@@ -268,7 +296,12 @@ async def _relay(stream: UpstreamStream, canary: str | None, caller: str, alias,
                 return
         yield chunk
 
-    tokens = _stream_usage(tail)
+    if getattr(stream, "failed", False):
+        log.info(json.dumps({"event": "upstream_stream_error", "caller": caller,
+                             "alias": alias_name, **alias.metadata()}, ensure_ascii=False))
+        return
+    tokens = (_chat_usage(stream.usage) if getattr(stream, "usage", None) is not None
+              else _stream_usage(tail))
     _record_usage(alias_name, caller, tokens)
     _record_route(alias, tokens)
     log.info(json.dumps({
@@ -279,11 +312,11 @@ async def _relay(stream: UpstreamStream, canary: str | None, caller: str, alias,
     }, ensure_ascii=False))
 
 
-@app.post("/v1/chat/completions")
-async def chat(
+async def _complete(
     request: ChatRequest,
     response: Response,
-    authorization: str | None = Header(default=None),
+    authorization: str | None,
+    *, output_api: str = "chat_completions",
 ):
     caller = authorize(authorization)
     if CONFIG_ERROR:
@@ -337,7 +370,12 @@ async def chat(
     # --- 流式分支：连接与读取分开，让「上游不可用」在还没写任何字节前变成正常的 5xx ---
     if request.stream:
         try:
-            stream = await open_stream(snapshot, request.model, messages, params)
+            if output_api == "responses":
+                stream = await open_stream(snapshot, request.model, messages, params, output_api=output_api)
+            else:
+                stream = await open_stream(snapshot, request.model, messages, params)
+        except ResponsesRequestError as error:
+            raise HTTPException(400, str(error)) from error
         except UpstreamError as error:
             log.info(json.dumps({"event": "upstream_error", "caller": caller, "alias": request.model,
                                  "status": error.status, "detail": error.message, "stream": True},
@@ -358,7 +396,12 @@ async def chat(
         )
 
     try:
-        response = await forward(snapshot, request.model, messages, params)
+        if output_api == "responses":
+            response = await forward(snapshot, request.model, messages, params, output_api=output_api)
+        else:
+            response = await forward(snapshot, request.model, messages, params)
+    except ResponsesRequestError as error:
+        raise HTTPException(400, str(error)) from error
     except UpstreamError as error:
         log.info(json.dumps({"event": "upstream_error", "caller": caller, "alias": request.model,
                              "status": error.status, "detail": error.message}, ensure_ascii=False))
@@ -378,15 +421,21 @@ async def chat(
         log.info(json.dumps({"event": "upstream_invalid_body", "caller": caller, "alias": request.model,
                              "status": response.status_code}, ensure_ascii=False))
         raise HTTPException(502, "upstream error: response body is not valid JSON")
-    if not isinstance(data.get("choices"), list) or not data["choices"]:
+    if output_api != "responses" and (not isinstance(data.get("choices"), list) or not data["choices"]):
         log.info(json.dumps({"event": "upstream_no_choices", "caller": caller, "alias": request.model,
                              "status": response.status_code}, ensure_ascii=False))
         raise HTTPException(502, "upstream error: response contains no choices")
 
     # --- 防护：响应里出现 canary，说明模型被套话把 system 复述出来了 ---
     if canary:
-        message = data["choices"][0].get("message") or {}
-        if leaked(message.get("content"), canary):
+        if output_api == "responses":
+            content = "".join(part.get("text", "") for item in data.get("output", [])
+                              if item.get("type") == "message" for part in item.get("content", [])
+                              if part.get("type") == "output_text")
+        else:
+            message = data["choices"][0].get("message") or {}
+            content = message.get("content")
+        if leaked(content, canary):
             _guard_stats[caller]["canary_leaks"] += 1
             log.info(json.dumps({"event": "guard_canary_leak", "caller": caller,
                                  "alias": request.model}, ensure_ascii=False))
@@ -394,7 +443,7 @@ async def chat(
                 _guard_stats[caller]["rejected"] += 1
                 raise HTTPException(502, "response withheld: system prompt leakage detected")
 
-    tokens = data.get("usage") or {}
+    tokens = _chat_usage(data.get("usage") or {})
     _record_usage(request.model, caller, tokens)
     _record_route(alias, tokens)
     log.info(json.dumps({
@@ -404,3 +453,24 @@ async def chat(
         "latency_ms": int((time.time() - started) * 1000),
     }, ensure_ascii=False))
     return data
+
+
+@app.post("/v1/responses")
+async def responses(request: ResponsesRequest, response: Response,
+                    authorization: str | None = Header(default=None)):
+    # Authenticate before processing user-supplied histories. Both protocols share
+    # the same tier policy, prompt guard, caller rate limit and route snapshot.
+    authorize(authorization)
+    try:
+        messages, params = to_chat_request(request.model_dump(exclude_none=True))
+        internal = ChatRequest(model=request.model, messages=messages, stream=request.stream, **params)
+    except (ResponsesRequestError, ValidationError) as error:
+        raise HTTPException(400, str(error)) from error
+    return await _complete(internal, response, authorization, output_api="responses")
+
+
+@app.post("/v1/chat/completions", deprecated=True)
+async def chat(request: ChatRequest, response: Response,
+               authorization: str | None = Header(default=None)):
+    # Kept during consumer rollout; business clients use /v1/responses.
+    return await _complete(request, response, authorization)

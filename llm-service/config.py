@@ -81,18 +81,21 @@ class Alias:
     upstream: str = ""
     revision: str = ""
     active: bool = False
+    wire_api: str = "chat_completions"
 
     def metadata(self) -> dict:
         return {"requested_alias": self.name, "resolved_upstream": self.upstream,
-                "configured_model": self.model, "tier": self.tier, "route_revision": self.revision}
+                "configured_model": self.model, "tier": self.tier, "route_revision": self.revision,
+                "wire_api": self.wire_api}
 
     @property
     def policy(self) -> dict:
         return TIERS[self.tier]
 
     @property
-    def chat_url(self) -> str:
-        return self.base_url.rstrip("/") + "/chat/completions"
+    def request_url(self) -> str:
+        path = "/responses" if self.wire_api == "responses" else "/chat/completions"
+        return self.base_url.rstrip("/") + path
 
     def api_key(self) -> str:
         return os.getenv(self.api_key_env, "").strip()
@@ -186,7 +189,9 @@ def load_config() -> tuple[dict[str, Alias], float]:
     for name, item in upstreams.items():
         if not re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", name):
             raise ConfigError("invalid upstream name")
-        _object(item, ("provider", "base_url", "model", "api_key_env", "max_retries"), "upstream")
+        _object(item, ("provider", "base_url", "model", "api_key_env", "max_retries", "wire_api"), "upstream")
+        if item.get("wire_api", "chat_completions") not in ("chat_completions", "responses"):
+            raise ConfigError("unsupported upstream wire_api")
         if any(not isinstance(item.get(k), str) or not item[k].strip() for k in ("provider", "base_url", "model", "api_key_env")):
             raise ConfigError("upstream missing required string")
         try:
@@ -220,6 +225,12 @@ def load_config() -> tuple[dict[str, Alias], float]:
         item = upstreams[target]
         defaults = route.get("defaults", {})
         validate_params(defaults, tier)
+        if item.get("wire_api") == "responses":
+            from responses_adapter import ResponsesRequestError, build_request
+            try:
+                build_request(item["model"], [], defaults)
+            except ResponsesRequestError as error:
+                raise ConfigError(f"unsupported Responses defaults: {error}") from error
         timeout = _number(route.get("timeout_seconds", 60), 1, 600, "timeout_seconds")
         resolved = {**item, "upstream": target, "tier": tier, "timeout_seconds": timeout, "defaults": defaults, "guard": guard_revision}
         revision = hashlib.sha256(json.dumps(resolved, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:24]

@@ -7,7 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --index-url "${PIP_INDEX_URL}" --timeout 120 --retries 5 -r requirements.txt
 
 # 显式列出模块：新增 .py 时必须同步加进这一行，否则镜像里 import 不到
-COPY app.py auth.py config.py guard.py upstream.py ./
+COPY app.py auth.py config.py guard.py upstream.py responses_adapter.py chat_adapter.py ./
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 USER 10002:10002

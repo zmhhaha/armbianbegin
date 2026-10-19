@@ -68,7 +68,7 @@ bash deploy.sh
 ## 配置（ConfigMap `rag-config`）
 
 ```yaml
-LLM_BASE_URL: http://llm-service.llm.svc.cluster.local/v1   # 基址，不含 /chat/completions（路径由代码补齐）
+LLM_BASE_URL: http://llm-service.llm.svc.cluster.local/v1   # 基址，不含 /responses（路径由代码补齐）
 LLM_MODEL: llm-trusted    # llm-service 注册的"模型别名"，不是上游模型名
 LLM_TIMEOUT: "120"
 CALLER_PERMISSIONS: |

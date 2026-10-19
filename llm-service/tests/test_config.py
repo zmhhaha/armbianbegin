@@ -52,8 +52,34 @@ class RoutingConfigTests(unittest.TestCase):
         with self.assertRaises(TypeError): routes['x'] = routes['llm-trusted']
         with self.assertRaises(TypeError): routes['llm-trusted'].defaults['response_format']['type'] = 'text'
         body = _payload(routes['llm-trusted'], [], {})
-        body['response_format']['type'] = 'text'
+        body['text']['format']['type'] = 'text'
         self.assertEqual(routes['llm-trusted'].defaults['response_format']['type'], 'json_object')
+
+    def test_protocol_is_per_upstream_and_switches_with_active_route(self):
+        before = self.load()
+        self.assertEqual(before['llm-trusted'].wire_api, 'responses')
+        self.assertTrue(before['custom-trusted'].request_url.endswith('/responses'))
+        self.assertEqual(before['deepseek-trusted'].wire_api, 'chat_completions')
+        self.data['active_upstream'] = 'deepseek'
+        after = self.load()
+        self.assertEqual(after['llm-trusted'].wire_api, 'chat_completions')
+        self.assertTrue(after['llm-trusted'].request_url.endswith('/chat/completions'))
+        self.assertEqual(before['deepseek-trusted'].revision, after['deepseek-trusted'].revision)
+
+    def test_custom_protocol_change_does_not_change_deepseek_revision(self):
+        before = self.load()
+        self.data['upstreams']['custom']['wire_api'] = 'chat_completions'
+        after = self.load()
+        self.assertNotEqual(before['custom-trusted'].revision, after['custom-trusted'].revision)
+        self.assertEqual(before['deepseek-trusted'].revision, after['deepseek-trusted'].revision)
+
+    def test_rejects_unknown_protocol_and_unsupported_responses_defaults(self):
+        for value in ('other', None, {}, []):
+            data = copy.deepcopy(self.data)
+            data['upstreams']['custom']['wire_api'] = value
+            with self.subTest(value=value), self.assertRaises(ConfigError): self.load(data)
+        self.data['routes']['llm-trusted']['defaults'] = {'n': 2}
+        with self.assertRaises(ConfigError): self.load()
 
     def test_defaults_cannot_escape_tier_or_redirect_upstream(self):
         for defaults in ({'tools': [{}]}, {'max_tokens': 2049}, {'temperature': -1}, {'api_key': 'bad'}):
