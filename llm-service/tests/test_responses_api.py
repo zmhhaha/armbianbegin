@@ -22,7 +22,7 @@ from config import load_config, load_guard_config
 def native_response(text="hello"):
     return {
         "id": "resp_native", "object": "response", "created_at": 1720000000,
-        "model": "gpt-6-astra", "status": "completed", "error": None,
+        "model": "gpt-6.1-sol", "status": "completed", "error": None,
         "incomplete_details": None,
         "output": [{"id": "msg_native", "type": "message", "role": "assistant", "status": "completed",
                     "content": [{"type": "output_text", "text": text, "annotations": []}]}],
@@ -119,7 +119,7 @@ class PublicResponsesApiTests(unittest.TestCase):
         self.assertEqual(result.json(), native)
         url, body = self.requests[0]
         self.assertTrue(url.endswith("/v1/responses"))
-        self.assertEqual(body["model"], "gpt-6-astra")
+        self.assertEqual(body["model"], "gpt-6.1-sol")
         self.assertEqual(body["max_output_tokens"], 128)
         self.assertFalse(body["store"])
         self.assertNotIn("messages", body)

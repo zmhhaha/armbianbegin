@@ -204,10 +204,10 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 | `deepseek-guarded` | deepseek | guarded | 保留的 DeepSeek guarded 别名 |
 | `deepseek-trusted` | deepseek | trusted | 保留的 DeepSeek trusted 别名 |
 | `openai-trusted` | openai | trusted | **预留**：需要有效的 `OPENAI_API_KEY`；占位值不能完成真实调用 |
-| `custom-guarded` | custom | guarded | `gpt-6-astra`，用户可写 prompt 的 Agent 与游戏服务 |
-| `custom-trusted` | custom | trusted | `gpt-6-astra`，RAG、结构化输出和工具调用服务 |
+| `custom-guarded` | custom | guarded | `gpt-6.1-sol`，用户可写 prompt 的 Agent 与游戏服务 |
+| `custom-trusted` | custom | trusted | `gpt-6.1-sol`，RAG、结构化输出和工具调用服务 |
 
-这两个 custom 别名直接使用配置中的 `gpt-6-astra`（2026-10-18 用户指定），不查询上游模型列表。将 `CUSTOM_API_KEY` 写入 Vault 的
+这两个 custom 别名直接使用配置中的 `gpt-6.1-sol`（2026-10-20 用户指定），不查询上游模型列表。将 `CUSTOM_API_KEY` 写入 Vault 的
 `secret/llm-service/providers`，等待 ExternalSecret 同步后重启 Deployment，环境变量才会更新。
 它们经 `https://custom-llm-proxy.panghuer.top/v1` 到 VPS 的 Nginx，再由 Nginx 转发至上游 9080；
 VPS 站点配置见 `vps/nginx/custom-llm-proxy.conf`。

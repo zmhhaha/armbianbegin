@@ -20,7 +20,7 @@
       "provider": "custom",
       "wire_api": "responses",
       "base_url": "https://custom-llm-proxy.panghuer.top/v1",
-      "model": "gpt-6-astra",
+      "model": "gpt-6.1-sol",
       "api_key_env": "CUSTOM_API_KEY",
       "max_retries": 1
     }
