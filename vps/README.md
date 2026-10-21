@@ -89,6 +89,7 @@ certbot renew --dry-run
 | frpc 一直 `session shutdown` / 连不上 | 控制台防火墙没放行 7000 ✗ | 控制台 → 防火墙 → 加 `TCP 7000` |
 | `frps` 起不来 | token 里的字符或模板渲染问题 | `journalctl -u frps -n 40` 看报错 |
 | nginx 502 / 404 | frps 没起，或对应域名没有 `[[proxies]]` | `curl -H 'Host: 域名' http://127.0.0.1:8080/` 在**本机**测（外面测不准 ✗） |
+| DSH 长对话报 `custom-llm API error (413)` | 模型代理默认 1 MiB 请求体上限先于上下文压缩触发 | `/v1/` 已设置 `client_max_body_size 32m`；见 [413 排查与修复记录](custom-llm-413.md) |
 | 浏览器**无限重定向** ✗ | 缺 `X-Forwarded-Proto: https` | 检查 `nginx/default.conf.template` 是否被改坏 |
 | 页面能开但**操作卡死** ✗ | WebSocket 头丢失 | 同上，检查 `Upgrade` / `Connection` 两行 |
 | 外面测端口"都开着"却连不上 | 家里路由器 Clash 透明代理接了连接 ✗ | 一律**在本机**用 `curl` 判定 ✓ |

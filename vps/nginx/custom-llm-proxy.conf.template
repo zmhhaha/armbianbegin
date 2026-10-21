@@ -7,6 +7,8 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/${BASE_DOMAIN}/privkey.pem;
 
     location /v1/ {
+        # Long agent histories can exceed nginx's default 1 MiB body limit.
+        client_max_body_size 32m;
         proxy_pass https://jingsi.asia:9080/v1/;
         proxy_ssl_server_name on;
         proxy_ssl_name jingsi.asia;
