@@ -18,7 +18,7 @@
 | `gitea.panghuer.top` | `gitea.gitops.svc.cluster.local:3000` | A → `62.234.50.20`，灰云 |
 | `drone.panghuer.top` | `drone-server.gitops.svc.cluster.local:8080` | A → `62.234.50.20`，灰云 |
 
-2026-10-22，用户已将上述三条记录改为 A 记录并关闭 Cloudflare 代理；已通过 Cloudflare API 核对。灰云表示客户端直接连接 VPS，HTTPS 由 VPS 的有效证书提供。DNS 生效后应继续完成下述协议检查。
+2026-10-22，用户已将上述三条记录改为 A 记录并关闭 Cloudflare 代理；已通过 Cloudflare API 核对。灰云表示客户端直接连接 VPS，HTTPS 由 VPS 的有效证书提供。
 
 三条 FRP 路由已存在，不需要重建或重启 frpc、frps。OpenSpec 和 Drone 使用现有通配域名 Nginx 配置；Gitea 使用专用配置，允许最大 512 MiB 请求体，并关闭请求及响应缓冲，支持 Git HTTP、LFS 和附件传输。应用本身的大小限制仍然有效。
 
@@ -80,3 +80,22 @@ TTL：自动
 ```
 
 回滚前先确认旧 Tunnel 通道可用；DNS 缓存可能使一部分客户端暂时仍走 VPS。Gitea 的专用 Nginx 配置可以保留，不影响 DNS 回滚。若需要恢复该配置，使用部署脚本记录的备份，执行 `nginx -t` 成功后再 reload。
+
+## 2026-10-22 验证记录
+
+- 配置提交：`66a8218`，已推送 GitHub `main`，同步到集群管理机 `/root/armbianbegin`。VPS 使用该提交的归档部署，路径为 `/home/ubuntu/deploy/armbianbegin/66a8218`。
+- `bash -n` 和 `nginx -t` 通过，Nginx 已 reload。未重启 frpc、frps 或应用 Pod。
+- 三个域名均解析到 `62.234.50.20`，TLS 校验通过，OpenSpec `/readyz`、Gitea `/api/healthz` 和 Drone `/healthz` 均返回 200。
+- OpenSpec OAuth 资源发现返回 200，资源仍为 `https://openspec.panghuer.top/mcp`；匿名 MCP 请求返回预期的 401，已认证客户端读取本项目变更成功。
+- Gitea 公网认证 `git ls-remote` 成功，网页返回 200 且包含备案页脚。向无业务操作的探测路径发送 2 MiB 请求，VPS 和直接 FRP 都返回 Gitea 的 `Invalid CSRF token.` 400，说明请求越过了 Nginx 默认 1 MiB 限制。此检查不等同于完成实际 Git push 或 512 MiB 上传。
+- Drone `/login` 返回 303，跳转至 Gitea OAuth，回调为 `https://drone.panghuer.top/login`；两个 runner 均为 `1/1 Running`。本次未发起新构建或完整浏览器登录，未单独验证 runner 的实时 RPC 握手。
+- 原有 DSH 入口返回预期的 302 登录跳转，Casdoor 首页返回 200。
+
+VPS 上的恢复信息：
+
+| 内容 | 路径 |
+| --- | --- |
+| Gitea Nginx 配置备份及本次渲染结果 | `/var/backups/gitea-nginx-8nUE6yQC` |
+| 当前完整 DNS 记录与旧 Tunnel 恢复字段 | `/var/backups/development-services-20261022/dns-records.json` |
+
+DNS 文件权限为 `0600`。用户先完成 DNS 切换，随后才保存该文件；其中旧记录是切换前查询所得的恢复字段，不是切换前的完整 API 快照。旧入口恢复所需的名称、CNAME 目标、代理状态和 TTL 均已保留。
