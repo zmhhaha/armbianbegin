@@ -1,0 +1,17 @@
+{
+  "worker": {
+    "image": "arm-cluster-master:5000/scientific-pi-worker@sha256:af410cb49100f4864c0d445d35079f1ba133a502b7a1862da9b63f371e508dd9",
+    "config_id": "sha256:70bc6d2c1893b4c8931aa19d3862dda72f936793cd85104bd8afc9d8d852d6a5",
+    "arch": "arm64"
+  },
+  "acceptance": {
+    "image": "arm-cluster-master:5000/scientific-pi-acceptance@sha256:53caf92c5591dbfad98d9003ed380d5520af99a326fc393a860ca49835f4c3a1",
+    "config_id": "sha256:9a296244ca92fbfa5d4a153822c648ad42785a5eb09dcd2440566a73e2a84365",
+    "arch": "arm64"
+  },
+  "api": {
+    "image": "arm-cluster-master:5000/scientific-pi-api@sha256:89caf56457ee7f778ebe26337278ca3ede6bf6550d7f6339386473c18dcfbaa9",
+    "config_id": "sha256:c5ea4cadf562458e0157dc70a12140f09e92ec750547c55c0283cd1e506faaa3",
+    "arch": "arm64"
+  }
+}

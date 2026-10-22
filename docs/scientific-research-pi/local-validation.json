@@ -1,0 +1,25 @@
+{
+  "scope": "local-only; see remote-submission-receipt.json for service validation",
+  "changeId": "add-scientific-pi-worker",
+  "proposal": {
+    "valid": true,
+    "issues": [],
+    "summary": {
+      "errors": 0,
+      "warnings": 0,
+      "info": 0
+    }
+  },
+  "deltas": {
+    "valid": true,
+    "issues": [],
+    "summary": {
+      "errors": 0,
+      "warnings": 0,
+      "info": 0
+    }
+  },
+  "taskCount": 47,
+  "checkedCount": 9,
+  "remainingCount": 38
+}

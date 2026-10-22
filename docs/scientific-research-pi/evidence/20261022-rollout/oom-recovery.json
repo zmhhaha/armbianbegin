@@ -1,0 +1,77 @@
+[
+  {
+    "artifact_hashes_verified": 8,
+    "attempts": 2,
+    "bounded_requeue": true,
+    "ceph_pvc_verified": false,
+    "cgroup_oom_kill_delta": 1,
+    "code": "cgroup_oom_recovery_verified",
+    "configured_max_attempts": 2,
+    "docker_oom_flag_verified": false,
+    "docker_oom_killed": false,
+    "evidence_directory": "/root/scientific-pi-rollout-20261022/oom-test/scientific-pi-oom-sj4mjkl7",
+    "fresh_container_readback": true,
+    "live_uid_processes": 0,
+    "local_publication_ack": true,
+    "old_attempt_fenced": true,
+    "oom_exit_code": 137,
+    "production_touched": false,
+    "queue_survived_oom": true,
+    "real_model": false,
+    "recovery_seconds": 0.712,
+    "report_preserved": true,
+    "report_sha256": "fbd251f9bdeb3d362bef3d81e1e5fc9a695190bd0b2e329d7988a4b85a58277e",
+    "result_digest": "851dacee1fc8bf6fccfb2d2333e3c4c0979ea3bf1c557e32862741cbc504dada",
+    "runtime_recovery_called": true,
+    "shared_report_store_verified": false,
+    "stage": "recovered",
+    "stopped_container_ids": [
+      "645b24a83fe222d1b7aa853c357217f05fb44900b1e8514a92fc03e22ec28cbf",
+      "80e79ba097d0826d818ce1d6fc6eee2ec4dae58ceb2def182ad0e65004c0024d",
+      "8ce5e3c1c0a9ce59ba72bc34dd0797a33bf1345d86c59726559d42f5bb2bf948"
+    ],
+    "synthetic_cli": true,
+    "task_id": "ec78045d-06b7-4523-8065-077e8287faac",
+    "uid_reused": false,
+    "uid_sequence": [
+      200000,
+      200001
+    ],
+    "valid": true,
+    "validation_valid": true,
+    "worker_killed_by_real_oom": true
+  },
+  {
+    "cgroup_oom_kill_after": 1,
+    "cgroup_oom_kill_before": 0,
+    "worker_killed_by_real_oom": true,
+    "worker_returncode": -9
+  },
+  {
+    "container_id": "645b24a83fe222d1b7aa853c357217f05fb44900b1e8514a92fc03e22ec28cbf",
+    "exit_code": 137,
+    "memory_bytes": 268435456,
+    "network_mode": "none",
+    "oom_killed": false,
+    "readonly_rootfs": true,
+    "stage": "crash"
+  },
+  {
+    "container_id": "80e79ba097d0826d818ce1d6fc6eee2ec4dae58ceb2def182ad0e65004c0024d",
+    "exit_code": 0,
+    "memory_bytes": 268435456,
+    "network_mode": "none",
+    "oom_killed": false,
+    "readonly_rootfs": true,
+    "stage": "recover"
+  },
+  {
+    "container_id": "8ce5e3c1c0a9ce59ba72bc34dd0797a33bf1345d86c59726559d42f5bb2bf948",
+    "exit_code": 0,
+    "memory_bytes": 268435456,
+    "network_mode": "none",
+    "oom_killed": false,
+    "readonly_rootfs": true,
+    "stage": "check"
+  }
+]

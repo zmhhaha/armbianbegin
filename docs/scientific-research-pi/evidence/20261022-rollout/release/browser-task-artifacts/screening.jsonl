@@ -1,0 +1,4 @@
+{"paper_id": "paper-475a16f89638b7b77d04c5be", "decision": "include", "reason": "已取得相关 arXiv 摘要，符合目的性样本范围。", "criteria": ["最多纳入两篇 arXiv 论文", "实际取得摘要", "摘要直接讨论检索生成及事实性", "Crossref 仅用于书目与 DOI 核对"]}
+{"paper_id": "paper-f5bebfff49a68b9303be2318", "decision": "exclude", "reason": "Crossref 返回题名不同的作品，不能认作目标 arXiv 论文；不用于科学结论。", "criteria": ["最多纳入两篇 arXiv 论文", "实际取得摘要", "摘要直接讨论检索生成及事实性", "Crossref 仅用于书目与 DOI 核对"]}
+{"paper_id": "paper-9e0423030f98929b4cba989f", "decision": "include", "reason": "已取得相关 arXiv 摘要，符合目的性样本范围。", "criteria": ["最多纳入两篇 arXiv 论文", "实际取得摘要", "摘要直接讨论检索生成及事实性", "Crossref 仅用于书目与 DOI 核对"]}
+{"paper_id": "paper-354d8080cb6780bc674e0d72", "decision": "exclude", "reason": "Crossref 返回题名不同的作品，不能认作目标 arXiv 论文；不用于科学结论。", "criteria": ["最多纳入两篇 arXiv 论文", "实际取得摘要", "摘要直接讨论检索生成及事实性", "Crossref 仅用于书目与 DOI 核对"]}

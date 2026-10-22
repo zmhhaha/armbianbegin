@@ -1,0 +1,44 @@
+{
+  "scope": "Protocol hash fixture only; not real scientific or runtime acceptance",
+  "canonicalization": "contracts.md CanonicalJSON v1; safe integers; Unicode code point key sorting",
+  "input": {
+    "value": {
+      "topic": "研究题目",
+      "user_id": "trusted-opaque-user",
+      "engine": "pi",
+      "mode": "review",
+      "timeout_seconds": 1800
+    },
+    "canonical_utf8": "{\"engine\":\"pi\",\"mode\":\"review\",\"timeout_seconds\":1800,\"topic\":\"研究题目\",\"user_id\":\"trusted-opaque-user\"}",
+    "input_digest": "a225a6308ec7a6a96463c5ea75fbfef814ec3ef4aa141cdf286a4e33cceb5851"
+  },
+  "report": {
+    "markdown": "abc",
+    "utf8_hex": "616263",
+    "report_sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+  },
+  "result": {
+    "envelope": {
+      "schema_version": "1",
+      "task_id": "00000000-0000-4000-8000-000000000001",
+      "attempt": 1,
+      "report_sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+      "artifacts": [
+        {
+          "artifact_id": "report",
+          "media_type": "text/markdown",
+          "size": 3,
+          "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        }
+      ],
+      "provenance": {
+        "runtime_revision": "pinned",
+        "skill_bundle_revision": "pinned",
+        "model": "fixture-model",
+        "image_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    "canonical_utf8": "{\"artifacts\":[{\"artifact_id\":\"report\",\"media_type\":\"text/markdown\",\"sha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"size\":3}],\"attempt\":1,\"provenance\":{\"image_digest\":\"sha256:0000000000000000000000000000000000000000000000000000000000000000\",\"model\":\"fixture-model\",\"runtime_revision\":\"pinned\",\"skill_bundle_revision\":\"pinned\"},\"report_sha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"schema_version\":\"1\",\"task_id\":\"00000000-0000-4000-8000-000000000001\"}",
+    "result_digest": "510fcd75b79cbd4357a361a1e2a4463bcf8ef00767f59f61424d7e2222b2bb7a"
+  }
+}

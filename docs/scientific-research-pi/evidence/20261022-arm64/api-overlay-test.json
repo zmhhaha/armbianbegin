@@ -1,0 +1,1 @@
+{"valid": true, "scope": "actual-linux-readonly-whole-package-overlay-import", "crew_origin": "read-only-mounted-crew-fixture", "pi_origin": "/opt/scientific-pi-extension", "network_on_import": false, "database_started": false}

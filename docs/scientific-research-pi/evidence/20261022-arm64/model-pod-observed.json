@@ -1,0 +1,222 @@
+{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "annotations": {
+            "cni.projectcalico.org/containerID": "2c85c997af97b681333054020b447466d9b906cfc8e8ae3f09cd82cc7f1f8e5c",
+            "cni.projectcalico.org/podIP": "",
+            "cni.projectcalico.org/podIPs": "",
+            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"annotations\":{},\"labels\":{\"app\":\"scientific-pi-model-probe\",\"llm-client\":\"true\",\"validation-batch\":\"20261022-1214\"},\"name\":\"scientific-pi-model-probe-20261022\",\"namespace\":\"scientific-agent\"},\"spec\":{\"activeDeadlineSeconds\":240,\"automountServiceAccountToken\":false,\"containers\":[{\"command\":[\"python\",\"-B\",\"/app/tests/scientific_pi/live/model_probe.py\",\"--report\"],\"env\":[{\"name\":\"SCIENTIFIC_PI_IMAGE_DIGEST\",\"value\":\"sha256:944b3a3add1778b803fed88475d8e1ff171ef93873cd40c1859512e6dd27facf\"},{\"name\":\"SCIENTIFIC_PI_MODEL_API_KEY\",\"valueFrom\":{\"secretKeyRef\":{\"key\":\"LLM_SERVICE_TOKEN\",\"name\":\"llm-token\"}}}],\"image\":\"arm-cluster-master:5000/scientific-pi-acceptance@sha256:944b3a3add1778b803fed88475d8e1ff171ef93873cd40c1859512e6dd27facf\",\"name\":\"probe\",\"resources\":{\"limits\":{\"cpu\":\"1\",\"memory\":\"1Gi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"256Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"add\":[\"CHOWN\",\"DAC_OVERRIDE\",\"SETUID\",\"SETGID\",\"KILL\"],\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true},\"volumeMounts\":[{\"mountPath\":\"/data\",\"name\":\"data\"},{\"mountPath\":\"/tmp\",\"name\":\"tmp\"}]}],\"nodeName\":\"arm-cluster-master\",\"restartPolicy\":\"Never\",\"securityContext\":{\"runAsGroup\":0,\"runAsUser\":0,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"terminationGracePeriodSeconds\":10,\"volumes\":[{\"emptyDir\":{\"medium\":\"Memory\",\"sizeLimit\":\"256Mi\"},\"name\":\"data\"},{\"emptyDir\":{\"medium\":\"Memory\",\"sizeLimit\":\"128Mi\"},\"name\":\"tmp\"}]}}\n"
+        },
+        "creationTimestamp": "2026-10-22T05:40:48Z",
+        "labels": {
+            "app": "scientific-pi-model-probe",
+            "llm-client": "true",
+            "validation-batch": "20261022-1214"
+        },
+        "name": "scientific-pi-model-probe-20261022",
+        "namespace": "scientific-agent",
+        "resourceVersion": "36787014",
+        "uid": "ce0658ca-8bad-4ca1-9ffc-39dddc130929"
+    },
+    "spec": {
+        "activeDeadlineSeconds": 240,
+        "automountServiceAccountToken": false,
+        "containers": [
+            {
+                "command": [
+                    "python",
+                    "-B",
+                    "/app/tests/scientific_pi/live/model_probe.py",
+                    "--report"
+                ],
+                "env": [
+                    {
+                        "name": "SCIENTIFIC_PI_IMAGE_DIGEST",
+                        "value": "sha256:944b3a3add1778b803fed88475d8e1ff171ef93873cd40c1859512e6dd27facf"
+                    },
+                    {
+                        "name": "SCIENTIFIC_PI_MODEL_API_KEY",
+                        "valueFrom": {
+                            "secretKeyRef": {
+                                "key": "LLM_SERVICE_TOKEN",
+                                "name": "llm-token"
+                            }
+                        }
+                    }
+                ],
+                "image": "arm-cluster-master:5000/scientific-pi-acceptance@sha256:944b3a3add1778b803fed88475d8e1ff171ef93873cd40c1859512e6dd27facf",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "probe",
+                "resources": {
+                    "limits": {
+                        "cpu": "1",
+                        "memory": "1Gi"
+                    },
+                    "requests": {
+                        "cpu": "100m",
+                        "memory": "256Mi"
+                    }
+                },
+                "securityContext": {
+                    "allowPrivilegeEscalation": false,
+                    "capabilities": {
+                        "add": [
+                            "CHOWN",
+                            "DAC_OVERRIDE",
+                            "SETUID",
+                            "SETGID",
+                            "KILL"
+                        ],
+                        "drop": [
+                            "ALL"
+                        ]
+                    },
+                    "readOnlyRootFilesystem": true
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                    {
+                        "mountPath": "/data",
+                        "name": "data"
+                    },
+                    {
+                        "mountPath": "/tmp",
+                        "name": "tmp"
+                    }
+                ]
+            }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeName": "arm-cluster-master",
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Never",
+        "schedulerName": "default-scheduler",
+        "securityContext": {
+            "runAsGroup": 0,
+            "runAsUser": 0,
+            "seccompProfile": {
+                "type": "RuntimeDefault"
+            }
+        },
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 10,
+        "tolerations": [
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/not-ready",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            },
+            {
+                "effect": "NoExecute",
+                "key": "node.kubernetes.io/unreachable",
+                "operator": "Exists",
+                "tolerationSeconds": 300
+            }
+        ],
+        "volumes": [
+            {
+                "emptyDir": {
+                    "medium": "Memory",
+                    "sizeLimit": "256Mi"
+                },
+                "name": "data"
+            },
+            {
+                "emptyDir": {
+                    "medium": "Memory",
+                    "sizeLimit": "128Mi"
+                },
+                "name": "tmp"
+            }
+        ]
+    },
+    "status": {
+        "conditions": [
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-10-22T05:41:06Z",
+                "status": "False",
+                "type": "PodReadyToStartContainers"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-10-22T05:40:48Z",
+                "reason": "PodCompleted",
+                "status": "True",
+                "type": "Initialized"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-10-22T05:41:04Z",
+                "reason": "PodCompleted",
+                "status": "False",
+                "type": "Ready"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-10-22T05:41:04Z",
+                "reason": "PodCompleted",
+                "status": "False",
+                "type": "ContainersReady"
+            },
+            {
+                "lastProbeTime": null,
+                "lastTransitionTime": "2026-10-22T05:40:48Z",
+                "status": "True",
+                "type": "PodScheduled"
+            }
+        ],
+        "containerStatuses": [
+            {
+                "containerID": "docker://c90d79b032807573cd0d80bb2acd3ae8aadda034e3dd94a177b556fd7c52ac2a",
+                "image": "arm-cluster-master:5000/scientific-pi-acceptance:verify-87d68c0f93ed",
+                "imageID": "docker-pullable://arm-cluster-master:5000/scientific-pi-acceptance@sha256:944b3a3add1778b803fed88475d8e1ff171ef93873cd40c1859512e6dd27facf",
+                "lastState": {},
+                "name": "probe",
+                "ready": false,
+                "restartCount": 0,
+                "started": false,
+                "state": {
+                    "terminated": {
+                        "containerID": "docker://c90d79b032807573cd0d80bb2acd3ae8aadda034e3dd94a177b556fd7c52ac2a",
+                        "exitCode": 0,
+                        "finishedAt": "2026-10-22T05:41:03Z",
+                        "reason": "Completed",
+                        "startedAt": "2026-10-22T05:40:49Z"
+                    }
+                },
+                "volumeMounts": [
+                    {
+                        "mountPath": "/data",
+                        "name": "data"
+                    },
+                    {
+                        "mountPath": "/tmp",
+                        "name": "tmp"
+                    }
+                ]
+            }
+        ],
+        "hostIP": "192.168.137.101",
+        "hostIPs": [
+            {
+                "ip": "192.168.137.101"
+            }
+        ],
+        "phase": "Succeeded",
+        "podIP": "10.244.0.47",
+        "podIPs": [
+            {
+                "ip": "10.244.0.47"
+            }
+        ],
+        "qosClass": "Burstable",
+        "startTime": "2026-10-22T05:40:48Z"
+    }
+}

@@ -1,0 +1,270 @@
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  850.4kB
+Step 1/23 : ARG NODE_IMAGE=node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
+Step 2/23 : ARG PYTHON_IMAGE=python@sha256:cf50a4f6ac4f026458b08d5222023d700ac806410dff5e9ca8728fa44f2b850f
+Step 3/23 : FROM ${NODE_IMAGE} AS pi-dependencies
+ ---> 683727a31732
+Step 4/23 : WORKDIR /opt/pi
+ ---> Using cache
+ ---> b9d471782c83
+Step 5/23 : COPY pi_worker/node/package.json pi_worker/node/package-lock.json ./
+ ---> Using cache
+ ---> 85b585d21a33
+Step 6/23 : RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund && npm cache clean --force
+ ---> Using cache
+ ---> 41ef8aa4c7c0
+Step 7/23 : FROM ${PYTHON_IMAGE}
+ ---> 2bdb5454ee91
+Step 8/23 : RUN apt-get update && apt-get install -y --no-install-recommends     bash ca-certificates libstdc++6 && rm -rf /var/lib/apt/lists/*
+ ---> Using cache
+ ---> c1f60648d2bf
+Step 9/23 : WORKDIR /app
+ ---> Using cache
+ ---> 2bb032133c49
+Step 10/23 : COPY --from=pi-dependencies /usr/local/bin/node /usr/local/bin/node
+ ---> Using cache
+ ---> 2012201bc46d
+Step 11/23 : COPY --from=pi-dependencies /opt/pi /opt/pi
+ ---> Using cache
+ ---> 892ac21cd41b
+Step 12/23 : COPY pi_worker/requirements.lock /tmp/scientific-pi-requirements.txt
+ ---> Using cache
+ ---> 9224b49789bd
+Step 13/23 : RUN pip install --no-cache-dir -r /tmp/scientific-pi-requirements.txt
+ ---> Using cache
+ ---> 28198401249b
+Step 14/23 : COPY scientific_agent/__init__.py scientific_agent/pi_contracts.py scientific_agent/pi_runtime_config.py /app/scientific_agent/
+ ---> Using cache
+ ---> 605356a280dc
+Step 15/23 : COPY scientific_agent/pi_healthcheck.py /app/scientific_agent/pi_healthcheck.py
+ ---> Using cache
+ ---> 1b2728ea269d
+Step 16/23 : COPY pi_worker /app/pi_worker
+ ---> 2db4965eb66e
+Step 17/23 : COPY scientific_skills /app/scientific_skills
+ ---> 94c28b3847a6
+Step 18/23 : COPY tools/__init__.py /app/tools/__init__.py
+ ---> 733835e00dc6
+Step 19/23 : COPY tools/academic /app/tools/academic
+ ---> bb16a9762134
+Step 20/23 : ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1     SCIENTIFIC_PI_RUNTIME_DIR=/data     SCIENTIFIC_PI_RUNTIME_REVISION=pi-jsonl-0.73.1-v1     SCIENTIFIC_PI_SKILL_BUNDLE_REVISION=local-procedures-v1
+ ---> Running in 6e2ed12a81e5
+ ---> Removed intermediate container 6e2ed12a81e5
+ ---> bfe4975875de
+Step 21/23 : EXPOSE 8080
+ ---> Running in 7079fc4a9864
+ ---> Removed intermediate container 7079fc4a9864
+ ---> 5430161b094d
+Step 22/23 : CMD ["python", "-m", "uvicorn", "pi_worker.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
+ ---> Running in 775794a192fa
+ ---> Removed intermediate container 775794a192fa
+ ---> 5763b69c5265
+Step 23/23 : LABEL org.panghu.scientific.source=a69a6865ea7fd4c28200a47ab25b104dfb727c44632d61ee596c7a45a830ed17
+ ---> Running in 0894f374f1e9
+ ---> Removed intermediate container 0894f374f1e9
+ ---> ca09b43120ab
+Successfully built ca09b43120ab
+Successfully tagged arm-cluster-master:5000/scientific-pi-worker:release-a69a6865ea7f
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  850.4kB
+Step 1/13 : ARG WORKER_BASE
+Step 2/13 : FROM ${WORKER_BASE}
+ ---> ca09b43120ab
+Step 3/13 : RUN pip install --no-cache-dir httpx==0.28.1
+ ---> Running in 47243fcaca17
+Collecting httpx==0.28.1
+  Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+Requirement already satisfied: anyio in /usr/local/lib/python3.13/site-packages (from httpx==0.28.1) (4.15.1)
+Requirement already satisfied: certifi in /usr/local/lib/python3.13/site-packages (from httpx==0.28.1) (2026.10.19)
+Collecting httpcore==1.* (from httpx==0.28.1)
+  Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+Requirement already satisfied: idna in /usr/local/lib/python3.13/site-packages (from httpx==0.28.1) (3.20)
+Requirement already satisfied: h11>=0.16 in /usr/local/lib/python3.13/site-packages (from httpcore==1.*->httpx==0.28.1) (0.16.0)
+Requirement already satisfied: typing_extensions>=4.16.0 in /usr/local/lib/python3.13/site-packages (from anyio->httpx==0.28.1) (4.16.0)
+Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+Installing collected packages: httpcore, httpx
+
+Successfully installed httpcore-1.0.9 httpx-0.28.1
+[91mWARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+[0m[91m
+[notice] A new release of pip is available: 26.2.1 -> 26.2.2
+[notice] To update, run: pip install --upgrade pip
+[0m ---> Removed intermediate container 47243fcaca17
+ ---> 872615390c09
+Step 4/13 : COPY validation-fixtures/llm-service/app.py /llm-service/app.py
+ ---> e9310e00daf9
+Step 5/13 : COPY tests/scientific_pi /app/tests/scientific_pi
+ ---> 0ccda5028908
+Step 6/13 : COPY scientific_agent/pi_client.py scientific_agent/pi_projection.py /app/scientific_agent/
+ ---> c3565e1592b0
+Step 7/13 : COPY tools/sqlite_client.py tools/email_client.py /app/tools/
+ ---> 02dcd8a23d10
+Step 8/13 : COPY app/api/scientific_agent.py /app/app/api/scientific_agent.py
+ ---> 3be4d17d844a
+Step 9/13 : COPY app/ui/scientific_agent.py /app/app/ui/scientific_agent.py
+ ---> 9e1f6cb02713
+Step 10/13 : COPY k8s/scientific-pi /app/k8s/scientific-pi
+ ---> 8aa02cfe8afb
+Step 11/13 : COPY scripts/test-scientific-pi.py /app/scripts/test-scientific-pi.py
+ ---> f635d5f042c1
+Step 12/13 : RUN ln -s /opt/pi/node_modules /app/pi_worker/node/node_modules
+ ---> Running in 62a05af56e40
+ ---> Removed intermediate container 62a05af56e40
+ ---> fb3719a54429
+Step 13/13 : CMD ["python", "scripts/test-scientific-pi.py"]
+ ---> Running in a90244fcf1f9
+ ---> Removed intermediate container a90244fcf1f9
+ ---> 0821f1201876
+Successfully built 0821f1201876
+Successfully tagged arm-cluster-master:5000/scientific-pi-acceptance:release-a69a6865ea7f
+test_invalid_evidence_flag_does_not_silently_enable (test_deployment.DeploymentTests.test_invalid_evidence_flag_does_not_silently_enable) ... ok
+test_model_path_and_namespace_are_trusted_configuration (test_deployment.DeploymentTests.test_model_path_and_namespace_are_trusted_configuration) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.004s
+
+OK
+All 7 scientific Pi suites passed; inspect explicit platform/runtime skips above.
+
+----------------------------------------------------------------------
+Ran 7 tests in 7.187s
+
+OK
+The push refers to repository [arm-cluster-master:5000/scientific-pi-worker]
+cdde0db79b00: Preparing
+fcfc56bb99ec: Preparing
+49d8fdaf4508: Preparing
+1fc436301472: Preparing
+da4d4bf46235: Preparing
+f7b65e50ea8c: Preparing
+ab08566232c1: Preparing
+61e9205291a7: Preparing
+84d8956cb338: Preparing
+ede3707db81a: Preparing
+cf0d8c1c88d1: Preparing
+31d067f6b464: Preparing
+0321c689ebdc: Preparing
+727a3a2304ec: Preparing
+676f4447e960: Preparing
+e5593b7179d1: Preparing
+ab08566232c1: Waiting
+61e9205291a7: Waiting
+84d8956cb338: Waiting
+cf0d8c1c88d1: Waiting
+ede3707db81a: Waiting
+31d067f6b464: Waiting
+0321c689ebdc: Waiting
+727a3a2304ec: Waiting
+e5593b7179d1: Waiting
+676f4447e960: Waiting
+f7b65e50ea8c: Waiting
+da4d4bf46235: Layer already exists
+f7b65e50ea8c: Layer already exists
+ab08566232c1: Layer already exists
+61e9205291a7: Layer already exists
+84d8956cb338: Layer already exists
+ede3707db81a: Layer already exists
+cf0d8c1c88d1: Layer already exists
+31d067f6b464: Layer already exists
+0321c689ebdc: Layer already exists
+727a3a2304ec: Layer already exists
+676f4447e960: Layer already exists
+e5593b7179d1: Layer already exists
+fcfc56bb99ec: Pushed
+49d8fdaf4508: Pushed
+cdde0db79b00: Pushed
+1fc436301472: Pushed
+release-a69a6865ea7f: digest: sha256:f1a4c5150463a0b5358796cb0608c2d2252480ca014d756db93c06ea9cdb4983 size: 3663
+The push refers to repository [arm-cluster-master:5000/scientific-pi-acceptance]
+0eb0371ef640: Preparing
+7ad6220479ee: Preparing
+453a2863e9ce: Preparing
+0504f73bab95: Preparing
+8e34acffa0bd: Preparing
+077b6adff118: Preparing
+85d1e18eb7fa: Preparing
+fa718de2533a: Preparing
+02e8c9e21a50: Preparing
+d5a69a5118f6: Preparing
+cdde0db79b00: Preparing
+077b6adff118: Waiting
+fcfc56bb99ec: Preparing
+49d8fdaf4508: Preparing
+1fc436301472: Preparing
+da4d4bf46235: Preparing
+f7b65e50ea8c: Preparing
+85d1e18eb7fa: Waiting
+ab08566232c1: Preparing
+61e9205291a7: Preparing
+fa718de2533a: Waiting
+84d8956cb338: Preparing
+ede3707db81a: Preparing
+02e8c9e21a50: Waiting
+cf0d8c1c88d1: Preparing
+31d067f6b464: Preparing
+d5a69a5118f6: Waiting
+0321c689ebdc: Preparing
+727a3a2304ec: Preparing
+676f4447e960: Preparing
+e5593b7179d1: Preparing
+84d8956cb338: Waiting
+ede3707db81a: Waiting
+cdde0db79b00: Waiting
+cf0d8c1c88d1: Waiting
+31d067f6b464: Waiting
+fcfc56bb99ec: Waiting
+0321c689ebdc: Waiting
+727a3a2304ec: Waiting
+676f4447e960: Waiting
+1fc436301472: Waiting
+49d8fdaf4508: Waiting
+da4d4bf46235: Waiting
+f7b65e50ea8c: Waiting
+61e9205291a7: Waiting
+0eb0371ef640: Pushed
+8e34acffa0bd: Pushed
+0504f73bab95: Pushed
+7ad6220479ee: Pushed
+453a2863e9ce: Pushed
+85d1e18eb7fa: Pushed
+077b6adff118: Pushed
+cdde0db79b00: Mounted from scientific-pi-worker
+02e8c9e21a50: Pushed
+fa718de2533a: Pushed
+fcfc56bb99ec: Mounted from scientific-pi-worker
+49d8fdaf4508: Mounted from scientific-pi-worker
+f7b65e50ea8c: Layer already exists
+da4d4bf46235: Layer already exists
+1fc436301472: Mounted from scientific-pi-worker
+61e9205291a7: Layer already exists
+ede3707db81a: Layer already exists
+ab08566232c1: Layer already exists
+84d8956cb338: Layer already exists
+cf0d8c1c88d1: Layer already exists
+0321c689ebdc: Layer already exists
+31d067f6b464: Layer already exists
+727a3a2304ec: Layer already exists
+e5593b7179d1: Layer already exists
+676f4447e960: Layer already exists
+d5a69a5118f6: Pushed
+release-a69a6865ea7f: digest: sha256:4fbd7cfcade9986631824ddd6b082ae526cd1a7b14c1f65585ca0cb891b9e297 size: 5744
+{
+  "worker": {
+    "image": "arm-cluster-master:5000/scientific-pi-worker@sha256:f1a4c5150463a0b5358796cb0608c2d2252480ca014d756db93c06ea9cdb4983",
+    "config_id": "sha256:ca09b43120ab4ee7c158ac7c4d1d2e7282149fa819351abb13c9a60a398e515c",
+    "arch": "arm64"
+  },
+  "acceptance": {
+    "image": "arm-cluster-master:5000/scientific-pi-acceptance@sha256:4fbd7cfcade9986631824ddd6b082ae526cd1a7b14c1f65585ca0cb891b9e297",
+    "config_id": "sha256:0821f120187629e94200c19e38151905dc14199f30ab88475bbb7a41e8414cab",
+    "arch": "arm64"
+  }
+}
+

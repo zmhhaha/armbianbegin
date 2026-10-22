@@ -1,0 +1,54 @@
+{
+  "pod": "scientific-pi-research-probe-debug3-20261022",
+  "pod_uid": "a20edc8d-7a1d-44dc-a208-47a37b5808c8",
+  "phase": "Succeeded",
+  "result": {
+    "child_cpu_system_seconds": 1.053,
+    "child_cpu_user_seconds": 7.83,
+    "child_maxrss_kib": 181828,
+    "child_uid_cleanup": true,
+    "child_uids": [
+      200000
+    ],
+    "code": "controlled_research_published",
+    "configured_alias": "llm-trusted",
+    "cost": null,
+    "elapsed_seconds": 143.213,
+    "email_sent": false,
+    "evidence_chain": {
+      "claims": 2,
+      "conflicting_claim_verified": true,
+      "evidence_items": 2,
+      "papers": 2,
+      "sources": 1
+    },
+    "fixture_mode": false,
+    "image_digest": "sha256:944b3a3add1778b803fed88475d8e1ff171ef93873cd40c1859512e6dd27facf",
+    "memory_measurement": "Linux RUSAGE_CHILDREN high-water; not container peak",
+    "model_observation": "SSE self-report only",
+    "model_requests": 11,
+    "node_version": "24.21.0",
+    "pi_version": "0.73.1",
+    "production_acceptance": false,
+    "publication_ack_count": 1,
+    "real_key_absent": true,
+    "real_provider": true,
+    "report_sha256": "bb2c667c9f3c975b1018aff8dea84a714b78bee392a5c5e1713a5f2c548b50d0",
+    "report_store": "isolated in-memory SQLite facade through real API projection",
+    "result_digest": "ed29e84187ea478451a7676b9ba35fb24d4ddbec56e2d5afd3b9f78a6c993317",
+    "scientific_accuracy_accepted": false,
+    "skill_read": true,
+    "synthetic_harness_gates": true,
+    "synthetic_source_packet": true,
+    "token_usage": null,
+    "tool_names": [
+      "bash",
+      "read",
+      "write"
+    ],
+    "upstream_model_observed": [
+      "gpt-6.1-sol"
+    ],
+    "valid": true
+  }
+}
