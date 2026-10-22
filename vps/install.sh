@@ -226,6 +226,15 @@ install_nginx_and_cert() {
   ln -sf /etc/nginx/sites-available/custom-llm-proxy.conf /etc/nginx/sites-enabled/custom-llm-proxy.conf
   mkdir -p /var/www/certbot
 
+  # Git HTTP/LFS uploads need a larger limit than the wildcard default.
+  log "安装 Gitea 站点配置"
+  local gitea; gitea="$(mktemp)"
+  BASE_DOMAIN="$BASE_DOMAIN" HTTPS_PORT="$HTTPS_PORT" envsubst '${BASE_DOMAIN} ${HTTPS_PORT}' \
+    < "${SCRIPT_DIR}/nginx/gitea.conf.template" | tr -d '\357\273\277\r' > "$gitea"
+  install -m 0644 "$gitea" /etc/nginx/sites-available/gitea.conf
+  rm -f "$gitea"
+  ln -sf /etc/nginx/sites-available/gitea.conf /etc/nginx/sites-enabled/gitea.conf
+
   log "校验并加载 nginx"
   nginx -t || die "nginx 配置校验失败（先看上面的报错）"
   systemctl reload nginx || systemctl restart nginx

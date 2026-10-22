@@ -2,6 +2,7 @@
 
 > 设计文档：[../docs/vps-ingress-design.md](../docs/vps-ingress-design.md)（为什么这么做、架构图、请求旅程、实测数据）
 > 机器：腾讯云轻量 `62.234.50.20`（Ubuntu）· 记录时间：2026-10-07
+> OpenSpec、Gitea、Drone 的入口、部署和回滚：[开发服务迁移记录](development-services.md)。
 
 ## 一、它是什么，不是什么
 

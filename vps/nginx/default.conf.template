@@ -79,7 +79,7 @@ server {
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         # ★ 少了这一行：oauth2-proxy 会以为是 http → 无限重定向 ✗
         proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Accept-Encoding \;
+        proxy_set_header Accept-Encoding $beian_upstream_ae;
         include /etc/nginx/snippets/beian-footer.conf;
         proxy_set_header X-Forwarded-Host  $host;
 
