@@ -1,5 +1,5 @@
 # Apply with the updated frpc.yaml: its legacy broad web rule excludes this
-# namespace, so this is the only frpc egress exception into ppt-service-test.
+# namespace, so this is the only frpc egress exception into ppt-service.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -14,7 +14,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: ppt-service-test
+              kubernetes.io/metadata.name: ppt-service
           podSelector:
             matchLabels:
               app.kubernetes.io/name: ppt-site

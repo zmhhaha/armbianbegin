@@ -23,6 +23,7 @@ class PptConfigureTests(unittest.TestCase):
         documents = list(yaml.safe_load_all(CONFIG.render_configuration("ppt-test-client")))
         maps = {doc["metadata"]["name"]: doc["data"] for doc in documents}
         self.assertEqual(set(maps), {"ppt-auth", "ppt-oidc"})
+        self.assertEqual({doc["metadata"]["namespace"] for doc in documents}, {"ppt-service"})
         self.assertEqual(maps["ppt-auth"]["OIDC_AUDIENCE"], "ppt-test-client")
         self.assertEqual(tomllib.loads(maps["ppt-oidc"]["oauth2-proxy.cfg"])["client_id"],
                          "ppt-test-client")
@@ -44,7 +45,7 @@ class PptConfigureTests(unittest.TestCase):
         owner = yaml.safe_load(original.decode("utf-8"))
         self.assertEqual(owner["apiVersion"], "v1")
         self.assertEqual(owner["kind"], "ConfigMap")
-        self.assertEqual(owner["metadata"], {"name": "ppt-owner", "namespace": "ppt-service-test"})
+        self.assertEqual(owner["metadata"], {"name": "ppt-owner", "namespace": "ppt-service"})
         self.assertEqual(set(owner["data"]), {"emails"})
         self.assertIsInstance(owner["data"]["emails"], str)
         # An empty list denies everyone; configured entries must be exact
@@ -118,6 +119,7 @@ class PptConfigureTests(unittest.TestCase):
             for modified in [text.replace("OIDC_AUDIENCE: REQUIRED_DEDICATED_PPT_CLIENT_ID",
                                           "OIDC_AUDIENCE: different"),
                              text.replace("kind: ConfigMap", "kind: Secret", 1),
+                             text.replace("namespace: ppt-service", "namespace: ppt-service-test"),
                              text.replace("INVITATION_EMAILS_FILE: /owner/emails",
                                           "INVITATION_SUBJECTS: legacy"),
                              text.replace('authenticated_emails_file = "/owner/emails"',

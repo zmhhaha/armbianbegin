@@ -106,7 +106,7 @@ spec:
         matchExpressions:
         - key: kubernetes.io/metadata.name
           operator: NotIn
-          values: [ppt-service-test]
+          values: [ppt-service, ppt-service-test]
     ports:
     - { port: 80,   protocol: TCP }
     - { port: 3000, protocol: TCP }

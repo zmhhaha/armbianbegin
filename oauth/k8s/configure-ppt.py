@@ -57,7 +57,7 @@ def render_configuration(client_id, *, template=TEMPLATE):
         documents = list(yaml.safe_load_all(Path(template).read_text(encoding="utf-8")))
         if (len(documents) != 2 or any(type(doc) is not dict for doc in documents)
                 or any(doc.get("apiVersion") != "v1" or doc.get("kind") != "ConfigMap"
-                       or doc.get("metadata", {}).get("namespace") != "ppt-service-test"
+                       or doc.get("metadata", {}).get("namespace") != "ppt-service"
                        for doc in documents)):
             raise ConfigurationError("invalid_canonical_template")
         by_name = {doc["metadata"]["name"]: doc for doc in documents}

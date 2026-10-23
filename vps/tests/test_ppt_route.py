@@ -108,9 +108,12 @@ class PptEntryContracts(unittest.TestCase):
             return False
 
         site = {'app.kubernetes.io/name': 'ppt-site'}
-        self.assertTrue(allowed('ppt-service-test', site, 4180))
+        self.assertTrue(allowed('ppt-service', site, 4180))
         for pod, port in ((site, 8000), (site, 5432), ({'app': 'other'}, 4180)):
-            self.assertFalse(allowed('ppt-service-test', pod, port))
+            self.assertFalse(allowed('ppt-service', pod, port))
+        # Retain the retired namespace's exclusion from the broad legacy rule.
+        for port in (80, 3000, 4173, 4180, 7860, 8000, 8080, 8090):
+            self.assertFalse(allowed('ppt-service-test', site, port))
         # The added exception must not change existing non-PPT web permissions.
         for namespace in ('hermes', 'dsh', 'default', 'scientific-agent'):
             for port in (80, 3000, 4173, 4180, 7860, 8000, 8080, 8090):
@@ -121,15 +124,15 @@ class PptEntryContracts(unittest.TestCase):
         data = tomllib.loads(fragment)
         self.assertEqual(set(data), {'proxies'})
         self.assertEqual(data['proxies'], [{
-            'name': 'ppt-service-test', 'type': 'http', 'customDomains': ['ppt.panghuer.top'],
-            'localIP': 'ppt-site.ppt-service-test.svc.cluster.local', 'localPort': 4180}])
+            'name': 'ppt-service', 'type': 'http', 'customDomains': ['ppt.panghuer.top'],
+            'localIP': 'ppt-site.ppt-service.svc.cluster.local', 'localPort': 4180}])
         self.assertTrue(fragment.isascii())
 
     def test_tunnel_fragment_targets_oauth_and_egress_requires_identity(self):
         public = json.loads((REPOSITORY / 'cloudflare-tunnel/ppt/public-hostname.json').read_text(encoding='utf-8'))
         self.assertEqual(public, {
             'hostname': 'ppt.panghuer.top',
-            'service': 'http://ppt-site.ppt-service-test.svc.cluster.local:4180',
+            'service': 'http://ppt-site.ppt-service.svc.cluster.local:4180',
             'originRequest': {'httpHostHeader': 'ppt.panghuer.top'}})
         template = yaml.safe_load((REPOSITORY / 'cloudflare-tunnel/ppt/connector-egress.yaml.template')
                                   .read_text(encoding='utf-8'))
@@ -138,11 +141,11 @@ class PptEntryContracts(unittest.TestCase):
         rule = template['spec']['egress'][0]
         self.assertEqual(rule['ports'], [{'protocol': 'TCP', 'port': 4180}])
         self.assertEqual(rule['to'], [{
-            'namespaceSelector': {'matchLabels': {'kubernetes.io/metadata.name': 'ppt-service-test'}},
+            'namespaceSelector': {'matchLabels': {'kubernetes.io/metadata.name': 'ppt-service'}},
             'podSelector': {'matchLabels': {'app.kubernetes.io/name': 'ppt-site'}}}])
         ingress = yaml.safe_load((REPOSITORY / 'cloudflare-tunnel/ppt/site-ingress.yaml.template')
                                  .read_text(encoding='utf-8'))
-        self.assertEqual(ingress['metadata']['namespace'], 'ppt-service-test')
+        self.assertEqual(ingress['metadata']['namespace'], 'ppt-service')
         self.assertEqual(ingress['spec']['policyTypes'], ['Ingress'])
         self.assertEqual(ingress['spec']['podSelector'], rule['to'][0]['podSelector'])
         reciprocal = ingress['spec']['ingress'][0]

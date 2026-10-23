@@ -1,10 +1,10 @@
-# Canonical public P2 authentication configuration. Credentials belong in Vault.
-# NOT DEPLOY READY: register the client and maintain the separate ppt-owner list.
+# Canonical public authentication configuration. Credentials belong in Vault.
+# Register the dedicated client and maintain the separate ppt-owner list.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ppt-auth
-  namespace: ppt-service-test
+  namespace: ppt-service
 data:
   OIDC_ISSUER: https://auth.panghuer.top
   OIDC_JWKS_URL: https://auth.panghuer.top/.well-known/jwks
@@ -17,7 +17,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ppt-oidc
-  namespace: ppt-service-test
+  namespace: ppt-service
 data:
   oauth2-proxy.cfg: |
     http_address = "0.0.0.0:4180"

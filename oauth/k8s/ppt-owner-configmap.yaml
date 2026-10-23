@@ -1,11 +1,11 @@
 # Single exact verified-email allowlist shared by the site and OAuth proxy.
 # Manage this ConfigMap separately from client rendering; an empty list denies all.
-# Add one authorized email per line. No wildcard or existing private identity here.
+# Add one authorized verified email per line. Wildcards are not supported.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ppt-owner
-  namespace: ppt-service-test
+  namespace: ppt-service
 data:
   emails: |
     zmh_haha@163.com

@@ -1,7 +1,7 @@
 # PPT 的 Cloudflare Tunnel 接入
 
-PPT 测试站域名为 `ppt.panghuer.top`。由管理员在 Cloudflare 后台配置域名/Tunnel，
-Casdoor 应用也由管理员在后台配置。本轮只提供代码和部署配置，不修改这些外部设置。
+PPT 站点域名为 `ppt.panghuer.top`。由管理员在 Cloudflare 后台配置域名/Tunnel，
+Casdoor 应用也由管理员在后台配置。
 
 ## Public Hostname
 
@@ -11,7 +11,7 @@ Casdoor 应用也由管理员在后台配置。本轮只提供代码和部署配
 | --- | --- |
 | Public hostname | `ppt.panghuer.top` |
 | Service type | `HTTP` |
-| Service URL | `ppt-site.ppt-service-test.svc.cluster.local:4180` |
+| Service URL | `ppt-site.ppt-service.svc.cluster.local:4180` |
 | HTTP Host Header | `ppt.panghuer.top` |
 
 对应的非敏感配置片段见 [public-hostname.json](ppt/public-hostname.json)。
@@ -21,7 +21,7 @@ Casdoor 应用也由管理员在后台配置。本轮只提供代码和部署配
 
 ```text
 浏览器 → HTTPS Cloudflare → cloudflared
-      → http://ppt-site.ppt-service-test.svc.cluster.local:4180
+      → http://ppt-site.ppt-service.svc.cluster.local:4180
       → 同 Pod OAuth 代理 → http://127.0.0.1:8000 PPT
 ```
 
@@ -33,7 +33,7 @@ Casdoor 应用也由管理员在后台配置。本轮只提供代码和部署配
 PPT namespace默认拒绝，既要放行网站入口，也要检查cloudflared所在namespace的出口：
 
 - PPT入口：来源**实际**cloudflared namespace与Pod标签同时匹配，目的仅网站Pod的TCP4180。
-- Connector出口：目的namespace `ppt-service-test`与Pod标签 `app.kubernetes.io/name=ppt-site`
+- Connector出口：目的namespace `ppt-service`与Pod标签 `app.kubernetes.io/name=ppt-site`
   同时匹配，仅TCP4180；不得放开整个PPT namespace的8000/5432。
 - Connector连接Cloudflare和DNS的原有规则保留，网站无需访问Tunnel token或Cloudflare管理API。
 

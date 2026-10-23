@@ -16,7 +16,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: ppt-service-test
+              kubernetes.io/metadata.name: ppt-service
           podSelector:
             matchLabels:
               app.kubernetes.io/name: ppt-site

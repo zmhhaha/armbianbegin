@@ -2,8 +2,8 @@
 # Preserve server/auth settings and every other [[proxies]] entry.
 # This file alone is not a runnable frpc configuration.
 [[proxies]]
-name = "ppt-service-test"
+name = "ppt-service"
 type = "http"
 customDomains = ["ppt.panghuer.top"]
-localIP = "ppt-site.ppt-service-test.svc.cluster.local"
+localIP = "ppt-site.ppt-service.svc.cluster.local"
 localPort = 4180

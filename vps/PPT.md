@@ -1,16 +1,16 @@
-# PPT 测试站入口
+# PPT 站点入口
 
 本目录提供 `ppt.panghuer.top` 的**可选** VPS/nginx/frp 接入。
 用户本次选择自行配置 [Cloudflare Tunnel](../cloudflare-tunnel/PPT.md)，无需启用这条VPS链。
-本次只写代码，没有安装到VPS、改DNS、改真实frpc Secret或重启共享网关。
+选择该入口时，由部署者安装专用 nginx 站点并合并 frpc 路由。
 
 | 配置 | 文件 | 作用 |
 | --- | --- | --- |
 | 精确域名 nginx server | [ppt-service.conf.template](nginx/ppt-service.conf.template) | TLS 终止，原 Host 转发到 frps，全路径不缓存 |
 | 公共 nginx 安装入口 | [install.sh](install.sh) 的 stage2 | 显式设 `PPT_VPS_ENABLED=1` 时渲染并启用，`nginx -t` 后 reload |
-| 非敏感 frpc 路由片段 | [ppt-service.toml](k8s/routes/ppt-service.toml) | `ppt.panghuer.top` → `ppt-site.ppt-service-test.svc.cluster.local:4180` |
+| 非敏感 frpc 路由片段 | [ppt-service.toml](k8s/routes/ppt-service.toml) | `ppt.panghuer.top` → `ppt-site.ppt-service.svc.cluster.local:4180` |
 | frpc 公共出口 | [frpc.yaml](k8s/frpc.yaml) | 旧 Web 广泛规则排除 PPT namespace，其他 namespace 保持原规则 |
-| PPT 精确出口 | [ppt-service-egress.yaml](k8s/ppt-service-egress.yaml) | 仅 `frpc/app=frpc` → `ppt-service-test/app.kubernetes.io/name=ppt-site` 的 TCP4180 |
+| PPT 精确出口 | [ppt-service-egress.yaml](k8s/ppt-service-egress.yaml) | 仅 `frpc/app=frpc` → `ppt-service/app.kubernetes.io/name=ppt-site` 的 TCP4180 |
 | 入口选择记录 | [Cloudflare PPT](../cloudflare-tunnel/PPT.md) | 本次使用Tunnel；仅选择VPS时配置A记录、DNS only |
 
 ## 为什么使用专用 nginx server
@@ -29,7 +29,7 @@ CSRF 头和 WebSocket/SSE；26 MiB入口请求上限配合应用的25 MiB文件�
 
 1. 按 [OAuth PPT](../oauth/k8s/PPT.md)、[Vault PPT](../vault/inventory/PPT-SERVICE.md)
    和 [PPT K8s部署说明](../panghu_agent/ppt_service/deploy/k8s/README.md) 完成专用客户端、邀请名单、
-   Secret同步、镜像/存储/数据库及测试站就绪。
+   Secret同步、镜像/存储/数据库及站点就绪。
 2. 同时应用更新后的 `vps/k8s/frpc.yaml` 和 `vps/k8s/ppt-service-egress.yaml`。
    前者从旧广泛规则排除新namespace；后者给精确网站Pod4180加回许可。
    PPT namespace还须保留自己的 `frpc-ingress` 规则，要求来源namespace与Pod标签同时匹配。
