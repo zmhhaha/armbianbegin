@@ -1,0 +1,23 @@
+# Apply with the updated frpc.yaml: its legacy broad web rule excludes this
+# namespace, so this is the only frpc egress exception into ppt-service-test.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frpc-ppt-service-egress
+  namespace: frpc
+spec:
+  podSelector:
+    matchLabels:
+      app: frpc
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ppt-service-test
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ppt-site
+      ports:
+        - protocol: TCP
+          port: 4180

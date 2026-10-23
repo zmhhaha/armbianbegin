@@ -1,0 +1,25 @@
+# Prerequisite: CoreDNS split horizon + auth-internal TLS ingress.
+# Applies only to the same-Pod PPT site/proxy; no public Internet 443 allowance.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ppt-oidc-egress
+  namespace: ppt-service-test
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ppt-site
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+              app.kubernetes.io/instance: ingress-nginx
+              app.kubernetes.io/component: controller
+      ports:
+        - protocol: TCP
+          port: 443

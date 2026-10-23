@@ -52,6 +52,7 @@ fi
 
 log "应用 k8s/frpc.yaml（Namespace + default-deny + Deployment + frpc-egress）"
 kubectl apply -f k8s/frpc.yaml
+kubectl apply -f k8s/ppt-service-egress.yaml
 
 log "等待就绪"
 kubectl -n "$NS" rollout status deployment/frpc --timeout=120s || true

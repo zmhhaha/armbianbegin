@@ -1,0 +1,23 @@
+# Template only: use the same real Connector namespace and complete Pod labels
+# as connector-egress.yaml.template. No token belongs in either policy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloudflared-ppt-site-ingress
+  namespace: ppt-service-test
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ppt-site
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: REQUIRED_CONNECTOR_NAMESPACE
+          podSelector:
+            matchLabels:
+              REQUIRED_CONNECTOR_LABEL_KEY: REQUIRED_CONNECTOR_LABEL_VALUE
+      ports:
+        - protocol: TCP
+          port: 4180
