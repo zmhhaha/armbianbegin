@@ -14,6 +14,13 @@ Casdoor 应用也由管理员在后台配置。
 | Service URL | `ppt-site.ppt-service.svc.cluster.local:4180` |
 | HTTP Host Header | `ppt.panghuer.top` |
 
+正式部署的namespace固定为 `ppt-service`。如果后台还保留旧源站
+`ppt-site.ppt-service-test.svc.cluster.local:4180`，请编辑原有Public Hostname，
+把它改为上表地址并保存；只部署正式Service不会自动更新Cloudflare后台，旧地址会继续返回502。
+
+本次旧源站导致502、入口策略修复及公网恢复的实际结果见
+[2026-10-24 部署排障记录](../panghu_agent/ppt_service/deploy/k8s/TROUBLESHOOTING.md)。
+
 对应的非敏感配置片段见 [public-hostname.json](ppt/public-hostname.json)。
 这份片段不是整条Tunnel配置，不能覆盖现有Public Hostname列表。
 域名应按Cloudflare为该Tunnel生成的记录路由；不要同时给同一个主机名保留VPS的A记录。
@@ -30,23 +37,34 @@ Casdoor 应用也由管理员在后台配置。
 
 ## 网络规则
 
-PPT namespace默认拒绝，既要放行网站入口，也要检查cloudflared所在namespace的出口：
+PPT namespace默认拒绝入口。2026-10-24已确认实际Connector为
+`default/cf-tunnel-main`，Pod标签同时包含 `app=cloudflared,tunnel=main`。
+[site-ingress.yaml](ppt/site-ingress.yaml) 使用这组身份，仅允许访问
+`ppt-service` 中 `app.kubernetes.io/name=ppt-site` 的TCP4180。
+在仓库根目录部署这条规则：
 
-- PPT入口：来源**实际**cloudflared namespace与Pod标签同时匹配，目的仅网站Pod的TCP4180。
-- Connector出口：目的namespace `ppt-service`与Pod标签 `app.kubernetes.io/name=ppt-site`
-  同时匹配，仅TCP4180；不得放开整个PPT namespace的8000/5432。
-- Connector连接Cloudflare和DNS的原有规则保留，网站无需访问Tunnel token或Cloudflare管理API。
+```bash
+kubectl apply -f cloudflare-tunnel/ppt/site-ingress.yaml
+```
+
+`deploy.sh` 的基线仅包含frpc入口许可，使用Tunnel时还须应用以上Cloudflare入口规则。
+业务8000仅监听同Pod loopback，数据库5432也不向Connector放行。
+
+同日确认Connector所在的 `default` namespace没有NetworkPolicy，当前未隔离其出口，
+因此此次只需添加PPT入口许可。**不要单独应用只允许PPT4180的Connector出口策略**：
+首条Egress策略会使被选中的Connector进入出口隔离，可能同时切断Cloudflare连接、DNS
+和其他现有站点。将来收紧出口时，应先收集并保留Cloudflare、DNS及全部现有服务所需的
+完整规则，再统一部署和验证；PPT的新增目标应同时匹配namespace `ppt-service` 和Pod标签
+`app.kubernetes.io/name=ppt-site`，仅允许TCP4180。
 
 [connector-egress.yaml.template](ppt/connector-egress.yaml.template) 和
-[site-ingress.yaml.template](ppt/site-ingress.yaml.template) 是两端待填的独立策略模板，
-不能直接apply。分别复制为部署用YAML，**在两份文件中填入同一个真实Connector namespace，
-并把占位matchLabels整体替换成同一组完整的精确Pod标签**，再同时应用。
-两端必须使用相同身份，不需要业务部署渲染器；Connector出口的namespace写在metadata，
-同一值在PPT入口写入来源namespaceSelector。
-Kubernetes策略取并集：如果Connector已有广泛出口，新增窄策略不会自动收窄它，
-须检查现有策略的有效许可，不能据新增文件声称出口已经隔离。
+[site-ingress.yaml.template](ppt/site-ingress.yaml.template) 保留供其他Connector部署使用，
+不能直接apply。使用前须填写同一个真实Connector namespace，并把两份文件中的占位
+matchLabels整体替换成同一组完整的精确Pod标签；出口模板须纳入上述完整出口方案。
+Kubernetes策略取并集：若Connector已有广泛出口，新增窄策略不会自动收窄它，
+须检查所有策略的有效许可。
 
-仓库中有两种不同的定义，仅供确认现场时对照，**不是当前在线状态的证明**：
+仓库中两种Connector定义如下；切换部署方式后须重新核对现场身份并调整入口规则：
 
 | 部署方式 | namespace | Connector Pod标签 |
 | --- | --- | --- |

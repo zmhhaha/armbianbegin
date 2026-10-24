@@ -1,0 +1,24 @@
+# The deployed default/cf-tunnel-main Connector uses both labels below.
+# Permit only its access to the PPT OAuth proxy, not the loopback site or DB.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloudflared-ppt-site-ingress
+  namespace: ppt-service
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ppt-site
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: default
+          podSelector:
+            matchLabels:
+              app: cloudflared
+              tunnel: main
+      ports:
+        - protocol: TCP
+          port: 4180

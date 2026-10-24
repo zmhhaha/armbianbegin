@@ -36,22 +36,22 @@ postgresql+psycopg://ppt_migrator:<URL编码后的密码>@ppt-postgres.ppt-servi
 
 密码中的保留字符需要 URL 编码。把完整 URL 存入各自 `DATABASE_URL`，不在 ESO 模板里直接拼接未编码密码。`POSTGRES_USER=ppt_bootstrap`、`POSTGRES_DB=postgres` 仅用于新 PostgreSQL 的初始化/维护；不得把 bootstrap 登录提供给站点、Worker 或迁移 Job，不复用现有 `data/postgres` 的 appuser 或凭据。数据库数据目录已有内容时，修改 `POSTGRES_PASSWORD` 环境变量不会自动改变库内角色密码。
 
-OIDC 使用专属 PPT Casdoor 应用。其公开 client ID 同时用于代理 client ID 和站点受众校验，由 OAuth 配置集中管理；这里仅保存该应用的 client secret。Cookie secret 由管理端生成独立随机密钥，需满足实际 oauth2-proxy v7.8.0 的解码后密钥长度要求，例如 32 个随机字节的 base64 编码；不复用其他站点的 cookie secret。issuer、回调地址、允许邮箱不属于此 Secret。JWT 的稳定 `sub` 由应用读取，用于与 issuer 一起绑定项目归属，无需管理员录入名单。
+OIDC 使用专属 PPT Casdoor 应用。其公开 client ID 同时用于代理 client ID 和站点受众校验，由 OAuth 配置集中管理；这里仅保存该应用的 client secret。Cookie secret 由管理端生成独立随机密钥，使用 32 个随机字节的 URL-safe Base64 编码，满足 oauth2-proxy v7.8.0 的解码后密钥长度要求；不复用其他站点的 cookie secret。issuer、回调地址、允许邮箱不属于此 Secret。JWT 的稳定 `sub` 由应用读取，用于与 issuer 一起绑定项目归属，无需管理员录入名单。
 
 登录 Vault 后，在装有 OpenSSL 的 Bash 终端直接执行以下四条命令，无需创建 JSON 文件。只需把第一条的 `CLIENT_SECRET` 替换为专属 PPT Casdoor 应用的实际 Client Secret；Cookie 密钥和三个数据库密码自动生成。
 
 ```bash
-vault kv put secret/ppt-service/oidc \
+kubectl -n vault exec -i vault-0 -- vault kv put secret/ppt-service/oidc \
   CLIENT_SECRET='替换为PPT应用的Client Secret' \
-  COOKIE_SECRET="$(openssl rand -base64 32)"
+  COOKIE_SECRET="$(openssl rand -base64 32 | tr '+/' '-_')"
 
-vault kv put secret/ppt-service/database-runtime \
+kubectl -n vault exec -i vault-0 -- vault kv put secret/ppt-service/database-runtime \
   DATABASE_URL="postgresql+psycopg://ppt_runtime:$(openssl rand -hex 24)@ppt-postgres.ppt-service.svc.cluster.local:5432/ppt_service"
 
-vault kv put secret/ppt-service/database-migrator \
+kubectl -n vault exec -i vault-0 -- vault kv put secret/ppt-service/database-migrator \
   DATABASE_URL="postgresql+psycopg://ppt_migrator:$(openssl rand -hex 24)@ppt-postgres.ppt-service.svc.cluster.local:5432/ppt_service"
 
-vault kv put secret/ppt-service/postgres-bootstrap \
+kubectl -n vault exec -i vault-0 -- vault kv put secret/ppt-service/postgres-bootstrap \
   POSTGRES_PASSWORD="$(openssl rand -hex 24)"
 ```
 
@@ -72,6 +72,22 @@ kubectl -n ppt-service get events \
 `SecretSyncedError` 配合事件中的 `Secret does not exist` 表示 ESO 找不到所引用的 Vault 记录。对照上表在 `secret` KV v2 引擎中创建四条记录，并核对字段名；Vault 页面中的相对路径为 `ppt-service/...`，CLI 使用 `secret/ppt-service/...`，不要把 ESO 的 `secret/data/...` 当作页面中的记录名。若记录已存在，检查实际保存路径、Vault 引擎和 ESO 的读取权限，不要改成其他服务的凭据。
 
 正常部署需要全部四条记录。凭据同步阶段失败时尚未运行应用数据库初始化，补齐路径和字段后重新执行 `bash deploy.sh`。若同步已成功而数据库初始化报错，应先检查已有或部分创建的角色/数据库，再根据错误处理，保留数据。
+
+## OAuth 代理因 Cookie 密钥长度错误无法启动
+
+如果 PostgreSQL、迁移和存储 Job 都已成功，但网站 Pod 的 `oauth2-proxy` 容器反复重启，日志出现 `cookie_secret must be 16, 24, or 32 bytes ... but is 44 bytes`，检查 Cookie 密钥的编码。普通 `openssl rand -base64 32` 可能生成 `+`、`/`，导致 URL-safe Base64 解码失败，代理把它当作 44 字节原文。上面的首次写入命令用 `tr '+/' '-_'` 转为正确编码。
+
+已完成数据库初始化时，只更新 OIDC 记录中的 Cookie 密钥，保留 Client Secret 和数据库凭据。下面通过集群内 Vault CLI 更新：
+
+```bash
+kubectl -n vault exec -i vault-0 -- vault kv patch secret/ppt-service/oidc \
+  COOKIE_SECRET="$(openssl rand -base64 32 | tr '+/' '-_')"
+```
+
+然后在服务器的 `panghu_agent/ppt_service` 目录运行 `bash deploy.sh --skip-build`。部署脚本会等待新的 ESO 同步并重启网站及代理；此修复无需重建站点镜像，也不需要重新执行四条首次写入命令。Cookie 密钥变化后需重新登录。
+
+本次曾出现 Vault 已修正、Kubernetes Secret 仍为旧值的情况。实际检查结果和恢复边界见
+[2026-10-24 部署排障记录](../../panghu_agent/ppt_service/deploy/k8s/TROUBLESHOOTING.md)。
 
 ## 启用和轮换
 

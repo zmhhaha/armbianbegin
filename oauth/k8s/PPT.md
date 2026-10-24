@@ -29,11 +29,11 @@ PPT 部署到 `ppt-service`，公开地址为 **https://ppt.panghuer.top**。在
 | Scopes | `openid email profile` |
 | Issuer | `https://auth.panghuer.top` |
 | ID token 算法 | `RS256`；签名公钥由该 issuer 的 JWKS 提供 |
-| 必要 claims | `iss`、`aud`、`exp`、`iat`、稳定 `sub`、`email` 和布尔值 `email_verified: true` |
+| API 必要 claims | `iss`、`aud`、`exp`、`iat`、稳定 `sub` 和有效 `email` |
 
-保存应用后取得公开 **client ID**，client secret 存入下节 Vault。client ID 同时用于代理登录和 API 的 `aud` 校验；回调不使用通配符。确认实际 ID token 的 audience 与此 client ID 匹配，邮箱验证状态符合代理要求；不关闭 issuer、TLS、签名或邮箱验证来适配错误配置。
+保存应用后取得公开 **client ID**，client secret 存入下节 Vault。client ID 同时用于代理登录和 API 的 `aud` 校验；回调不使用通配符。确认实际 ID token 的 audience 与此 client ID 匹配，保留 issuer、TLS 和签名校验。
 
-准入只需维护每个人在 Casdoor 中已验证的精确邮箱，不需要查找或填写 `sub`。代理按邮箱白名单允许登录，API 每次认证请求都从已验签 JWT 读取 `email`，要求 `email_verified` 为布尔值 `true`，再读取同一名单判断准入；不信任浏览器自行传入的身份头。项目归属仍绑定已验证的 `iss` 与稳定 `sub`，邮箱不是项目 owner 标识。
+邮箱验证由 Casdoor 的注册和登录策略负责，PPT API 不再额外要求或判断 `email_verified` 声明，无需为 PPT 添加该 Token attribute；本次不修改代理的 OIDC 安全参数或共享 Casdoor 应用。准入只需维护每个人在 Casdoor 中的精确邮箱，不需要查找或填写 `sub`。代理按邮箱白名单允许登录，API 每次认证请求都从已验签 JWT 读取有效 `email`，再读取同一名单判断准入；不信任浏览器自行传入的身份头。项目归属仍绑定已验证的 `iss` 与稳定 `sub`，邮箱不是项目 owner 标识。
 
 ## 2. 配置 client ID 与邮箱白名单
 
@@ -123,7 +123,7 @@ Casdoor 继续访问 `https://auth.panghuer.top`，通过现有 CoreDNS split ho
 ## 6. 部署后验收
 
 - 未登录访问 `/` 应进入登录；`/api/v1/me` 应返回 401，避免后台 API 跳登录页。
-- 白名单用户完成独立 PPT 登录；名单外邮箱、未验证邮箱、缺失或非布尔 `true` 的 `email_verified` 均被拒绝。JWT 仍须包含稳定 `sub`，但无需把它配置进名单。确认真实 `aud`、RS256 和 JWKS 可用，不记录 token 内容。
+- 白名单用户完成独立 PPT 登录；Casdoor 负责执行邮箱验证策略。缺失或格式无效的签名邮箱、名单外邮箱均被 PPT API 拒绝；API 不因 `email_verified` 缺失或其值而拒绝。JWT 仍须包含稳定 `sub`，但无需把它配置进名单。确认真实 `aud`、RS256 和 JWKS 可用，不记录 token 内容。
 - 修改 `ppt-owner.data.emails` 后等待两个容器的文件更新，验证移除用户后下一次认证请求被拒绝，空名单拒绝所有用户；名单读取或格式错误时 API 返回 503。确认原有项目仍按 `iss/sub` 隔离，不随邮箱名单变更转移归属。
 - `/api/v1/me` 能返回身份与 CSRF 状态；修改请求必须带精确 Origin `https://ppt.panghuer.top` 和匹配 CSRF cookie/header，缺失或错误均被拒绝。
 - `__Host-ppt` cookie 具有 Secure、HttpOnly、Path=/、SameSite=Lax，无 Domain。用实际 Casdoor claims 核查 cookie 大小。代理 cookie 最长8小时且不配置自动 refresh；API还独立检查 ID token 的 `exp`，不能把8小时当作 token 保证有效期。
