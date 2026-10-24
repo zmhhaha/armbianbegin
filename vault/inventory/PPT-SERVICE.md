@@ -38,16 +38,26 @@ postgresql+psycopg://ppt_migrator:<URL编码后的密码>@ppt-postgres.ppt-servi
 
 OIDC 使用专属 PPT Casdoor 应用。其公开 client ID 同时用于代理 client ID 和站点受众校验，由 OAuth 配置集中管理；这里仅保存该应用的 client secret。Cookie secret 由管理端生成独立随机密钥，需满足实际 oauth2-proxy v7.8.0 的解码后密钥长度要求，例如 32 个随机字节的 base64 编码；不复用其他站点的 cookie secret。issuer、回调地址、允许邮箱不属于此 Secret。JWT 的稳定 `sub` 由应用读取，用于与 issuer 一起绑定项目归属，无需管理员录入名单。
 
-经认证的管理员可从 Git 工作区之外的 0600 JSON 文件写入**新路径**，避免在命令行参数、终端或日志里出现值：
+登录 Vault 后，在装有 OpenSSL 的 Bash 终端直接执行以下四条命令，无需创建 JSON 文件。只需把第一条的 `CLIENT_SECRET` 替换为专属 PPT Casdoor 应用的实际 Client Secret；Cookie 密钥和三个数据库密码自动生成。
 
 ```bash
-vault kv put secret/ppt-service/oidc @/secure/ppt-oidc.json
-vault kv put secret/ppt-service/database-runtime @/secure/ppt-database-runtime.json
-vault kv put secret/ppt-service/database-migrator @/secure/ppt-database-migrator.json
-vault kv put secret/ppt-service/postgres-bootstrap @/secure/ppt-postgres-bootstrap.json
+vault kv put secret/ppt-service/oidc \
+  CLIENT_SECRET='替换为PPT应用的Client Secret' \
+  COOKIE_SECRET="$(openssl rand -base64 32)"
+
+vault kv put secret/ppt-service/database-runtime \
+  DATABASE_URL="postgresql+psycopg://ppt_runtime:$(openssl rand -hex 24)@ppt-postgres.ppt-service.svc.cluster.local:5432/ppt_service"
+
+vault kv put secret/ppt-service/database-migrator \
+  DATABASE_URL="postgresql+psycopg://ppt_migrator:$(openssl rand -hex 24)@ppt-postgres.ppt-service.svc.cluster.local:5432/ppt_service"
+
+vault kv put secret/ppt-service/postgres-bootstrap \
+  POSTGRES_PASSWORD="$(openssl rand -hex 24)"
 ```
 
-每份 JSON 的字段严格对应表格。此命令示例不是本次执行记录；已存在路径做部分轮换时使用 `kv patch`，不得用遗漏字段的 `kv put` 覆盖整个记录。管理端不应通过输出真实 Secret、Pod 环境、数据库 URL 或 Vault 记录来检查结果。
+这组命令用于首次配置，执行一次即可，后续部署无需重复写入。生成的数据库密码只含十六进制字符，可直接用于 URL，无需另外编码；部署脚本会读取这些密码并自动创建角色。写入完成后，在服务器的 `panghu_agent/ppt_service` 目录设置 `PPT_CLIENT_ID` 并运行 `bash deploy.sh`。
+
+已有数据库的密码轮换按下文“启用和轮换”处理，需要协调库内密码和 Vault 值；部分字段更新使用 `kv patch`，避免覆盖其他字段。管理端不应通过输出真实 Secret、Pod 环境、数据库 URL 或 Vault 记录来检查结果。
 
 ## 排查首次部署的凭据同步失败
 

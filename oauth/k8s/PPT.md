@@ -77,7 +77,7 @@ kubectl apply -f oauth/k8s/ppt-owner-configmap.yaml
 - `secret/ppt-service/database-migrator`：迁移角色 `DATABASE_URL`。
 - `secret/ppt-service/postgres-bootstrap`：新 PostgreSQL 的 `POSTGRES_PASSWORD`。
 
-Cookie secret 例如使用 32 随机字节的 base64；只在安全管理环境生成和写 Vault。数据库 URL 使用 `postgresql+psycopg://`，两个应用 URL 指向新 `ppt_service` 数据库、使用不同角色。ESO 负责同步凭据；`deploy.sh` 使用专用凭据完成数据库初建或升级及角色授权检查。
+在已登录 Vault 的 Bash 终端执行 [Vault 凭据准备中的四条直接写入命令](../../vault/inventory/PPT-SERVICE.md#凭据准备)，无需创建 JSON 文件；只替换 PPT 应用 Client Secret，其余密钥自动生成。首次写入一次即可，后续部署无需重复生成。数据库 URL 使用 `postgresql+psycopg://`，两个应用 URL 指向新 `ppt_service` 数据库、使用不同角色。ESO 负责同步凭据；`deploy.sh` 使用专用凭据完成数据库初建或升级及角色授权检查。
 
 ## 4. Cloudflare Tunnel 配入口
 
