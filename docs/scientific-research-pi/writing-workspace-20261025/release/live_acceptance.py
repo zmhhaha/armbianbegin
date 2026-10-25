@@ -22,7 +22,17 @@ import uuid
 BASE_URL = 'http://127.0.0.1:8000'
 MAX_RESPONSE_BYTES = 12 * 1024 * 1024
 TABLES = ('scientific_report_versions', 'scientific_report_snapshots',
-          'scientific_report_revision_intents')
+          'scientific_report_revision_intents', 'scientific_report_revision_jobs',
+          'scientific_report_adoptions')
+WRITING_ROUTES = {
+    '/scientific-reports/{report_id}/writing-state': 'get',
+    '/scientific-reports/{report_id}/revision-previews': 'post',
+    '/scientific-revision-previews/{intent_id}': 'get',
+    '/scientific-revision-previews/{intent_id}/start': 'post',
+    '/scientific-report-versions/{candidate_id}/comparison': 'get',
+    '/scientific-report-versions/{candidate_id}/adopt': 'post',
+    '/scientific-report-versions/{version_id}/download': 'get',
+}
 OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
@@ -97,6 +107,9 @@ def counts(database, owner, report_id):
         'snapshots': 'SELECT COUNT(*) AS n FROM scientific_report_snapshots s WHERE s.owner=' + own
                      + ' AND EXISTS (SELECT 1 FROM scientific_report_versions v WHERE v.owner=s.owner AND v.version_id=s.version_id AND v.root_report_id=' + root + ')',
         'intents': 'SELECT COUNT(*) AS n FROM scientific_report_revision_intents WHERE owner=' + own + ' AND root_report_id=' + root,
+        'revision_jobs': 'SELECT COUNT(*) AS n FROM scientific_report_revision_jobs j WHERE j.owner=' + own
+                     + ' AND EXISTS (SELECT 1 FROM scientific_report_revision_intents i WHERE i.owner=j.owner AND i.intent_id=j.intent_id AND i.root_report_id=' + root + ')',
+        'adoptions': 'SELECT COUNT(*) AS n FROM scientific_report_adoptions WHERE owner=' + own + ' AND root_report_id=' + root,
         'research_index': 'SELECT COUNT(*) AS n FROM scientific_pi_index WHERE user_id=' + own,
     }
     return {name: database._query(query)[0]['n'] for name, query in queries.items()}
@@ -125,9 +138,73 @@ def task_fingerprint(value):
             ('id', 'state', 'status', 'attempt', 'revision', 'report_id', 'report_sha256', 'result_digest')}
 
 
+def check_revision_capabilities(health):
+    capabilities = health.get('capabilities')
+    require(isinstance(capabilities, dict)
+            and '1' in capabilities.get('revision_job_versions', [])
+            and capabilities.get('revision_input_scope') == 'recorded_evidence_only'
+            and type(capabilities.get('max_revision_input_bytes')) is int
+            and capabilities['max_revision_input_bytes'] > 0, 'fixed_evidence_revision_capability_missing')
+    return {key: capabilities[key] for key in
+            ('revision_job_versions', 'revision_input_scope', 'max_revision_input_bytes')}
+
+
+def check_writing_routes(schema):
+    paths = schema.get('paths', {})
+    require(isinstance(paths, dict), 'openapi_paths_missing')
+    for path, method in WRITING_ROUTES.items():
+        require(isinstance(paths.get(path), dict) and method in paths[path],
+                'writing_route_missing_' + method + '_' + path)
+
+
+def check_writing_state(value, report_id, raw):
+    require(value.get('source_report_id') == report_id and value.get('source_sha256') == sha(raw),
+            'writing_state_source_mismatch')
+    identifier(value.get('root_report_id'))
+    require(type(value.get('selection_revision')) is int
+            and 0 <= value['selection_revision'] < 2**53 - 1, 'writing_selection_revision_invalid')
+    current = value.get('current_version_id')
+    require(re.fullmatch('[0-9a-f]{64}', value.get('current_sha256', '')) is not None,
+            'writing_current_digest_invalid')
+    versions = value.get('versions')
+    require(isinstance(versions, list), 'writing_versions_missing')
+    ids = set()
+    for version in versions:
+        version_id = identifier(version.get('version_id'))
+        require(version_id not in ids and version.get('root_report_id') == value['root_report_id'],
+                'writing_version_identity_invalid')
+        require(version.get('is_current') is (version_id == current), 'writing_current_marker_invalid')
+        ids.add(version_id)
+    if current is not None:
+        identifier(current)
+        # The current head can be older than a paginated version window. Its
+        # exact bytes are checked separately through the immutable detail API.
+    else:
+        require(value['selection_revision'] == 0 and value['current_sha256'] == sha(raw),
+                'unselected_writing_state_invalid')
+    return value
+
+
+def check_exact_version(version_id, owner, expected_sha=None):
+    path = '/scientific-report-versions/' + identifier(version_id)
+    version = json_request(path, owner)
+    require(version.get('version_id') == version_id and isinstance(version.get('content'), str),
+            'private_version_identity_invalid')
+    raw = version['content'].encode('utf-8')
+    require(version.get('report_sha256') == sha(raw)
+            and (expected_sha is None or expected_sha == sha(raw)), 'private_version_digest_mismatch')
+    status, downloaded, headers = request(path + '/download', owner)
+    require(status == 200 and downloaded == raw and headers.get('x-content-type-options') == 'nosniff',
+            'private_version_download_mismatch')
+    check_sections(json_request(path + '/sections', owner), raw)
+    return version, raw
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-commit', required=True)
+    parser.add_argument('--read-only', action='store_true',
+                        help='Check deployed reads/capabilities only; do not prepare a canary intent')
     args = parser.parse_args()
     require(re.fullmatch('[0-9a-f]{40}', args.source_commit) is not None, 'full_source_commit_required')
     from tools import sqlite_client as database
@@ -137,11 +214,16 @@ def main():
               'checks': [], 'skipped': [], 'real_model_requested': False,
               'research_submitted': False, 'research_cancelled': False,
               'email_requested': False, 'direct_database_writes': False,
-              'real_user_login_verified': False}
+              'real_user_login_verified': False, 'revision_started': False,
+              'candidate_adopted': False, 'read_only': args.read_only}
     health = json_request('/scientific-health')
     require(health.get('backend') == 'pi' and health.get('status') == 'ok'
             and health.get('worker_ready') is True, 'worker_not_ready')
     result['checks'].append('api_and_existing_worker_ready')
+    result['revision_capabilities'] = check_revision_capabilities(health)
+    check_writing_routes(json_request('/openapi.json'))
+    result['checks'].extend(('worker_fixed_evidence_revision_capability',
+                             'writing_state_comparison_adopt_and_start_routes_registered'))
     for table in TABLES:
         require(database._query('SELECT COUNT(*) AS n FROM sqlite_master WHERE type=\'table\' AND name=' + sql_literal(table))[0]['n'] == 1,
                 'writing_table_missing')
@@ -201,24 +283,42 @@ def main():
                 'citation_report_digest_mismatch')
         result['citation_count'] = len(trace['citations'])
         result['checks'].append('existing_pi_evidence_trace_matches_published_report')
-    for path in (index_path + '/citations', report_path + '/sections', report_path + '/versions'):
+    unknown_version = '/scientific-report-versions/' + str(uuid.uuid4()) + '/comparison'
+    for path in (index_path + '/citations', report_path + '/sections', report_path + '/versions',
+                 report_path + '/writing-state', unknown_version):
         require(request(path)[0] == 401, 'missing_identity_not_rejected')
         require(request(path, other)[0] == 404, 'foreign_identity_not_rejected')
-    result['checks'].append('citation_section_history_identity_isolation')
+    require(request(unknown_version, owner)[0] == 404, 'missing_comparison_version_not_rejected')
+    result['checks'].append('citation_section_history_writing_state_comparison_identity_isolation')
 
-    before = counts(database, owner, report_id)
+    # Reads must not import a baseline or create revision/adoption records.
+    initial_counts = {table: database._query('SELECT COUNT(*) AS n FROM ' + table
+                      + ' WHERE owner=' + sql_literal(owner))[0]['n'] for table in TABLES}
+    writing = check_writing_state(json_request(report_path + '/writing-state', owner), report_id, raw)
+    root_report_id = writing['root_report_id']
+    result['root_report_id'] = root_report_id
+    before = counts(database, owner, root_report_id)
     sections = json_request(report_path + '/sections', owner)
     section = check_sections(sections, raw)
     history = json_request(report_path + '/versions', owner)
     require(history.get('source_sha256') == sha(raw) and isinstance(history.get('items'), list),
             'history_source_digest_mismatch')
-    after_reads = counts(database, owner, report_id)
-    require(all(before[kind] == after_reads[kind] for kind in ('versions', 'snapshots', 'intents')),
+    if writing['current_version_id'] is not None:
+        check_exact_version(writing['current_version_id'], owner, writing['current_sha256'])
+        result['checks'].append('current_writing_version_exact_download_and_sections')
+    after_reads = counts(database, owner, root_report_id)
+    require(all(before[kind] == after_reads[kind] for kind in
+                ('versions', 'snapshots', 'intents', 'revision_jobs', 'adoptions')),
             'read_only_history_changed_private_records')
+    require(all(database._query('SELECT COUNT(*) AS n FROM ' + table + ' WHERE owner='
+                    + sql_literal(owner))[0]['n'] == initial_counts[table] for table in TABLES),
+            'writing_state_read_changed_private_records')
     result['checks'].extend(('exact_utf8_sections', 'section_history_get_has_no_persistent_side_effect'))
     result['counts_before'] = before
 
-    if trace is None:
+    if args.read_only:
+        result['skipped'].append('canary_preparation_disabled_by_read_only')
+    elif trace is None:
         result['skipped'].append('preparation_requires_available_evidence')
     elif not canary_owner(owner):
         result['status'] = 'partial'
@@ -272,24 +372,41 @@ def main():
         restored = json_request(intent_path, owner)
         require(restored.get('dispatch_available') is False and restored['intent']['intent_id'] == intent['intent_id'],
                 'prepared_intent_restore_invalid')
+        require(restored.get('start_url') == intent_path + '/start', 'prepared_intent_start_route_missing')
+        for path in (version_path + '/comparison',):
+            require(request(path)[0] == 401, 'anonymous_comparison_not_rejected')
+            require(request(path, other)[0] == 404, 'foreign_comparison_not_rejected')
+        if parent.get('parent_version_id') is None:
+            require(request(version_path + '/comparison', owner)[0] == 409,
+                    'base_version_offered_as_completed_candidate')
         result['intent_id'] = intent['intent_id']
         result['checks'].extend(('canary_preparation_fixes_exact_input_without_dispatch',
             'same_key_replay_and_different_fingerprint_conflict',
             'private_version_original_download_and_sections',
-            'private_snapshot_metadata_and_intent_owner_isolation'))
+            'private_snapshot_metadata_and_intent_owner_isolation',
+            'prepared_intent_has_explicit_start_route_without_starting',
+            'comparison_owner_isolation_and_baseline_rejection'))
 
-    after = counts(database, owner, report_id)
+    after_writing = check_writing_state(json_request(report_path + '/writing-state', owner), report_id, raw)
+    require(after_writing['selection_revision'] == writing['selection_revision'], 'writing_selection_changed_after_probe')
+    if writing['current_version_id'] is not None:
+        require(after_writing['current_version_id'] == writing['current_version_id']
+                and after_writing['current_sha256'] == writing['current_sha256'], 'current_writing_version_changed_after_probe')
+    after = counts(database, owner, root_report_id)
     if 'intent_id' in result:
         require(after['research_index'] == before['research_index'], 'canary_research_index_changed')
     for kind in ('versions', 'snapshots', 'intents'):
         require(before[kind] <= after[kind] <= before[kind] + (1 if 'intent_id' in result else 0),
                 'unexpected_writing_record_count')
+    for kind in ('revision_jobs', 'adoptions'):
+        require(after[kind] == before[kind], 'revision_or_adoption_created_after_probe')
     original = json_request(report_path, owner)
     require(original.get('content') == selected['content'], 'published_original_changed_after_probe')
     task_after = json_request(index_path, owner)
     require(task_fingerprint(task_before) == task_fingerprint(task_after), 'existing_worker_task_changed_after_probe')
     result['counts_after'] = after
-    result['checks'].append('original_report_and_existing_worker_task_unchanged')
+    result['checks'].extend(('original_report_and_existing_worker_task_unchanged',
+                             'no_revision_started_or_candidate_adopted'))
     print(json.dumps(result, ensure_ascii=True, indent=2))
 
 
