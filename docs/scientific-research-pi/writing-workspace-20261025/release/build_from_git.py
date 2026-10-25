@@ -66,8 +66,10 @@ def main():
     run(['docker', 'build', '--label', 'org.opencontainers.image.revision=' + commit,
          '--label', 'org.panghu.scientific.source=' + digest,
          '-f', str(out/'context/Dockerfile.scientific-pi-api'), '-t', tag, str(out/'context')], 'build.log')
+    # The image keeps its installed dependency lock under /tmp. Do not mask it
+    # with a tmpfs; the probe only uses in-memory SQLite and read-only files.
     cid = subprocess.check_output(['docker', 'create', '--network', 'none', '--read-only',
-        '--tmpfs', '/tmp:rw,nosuid,nodev,size=32m', '--cap-drop', 'ALL',
+        '--cap-drop', 'ALL',
         '--security-opt', 'no-new-privileges',
         '-v', str(out/'api_image_probe.py') + ':/app/api_image_probe.py:ro',
         tag, 'python', '-B', '/app/api_image_probe.py'], text=True).strip()
