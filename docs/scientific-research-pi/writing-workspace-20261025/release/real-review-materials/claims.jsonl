@@ -1,0 +1,14 @@
+{"claim_id": "C01", "marker": "<!-- claim:C01 -->", "evidence_ids": ["E01", "E03", "E04", "E06", "E08", "E09", "E11", "E13", "E15"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C02", "marker": "<!-- claim:C02 -->", "evidence_ids": ["E01", "E05"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C03", "marker": "<!-- claim:C03 -->", "evidence_ids": ["E07", "E08"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C04", "marker": "<!-- claim:C04 -->", "evidence_ids": ["E06"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C05", "marker": "<!-- claim:C05 -->", "evidence_ids": ["E01", "E02"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C06", "marker": "<!-- claim:C06 -->", "evidence_ids": ["E03"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C07", "marker": "<!-- claim:C07 -->", "evidence_ids": ["E04", "E05"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C08", "marker": "<!-- claim:C08 -->", "evidence_ids": ["E11", "E12"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C09", "marker": "<!-- claim:C09 -->", "evidence_ids": ["E09", "E10"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C10", "marker": "<!-- claim:C10 -->", "evidence_ids": ["E13", "E14"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C11", "marker": "<!-- claim:C11 -->", "evidence_ids": ["E15"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C12", "marker": "<!-- claim:C12 -->", "evidence_ids": ["E01", "E03", "E11"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
+{"claim_id": "C13", "marker": "<!-- claim:C13 -->", "evidence_ids": ["E01", "E02", "E07", "E08", "E09", "E11", "E12", "E13"], "assessment": "insufficient", "explanation": "证据终点及条件不同，不足以作统一性能比较或确定量产时间；并非证明所有平台没有冲突。"}
+{"claim_id": "C14", "marker": "<!-- claim:C14 -->", "evidence_ids": ["E01", "E03", "E04", "E06", "E08", "E09", "E11", "E13", "E14", "E15"], "assessment": "supported", "explanation": "以已获取摘要支持本段限定的主题综合；区分模型、实验、综述与作者归纳，不作跨指标排名或量产推断。"}
