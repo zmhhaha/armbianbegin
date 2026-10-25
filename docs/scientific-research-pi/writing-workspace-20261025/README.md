@@ -135,3 +135,5 @@ API 下载摘要绑定的模型输出和四份 records，独立重建完整候�
 回滚材料保存在服务器私有目录 `/root/scientific-writing-releases/revision-d208aee-20261025-r1`，包括 worker/API/UI 与入口的旧快照、预期 spec 和 guarded 回滚文件。本轮没有执行生产回滚演练。实际回滚需先重新核对活动任务、UID、新鲜 resourceVersion 和本轮预期 spec，关入口后仅恢复仍由本次发布控制的对象，旧版本就绪后重开；第三方并发变更不覆盖，追加写作记录和用户资料不删除。旧镜像与 UI ConfigMap 的精确引用在发布回执中，完整快照、原始命令输出、Secret、kubeconfig、环境和会话凭据不进入 Git。
 
 当前已发布，R5 隔离实际模型、operator 准备检查、正式账号只读浏览器，以及 D2 生产 API 修订/显式采用与科学审阅分别有证据。[独立生产 worker/model 审计](evidence/stage5-d2-worker-provenance.json)也已通过：task/result 摘要一致，非 fixture 的 Pi 0.73.1 固定证据修订使用实际线上 worker 镜像；网关在同一执行时间内记录 3 轮成功模型调用。网关未包含任务 ID，关联依据为 caller、alias 和时间；模型名称是网关配置标识，不据此证明 custom 上游的最终实现。普通账号浏览器的 start/比较/采用全链和生产回滚演练不在上述已通过范围内。OpenSpec 回填后仍保持未归档。
+
+2026-10-26 已回填 OpenSpec：25/25 任务完成，服务校验通过、无 issues。发布证据提交 `487b7d8bba17dfa87e5bb289b80254104d1d53e3` 已推送；[同步回执](evidence/stage5-openspec-sync.json)记录服务 revision 与验收范围。规格正文仍由 OpenSpec 服务保存，变更保持未归档。
