@@ -49,6 +49,10 @@ def main():
     args = parser.parse_args()
     os.umask(0o077)
     args.output_dir.mkdir(parents=True,exist_ok=False)
+    # A dropped task UID must traverse this ancestor of the runtime workspace.
+    # Controller receipts and source copies remain 0600; directory listing and
+    # the runtime control directory remain inaccessible to task processes.
+    args.output_dir.chmod(0o711)
     report_raw = (args.materials_dir/'report.md').read_bytes()
     report = report_raw.decode('utf-8')
     records = {name:(args.materials_dir/(name+('.json' if name=='references' else '.jsonl'))).read_bytes()
