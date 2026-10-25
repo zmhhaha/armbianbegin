@@ -2,6 +2,7 @@
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -19,6 +20,24 @@ spec.loader.exec_module(builder)
 
 
 class BuildSourceTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == 'posix', 'POSIX image source permissions')
+    def test_private_build_directory_contains_nonroot_readable_public_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            out.chmod(0o700)
+            previous = os.umask(0o077)
+            try:
+                builder.write_payload(out, {'worker-context/pi_worker/app.py': b'public code',
+                                            'worker_image_probe.py': b'public probe'}, 'a'*40)
+            finally:
+                os.umask(previous)
+            self.assertEqual(out.stat().st_mode & 0o777, 0o700)
+            for name in ('worker-context', 'worker-context/pi_worker'):
+                self.assertEqual((out/name).stat().st_mode & 0o777, 0o755)
+            for name in ('worker-context/pi_worker/app.py', 'worker_image_probe.py'):
+                self.assertEqual((out/name).stat().st_mode & 0o777, 0o644)
+            self.assertEqual((out/'source-manifest.json').stat().st_mode & 0o777, 0o600)
+
     def test_image_worker_probe_actual_http_factory_and_fixed_input_flow(self):
         code = '''import importlib.util,os,sys
 from pathlib import Path

@@ -64,6 +64,14 @@ def write_payload(out, payload, commit):
         target = out / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(raw)
+        # The private release directory stays 0700. Public committed code must
+        # retain normal Git file/directory readability inside COPY layers and
+        # when a probe is bind-mounted for an unprivileged runtime user.
+        target.chmod(0o644)
+        parent = target.parent
+        while parent != out:
+            parent.chmod(0o755)
+            parent = parent.parent
         entries.append(dict(path=name, bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest()))
     digest = hashlib.sha256(json.dumps(entries, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     manifest = dict(commit=commit, source_digest=digest, files=entries,
