@@ -1,0 +1,42 @@
+{
+  "recorded_at_utc": "2026-10-25T07:22:53.421229+00:00",
+  "scope": "Offline in-memory control-flow simulation; no kubectl, subprocess, network or production database invocation",
+  "command": "python .research-temp/test-writing-rollout-recovery.py",
+  "result": {
+    "tests": 10,
+    "failures": 0,
+    "errors": 0,
+    "passed": true,
+    "duration_seconds": 0.015
+  },
+  "rollout_sha256": "ec8b509a838ff8c0e607d8a73dd7dd64b50eb9386dd78cef618629c301be3319",
+  "simulation_sha256": "cf0d0967a90a1e98749b630361a966d8d3e17ebc94399b832df98c66d6286949",
+  "uses_real_methods": [
+    "recover",
+    "reopen",
+    "guarded",
+    "replace_spec",
+    "check",
+    "preserved"
+  ],
+  "fake_boundaries": [
+    "get",
+    "command (in-memory RFC6902 test/replace executor)",
+    "save/stage",
+    "wait_endpoints/wait_ui_stopped/wait_rollout"
+  ],
+  "cases": [
+    "already reopened service is closed again before recovery",
+    "UI scale0 only",
+    "API candidate plus UI scale0",
+    "API and UI candidate plus reopened service",
+    "foreign UI spec remains untouched",
+    "foreign API spec remains untouched",
+    "recreated UI UID is rejected",
+    "foreign Service selector prevents recovery mutation",
+    "foreign worker spec is never restored or reopened",
+    "resourceVersion race rejects the guarded patch"
+  ],
+  "production_actions": false,
+  "rollout_file_changed": false
+}

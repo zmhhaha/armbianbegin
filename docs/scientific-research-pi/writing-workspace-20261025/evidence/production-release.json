@@ -1,0 +1,290 @@
+{
+  "recorded_at_utc": "2026-10-25T07:54:17.091742+00:00",
+  "url": "https://scientific-agent.panghuer.top/",
+  "release": {
+    "status": "deployed_runtime_checks_passed",
+    "started_at": "2026-10-25T07:48:43.080885+00:00",
+    "finished_at": "2026-10-25T07:49:52.891529+00:00",
+    "api_image": "arm-cluster-master:5000/scientific-pi-api@sha256:3f9523944e57d855a70b1593d7f0c0997e90acb235d21cbe2752eb2d3a619aaa",
+    "api_source_sha256": "9169e719dc3ad6b00441a50962a28630657acf3d1b425304833eca967353158c",
+    "ui_source_sha256": "4eba0b768b66fda1c0264de929355aa46a9a6729cfd57ff17bf7e728f7291059",
+    "configmap": "scientific-workbench-ui-4eba0b768b66",
+    "previous_configmap": "scientific-workbench-ui-f94036e88478",
+    "source_commit": "e87eb0c6ca39ccb61b9922b04b06121384fba819",
+    "source_transport": "server_git_checkout",
+    "rollout_script_sha256": "ec8b509a838ff8c0e607d8a73dd7dd64b50eb9386dd78cef618629c301be3319",
+    "entry_restored": true,
+    "runtime_probes": {
+      "api": {
+        "source_sha256": "9169e719dc3ad6b00441a50962a28630657acf3d1b425304833eca967353158c",
+        "new_modules_imported": true,
+        "module_sha256": {
+          "pi_citations": "121333da95d4c9e8b0c1e7fabeca83d25160fd4b852abd196450ff4bf78797ad",
+          "pi_sections": "40adf2711f453329b1d6bd62fa922a708b67205a1607c41ffe69a35685910e46",
+          "pi_report_versions": "0d8061d5772ef206c34b388ce967e607414a0b905cdb09bdf2a6092a3d1eef48"
+        },
+        "schema_routes_verified": 9,
+        "worker_ready": true,
+        "crewai_installed": false
+      },
+      "ui": {
+        "source_sha256": "4eba0b768b66fda1c0264de929355aa46a9a6729cfd57ff17bf7e728f7291059",
+        "https_root_verified": true,
+        "citation_button_present": true,
+        "gradio_version": "6.19.0"
+      }
+    },
+    "drain": {
+      "legacy_active": 0,
+      "worker_counts": {
+        "cancelled": 1,
+        "failed": 2,
+        "succeeded": 7
+      },
+      "worker_active": 0
+    },
+    "private_directory": "/root/scientific-writing-releases/git-e87eb0c-20261025-r1"
+  },
+  "build": {
+    "status": "passed",
+    "observed_at": "2026-10-25T07:47:04.410494+00:00",
+    "image_tag": "arm-cluster-master:5000/scientific-pi-api:writing-e87eb0c6ca39",
+    "image_digest": "arm-cluster-master:5000/scientific-pi-api@sha256:3f9523944e57d855a70b1593d7f0c0997e90acb235d21cbe2752eb2d3a619aaa",
+    "image_id": "sha256:2ba4b37799bc843c594e1b1996c4c461a0679605bee775fffb7d1d1d9a8fcd99",
+    "architecture": "arm64",
+    "source": {
+      "commit": "e87eb0c6ca39ccb61b9922b04b06121384fba819",
+      "source_digest": "f861f5b4f378e96e516a1d6abb7915e37d6c5165c50a7686cbd558ae1ab7fe44",
+      "files": [
+        {
+          "path": "api_image_probe.py",
+          "bytes": 21564,
+          "sha256": "9aa7121f081222b37808206a69f2c255a4e8d377ef16d95844aefbe3721c9177"
+        },
+        {
+          "path": "context/Dockerfile.scientific-pi-api",
+          "bytes": 1184,
+          "sha256": "fd9b385630b5a04e55a5d1dd7761fa5446f84b41b45d1951686b9da9558813f2"
+        },
+        {
+          "path": "context/app/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "context/app/api/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "context/app/api/scientific_agent.py",
+          "bytes": 27726,
+          "sha256": "9169e719dc3ad6b00441a50962a28630657acf3d1b425304833eca967353158c"
+        },
+        {
+          "path": "context/scientific_agent/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "context/scientific_agent/pi_citations.py",
+          "bytes": 20113,
+          "sha256": "121333da95d4c9e8b0c1e7fabeca83d25160fd4b852abd196450ff4bf78797ad"
+        },
+        {
+          "path": "context/scientific_agent/pi_client.py",
+          "bytes": 5860,
+          "sha256": "8fa68aa2058841c7aa2c7e662f6327bc2f71a6c1a27c89db54a123d120d91839"
+        },
+        {
+          "path": "context/scientific_agent/pi_contracts.py",
+          "bytes": 10802,
+          "sha256": "b87455c90a61fe78ca2946758e0d5e2115415d88bb44e527ccfb6cdc9471bc4f"
+        },
+        {
+          "path": "context/scientific_agent/pi_projection.py",
+          "bytes": 9637,
+          "sha256": "491c55329c31a8cae4d12d8f39788673ef5c1b36036f44f6504bcd566aab2bf1"
+        },
+        {
+          "path": "context/scientific_agent/pi_report_versions.py",
+          "bytes": 27622,
+          "sha256": "0d8061d5772ef206c34b388ce967e607414a0b905cdb09bdf2a6092a3d1eef48"
+        },
+        {
+          "path": "context/scientific_agent/pi_sections.py",
+          "bytes": 9165,
+          "sha256": "40adf2711f453329b1d6bd62fa922a708b67205a1607c41ffe69a35685910e46"
+        },
+        {
+          "path": "context/scientific_agent/requirements-api.lock",
+          "bytes": 392,
+          "sha256": "7cf66a3aa3aeb84ff96801779634577246c006924803128fd26b1babeeac4874"
+        },
+        {
+          "path": "context/tools/__init__.py",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "path": "context/tools/email_client.py",
+          "bytes": 669,
+          "sha256": "b307600112d38ebac5b7370a528a8dd576fa7df79a517bd3a296602025d6c717"
+        },
+        {
+          "path": "context/tools/sqlite_client.py",
+          "bytes": 6929,
+          "sha256": "2f7d5cb5652580e4fb478fcf8f4d43bae9d99b7b939a1089b4c5f1db873f6c33"
+        },
+        {
+          "path": "ui-source.py",
+          "bytes": 75416,
+          "sha256": "4eba0b768b66fda1c0264de929355aa46a9a6729cfd57ff17bf7e728f7291059"
+        }
+      ],
+      "source_format": "server-side fetched Git blobs; normalized source line endings",
+      "scope": "scientific API/UI only; no worker, secrets or unrelated service source"
+    },
+    "probe": {
+      "status": "passed",
+      "architecture": "aarch64",
+      "python": "3.13.16",
+      "crewai_installed": false,
+      "crewai_imported": false,
+      "direct_model_configuration_present": false,
+      "api_entrypoint": "app.api.scientific_agent:app",
+      "pip_check": "No broken requirements found.",
+      "checks": [
+        "api_health_uses_worker_without_direct_model_configuration",
+        "new_crewai_request_rejected",
+        "missing_trusted_identity_rejected",
+        "legacy_task_unchanged_and_report_bytes_preserved",
+        "legacy_citations_degrade_without_worker_access",
+        "pi_submit_owner_isolation_and_cancel",
+        "publication_ack_and_exact_owner_report_download",
+        "writing_and_citations_authorize_before_worker_read",
+        "report_bound_citations_and_record_transfers",
+        "exact_sections_duplicate_headings_and_read_only_history",
+        "fixed_private_revision_preview_without_model_dispatch",
+        "preview_idempotent_retry_and_changed_fingerprint_conflict",
+        "private_version_download_snapshot_and_intent_owner_isolation",
+        "fixed_input_reuse_after_source_expiry_and_original_preserved"
+      ],
+      "locked_distributions": {
+        "annotated-doc": "0.0.5",
+        "annotated-types": "0.8.0",
+        "anyio": "4.15.1",
+        "click": "8.5.0",
+        "fastapi": "0.138.2",
+        "h11": "0.16.0",
+        "idna": "3.20",
+        "pydantic": "2.14.1",
+        "pydantic_core": "2.50.1",
+        "starlette": "1.9.0",
+        "typing-inspection": "0.4.4",
+        "typing_extensions": "4.16.0",
+        "uvicorn": "0.49.0"
+      },
+      "report_sha256": "4d9fe575be39e9fceed266b88bf8692cf02de22a5f20b4bde13f547eb2ce5058",
+      "writing_material_policy": "recorded_evidence_only",
+      "revision_dispatch_performed": false,
+      "worker_submissions": 2,
+      "artifact_http_reads": 11,
+      "fixture_scope": "loopback SQLite in memory and synthetic Pi HTTP worker; no live model or production DB",
+      "graceful_shutdown": true
+    },
+    "production_deployment_modified": false,
+    "production_database_contacted": false
+  },
+  "live_api": {
+    "status": "passed",
+    "source_commit": "e87eb0c6ca39ccb61b9922b04b06121384fba819",
+    "scope": "deployed internal operator HTTP; existing reports; canary-only preparation",
+    "checks": [
+      "api_and_existing_worker_ready",
+      "api_initialized_private_writing_tables",
+      "legacy_shared_report_and_exact_download_preserved",
+      "pi_report_and_exact_original_download",
+      "existing_pi_evidence_trace_matches_published_report",
+      "citation_section_history_identity_isolation",
+      "exact_utf8_sections",
+      "section_history_get_has_no_persistent_side_effect",
+      "canary_preparation_fixes_exact_input_without_dispatch",
+      "same_key_replay_and_different_fingerprint_conflict",
+      "private_version_original_download_and_sections",
+      "private_snapshot_metadata_and_intent_owner_isolation",
+      "original_report_and_existing_worker_task_unchanged"
+    ],
+    "skipped": [],
+    "real_model_requested": false,
+    "research_submitted": false,
+    "research_cancelled": false,
+    "email_requested": false,
+    "direct_database_writes": false,
+    "real_user_login_verified": false,
+    "legacy_report_id": "afa187bc-8e79-4426-9adc-9f5d3d36c2bb",
+    "legacy_report_sha256": "61aa21fd67b70c4a4205c06d0267ac7f5cf3237798b879c038d63b9e7297806f",
+    "report_id": "ad888da1-6d7d-561d-9eda-4a341efae099",
+    "report_sha256": "3442677c39a8a26cca304d483c2b1e97b0dcce3ad81062a1f3d30e3f6258407d",
+    "citation_count": 2,
+    "counts_before": {
+      "versions": 0,
+      "snapshots": 0,
+      "intents": 0,
+      "research_index": 2
+    },
+    "intent_id": "b92b60ee-4be8-5519-ab61-4b21389c01d3",
+    "counts_after": {
+      "versions": 1,
+      "snapshots": 1,
+      "intents": 1,
+      "research_index": 2
+    }
+  },
+  "preserved": {
+    "worker_spec": true,
+    "ui_service_spec": true,
+    "api_expected_spec": true,
+    "ui_expected_spec": true
+  },
+  "deployments": {
+    "api": {
+      "generation": 43,
+      "replicas": 1,
+      "ready_replicas": 1,
+      "images": [
+        "arm-cluster-master:5000/scientific-pi-api@sha256:3f9523944e57d855a70b1593d7f0c0997e90acb235d21cbe2752eb2d3a619aaa"
+      ]
+    },
+    "ui": {
+      "generation": 19,
+      "replicas": 1,
+      "ready_replicas": 1,
+      "images": [
+        "arm-cluster-master:5000/agent-ui@sha256:4639d4c6d2cfbd03a26cb759f7badbc2b4fabaa988e3299adbbb00d6a7d2c482"
+      ]
+    },
+    "scientific-pi-worker": {
+      "generation": 8,
+      "replicas": 1,
+      "ready_replicas": 1,
+      "images": [
+        "arm-cluster-master:5000/scientific-pi-worker@sha256:bf125403086dd6d5e82174550a28e29457b30604c37fd4d239661448231016c4"
+      ]
+    }
+  },
+  "root_commit": "26168fb07efd3034ecbcbb340522f53b2c24e983",
+  "source_archive_uploaded": false,
+  "formal_user_browser_acceptance": "pending; Casdoor login required",
+  "local_regression": {
+    "tests": 224,
+    "passed": true,
+    "duration_seconds": 12.118
+  },
+  "acceptance_boundaries": {
+    "real_user_browser": false,
+    "real_model_revision": false,
+    "stage3_dispatch_available": false,
+    "phase1_ui_and_phase2_api_deployed": true
+  }
+}
