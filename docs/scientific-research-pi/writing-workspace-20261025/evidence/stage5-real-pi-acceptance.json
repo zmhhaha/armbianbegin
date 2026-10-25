@@ -1,0 +1,92 @@
+{
+  "schema_version": "1",
+  "status": "passed_isolated_actual_pi_and_independent_scientific_review",
+  "acceptance_boundary": "R5 actual candidate-image Pi/model execution with saved real abstract evidence, empty data volume and independent selectors; not a deployed API adoption or formal-user browser task",
+  "first_attempt": {
+    "root_commit": "7d7bea104f62a75966114b1cbcd59e6aa87a5804",
+    "task_id": "469abc62-2e54-4ded-a339-267b964c8654",
+    "state": "failed",
+    "error_code": "model_error",
+    "same_worker_image_as_success": true,
+    "candidate_published": false,
+    "precise_provider_cause": "unknown; original sanitized record contains no finer model diagnostic; later success does not establish the first failure cause",
+    "cleanup": [
+      "Pod UID-guarded deleted",
+      "NetworkPolicy UID-guarded deleted",
+      "ConfigMap UID-guarded deleted"
+    ]
+  },
+  "successful_attempt": {
+    "status": "passed",
+    "root_commit": "09e9b5ce21627efb896e8ec0b560a79bc5e14f34",
+    "source_sha256": "3c3b0cce348319f5bdaa23cd8692f4792b5391ac47307d350683a12ae39221d1",
+    "worker_image": "arm-cluster-master:5000/scientific-pi-worker@sha256:e74b79fc43d6ddca9075326a19f26c14cb339ed5d27ee58b71221fa5aeec6114",
+    "isolated_data_volume": true,
+    "production_service_selected": false,
+    "production_database_accessed": false
+  },
+  "probe": {
+    "status": "passed",
+    "observed_at": "2026-10-25T14:53:38Z",
+    "task_id": "806cfd4e-a785-4237-ba91-8bd6641e7a2e",
+    "source_root_report_id": "1e5cec61-23d5-5a68-a658-82a9b168de2d",
+    "source_material": "saved real report and public abstract records from 2026-10-23",
+    "actual_pi_called": true,
+    "actual_model_called": true,
+    "fixture_runtime": false,
+    "selected_title": "背面供电：配电优化必须连同测试能力评价",
+    "base_sha256": "996ee4402200ef328dfabbed847a51d74e8d2eb64f05c38c72045f3c4fd42b7c",
+    "candidate_sha256": "6ecb51eb4461f80de7b8089e2276d765424a54680873c830e48d417b602324cc",
+    "result_digest": "00bc7937c9349aa3c6f95eeff0ced255021a76225bcde16c0443f5379998d52b",
+    "pi_version": "0.73.1",
+    "node_version": "24.21.0",
+    "image_digest": "sha256:e74b79fc43d6ddca9075326a19f26c14cb339ed5d27ee58b71221fa5aeec6114",
+    "model": "llm-trusted",
+    "unchanged_prefix_bytes": 5281,
+    "unchanged_suffix_bytes": 8312,
+    "fixed_record_bytes_unchanged": [
+      "papers",
+      "evidence",
+      "references"
+    ],
+    "new_claim_count": 2,
+    "final_state": "succeeded",
+    "new_retrieval": false,
+    "full_text_restored": false,
+    "production_database_accessed": false,
+    "email_sent": false,
+    "scientific_review": "pending independent reading of candidate claims against supplied evidence"
+  },
+  "cleanup": [
+    {
+      "kind": "Pod",
+      "status": "deleted"
+    },
+    {
+      "kind": "NetworkPolicy",
+      "status": "deleted"
+    },
+    {
+      "kind": "ConfigMap",
+      "status": "deleted"
+    }
+  ],
+  "scientific_review": {
+    "status": "passed",
+    "blockers": [],
+    "source": "stage5-real-pi/independent-review.md",
+    "summary": "Two claims match E04/E05 and abstracts [4]/[5]; no new performance values, cross-endpoint ranking or full-text/retrieval claims; limits preserved",
+    "nonblocking_suggestion": "Clarify that the acquired abstract record cannot establish a full quantitative baseline, without asserting that the full paper lacks a baseline."
+  },
+  "public_artifacts": "stage5-real-pi/artifact-manifest.json",
+  "private_server_evidence": {
+    "directory": "/root/scientific-revision-real-09e9b5c-r2",
+    "complete_probe_log_exported": false,
+    "complete_pod_or_environment_exported": false
+  },
+  "pending_separate_acceptance": [
+    "Independent D2 worker/model provenance audit",
+    "Formal-account browser start/comparison/adoption beyond the recorded read-only scenarios"
+  ],
+  "separate_d2_api_acceptance": "stage5-d2-production-acceptance.json"
+}

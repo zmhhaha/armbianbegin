@@ -1,0 +1,78 @@
+{
+  "status": "passed_api_flow_independent_scientific_review_and_worker_model_provenance",
+  "scope": "dedicated production canary; deployed API D2",
+  "source_commit": "f9f13893754b79697deb94571c6cc793e6fde9e6",
+  "root_report_id": "ad888da1-6d7d-561d-9eda-4a341efae099",
+  "direct_database_access": false,
+  "email_requested": false,
+  "cancel_requested": false,
+  "real_model_requested": true,
+  "actual_model_call_attestation": "passed; see independent task-bound worker provenance and correlated gateway events in stage5-d2-worker-provenance.json",
+  "task_id": "fd86d43c-13f1-5766-a8d1-bcff2fcc9d1b",
+  "intent_id": "9f1db229-00ae-5ef4-bea8-5b8c95184dd4",
+  "start_replay_same_task": true,
+  "parent_version_id": "aa1a303d-2d78-5819-a1ba-fc70a10ac6be",
+  "candidate_version_id": "1d33f4cc-f142-58bb-bd75-ee2e73addc58",
+  "original_sha256": "3442677c39a8a26cca304d483c2b1e97b0dcce3ad81062a1f3d30e3f6258407d",
+  "candidate_sha256": "4952c189cf72f72acc54ea66acfbf117581bedb8271305b02ed659212749f8ed",
+  "selected_title": "局限",
+  "candidate_section_sha256": "48d05a1178ba6028574b127e610a81194370f5d589f817d28697f7b513646e73",
+  "selection_revision": 1,
+  "adoption_id": "c3cce5ba-9487-55f3-bd56-8d732a2c0ecd",
+  "explicit_canary_adoption": true,
+  "adoption_replay_same_receipt": true,
+  "original_report_unchanged": true,
+  "exact_version_downloads": true,
+  "owner_isolation": true,
+  "observed_at": "2026-10-25T15:25:22.182960+00:00",
+  "schema_version": "1",
+  "original_api_receipt_status": "passed",
+  "dedicated_canary_owner_only": true,
+  "independent_scientific_review": {
+    "status": "passed",
+    "blockers": [],
+    "path": "stage5-d2-independent-review.md"
+  },
+  "worker_model_provenance_audit": "passed; stage5-d2-worker-provenance.json; gateway correlation uses caller/alias/time, with no shared task trace ID",
+  "first_attempt": {
+    "task_id": "6402d618-747c-580a-8e90-cf49ab96ae58",
+    "state": "failed",
+    "error_code": "unsupported_assessment_upgrade",
+    "classification": "expected conservative validation rejection; not a transient error",
+    "specific_guard_branch": "unknown",
+    "details": "stage5-d2-first-attempt.json",
+    "runtime_or_validator_relaxed": false
+  },
+  "public_artifacts": "stage5-d2-real-api/artifact-manifest.json",
+  "independent_invariants": {
+    "original_bytes": 1524,
+    "candidate_bytes": 2376,
+    "unchanged_prefix_bytes": 907,
+    "unchanged_suffix_bytes": 317,
+    "original_section_bytes": 300,
+    "candidate_section_bytes": 1152,
+    "fixed_papers_evidence_references_unchanged": true,
+    "external_C1_C2_unchanged": true,
+    "new_claims": [
+      {
+        "claim_id": "revision_limits_1",
+        "assessment": "insufficient",
+        "evidence_ids": [
+          "E1",
+          "E2"
+        ]
+      },
+      {
+        "claim_id": "revision_limits_2",
+        "assessment": "insufficient",
+        "evidence_ids": [
+          "E1",
+          "E2"
+        ]
+      }
+    ]
+  },
+  "ordinary_user_used": false,
+  "database_writes_directly_requested": false,
+  "private_api_output": "/tmp/scientific-revision-d2-f9f1389-r2"
+}

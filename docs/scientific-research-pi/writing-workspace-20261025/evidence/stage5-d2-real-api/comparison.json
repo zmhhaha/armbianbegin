@@ -1,0 +1,50 @@
+{
+  "schema_version": "1",
+  "root_report_id": "ad888da1-6d7d-561d-9eda-4a341efae099",
+  "parent": {
+    "version_id": "aa1a303d-2d78-5819-a1ba-fc70a10ac6be",
+    "root_report_id": "ad888da1-6d7d-561d-9eda-4a341efae099",
+    "source_report_id": "ad888da1-6d7d-561d-9eda-4a341efae099",
+    "parent_version_id": null,
+    "report_sha256": "3442677c39a8a26cca304d483c2b1e97b0dcce3ad81062a1f3d30e3f6258407d",
+    "content_bytes": 1524,
+    "topic": "科研服务验收：仅检索并对照Lewis等2020 RAG（arXiv:2005.11401）与Asai等Self-RAG（arXiv:2310.11511）两篇原始研究，中文300—500字说明检索如何影响事实性；明确仅摘要或全文，勿编造性能或文献，留下真实检索、筛选、证据与引用记录。",
+    "created_at": "2026-10-25T07:50:44.213680Z"
+  },
+  "candidate": {
+    "version_id": "1d33f4cc-f142-58bb-bd75-ee2e73addc58",
+    "root_report_id": "ad888da1-6d7d-561d-9eda-4a341efae099",
+    "source_report_id": "fd86d43c-13f1-5766-a8d1-bcff2fcc9d1b",
+    "parent_version_id": "aa1a303d-2d78-5819-a1ba-fc70a10ac6be",
+    "report_sha256": "4952c189cf72f72acc54ea66acfbf117581bedb8271305b02ed659212749f8ed",
+    "content_bytes": 2376,
+    "topic": "科研服务验收：仅检索并对照Lewis等2020 RAG（arXiv:2005.11401）与Asai等Self-RAG（arXiv:2310.11511）两篇原始研究，中文300—500字说明检索如何影响事实性；明确仅摘要或全文，勿编造性能或文献，留下真实检索、筛选、证据与引用记录。",
+    "created_at": "2026-10-25T15:25:17.885846Z"
+  },
+  "section": {
+    "section_id": "section_070076846f5825b97c9d182486ea4c8afd44203e0a79fa02976e5784c87fbe65",
+    "title": "局限",
+    "start_byte": 907,
+    "end_byte": 1207,
+    "candidate_end_byte": 2059,
+    "before": "# 局限\n<!-- claim:C3 -->\n两篇摘要提示，应结合检索内容与使用方式理解事实性改善；但缺少全文指标、误差及控制实验，证据不足以量化两者差距、分离检索与反思贡献，或保证消除错误。本简报仅作两篇摘要的定性对照。[1] [2]\n\n",
+    "after": "# 局限\n<!-- claim:revision_limits_1 -->\n现有固定证据仅含两篇研究的摘要，允许在各自报告范围内讨论检索与事实性的关系。Lewis等报告，结合维基百科稠密索引的RAG较纯参数生成基线更具事实性；Asai等则指出，忽视必要性和相关性的固定检索可能产生无帮助回答，并报告按需检索与反思相结合的Self-RAG相对其指定基线改善了长文本事实性及引用准确性。这些摘要提示，检索内容及其使用方式值得共同考察，但尚不足以确立两篇研究之间可直接比较的事实性改善幅度。[1] [2]\n\n<!-- claim:revision_limits_2 -->\n两篇摘要报告的比较对象不同，固定证据又缺少事实性评估细节、效应量、误差及控制实验，因此不能据此判断Self-RAG优于Lewis等的RAG，也不能分离检索与自我反思的独立贡献，或推断检索在所有场景均有效、能够消除事实错误。本节仅作摘要层面的定性对照；指标与实验条件的可比性仍需取得全文核验，独立贡献和结论的适用范围还需相应控制实验及后续实证检验。[1] [2]\n\n",
+    "before_sha256": "aa73618c528d0d7f4994d4b474017eb7bd40f47d3fcb34aba53b036376988406",
+    "after_sha256": "48d05a1178ba6028574b127e610a81194370f5d589f817d28697f7b513646e73"
+  },
+  "diff": {
+    "format": "unified",
+    "text": "--- parent-section.md\n+++ candidate-section.md\n@@ -1,4 +1,7 @@\n # 局限\n-<!-- claim:C3 -->\n-两篇摘要提示，应结合检索内容与使用方式理解事实性改善；但缺少全文指标、误差及控制实验，证据不足以量化两者差距、分离检索与反思贡献，或保证消除错误。本简报仅作两篇摘要的定性对照。[1] [2]\n+<!-- claim:revision_limits_1 -->\n+现有固定证据仅含两篇研究的摘要，允许在各自报告范围内讨论检索与事实性的关系。Lewis等报告，结合维基百科稠密索引的RAG较纯参数生成基线更具事实性；Asai等则指出，忽视必要性和相关性的固定检索可能产生无帮助回答，并报告按需检索与反思相结合的Self-RAG相对其指定基线改善了长文本事实性及引用准确性。这些摘要提示，检索内容及其使用方式值得共同考察，但尚不足以确立两篇研究之间可直接比较的事实性改善幅度。[1] [2]\n \n+<!-- claim:revision_limits_2 -->\n+两篇摘要报告的比较对象不同，固定证据又缺少事实性评估细节、效应量、误差及控制实验，因此不能据此判断Self-RAG优于Lewis等的RAG，也不能分离检索与自我反思的独立贡献，或推断检索在所有场景均有效、能够消除事实错误。本节仅作摘要层面的定性对照；指标与实验条件的可比性仍需取得全文核验，独立贡献和结论的适用范围还需相应控制实验及后续实证检验。[1] [2]\n+\n",
+    "available": true,
+    "reason": null
+  },
+  "adoption": {
+    "expected_current_version_id": "aa1a303d-2d78-5819-a1ba-fc70a10ac6be",
+    "expected_selection_revision": 0,
+    "base_sha256": "3442677c39a8a26cca304d483c2b1e97b0dcce3ad81062a1f3d30e3f6258407d",
+    "candidate_sha256": "4952c189cf72f72acc54ea66acfbf117581bedb8271305b02ed659212749f8ed",
+    "can_adopt": true,
+    "reason": null,
+    "comparison_fingerprint_omitted_from_public_copy": true
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "independent_production_worker_and_gateway_provenance",
+  "sanitized": true,
+  "status": "passed",
+  "task_id": "fd86d43c-13f1-5766-a8d1-bcff2fcc9d1b",
+  "worker_observed_at": "2026-10-25T15:31:30.011685+00:00",
+  "gateway_observed_at": "2026-10-25T15:31:27.219167+00:00",
+  "read_sources": [
+    "Authenticated production worker GET /v1/tasks/{task_id}",
+    "Authenticated production worker GET /v1/tasks/{task_id}/result; allowlisted metadata only",
+    "Authenticated production worker GET /v1/health",
+    "Production worker deployment image and readiness metadata",
+    "Production llm-service logs; allowlisted scientific-pi route and completion event fields only"
+  ],
+  "worker_task": {
+    "schema_version": "1",
+    "id": "fd86d43c-13f1-5766-a8d1-bcff2fcc9d1b",
+    "engine": "pi",
+    "task_kind": "revision",
+    "state": "succeeded",
+    "status": "done",
+    "stage": "publish",
+    "attempt": 1,
+    "revision": 4,
+    "created_at": "2026-10-25T15:24:13Z",
+    "started_at": "2026-10-25T15:24:14Z",
+    "finished_at": "2026-10-25T15:25:18Z",
+    "updated_at": "2026-10-25T15:25:18Z",
+    "execution_deadline_at": "2026-10-25T15:34:13Z",
+    "error_code": null,
+    "report_id": "fd86d43c-13f1-5766-a8d1-bcff2fcc9d1b",
+    "result_digest": "a7efd3f27c2ae3322236dd762a1058a3a13c2e36d389534d7a7777bf09ac1574",
+    "report_sha256": "4952c189cf72f72acc54ea66acfbf117581bedb8271305b02ed659212749f8ed"
+  },
+  "worker_result": {
+    "schema_version": "1",
+    "task_id": "fd86d43c-13f1-5766-a8d1-bcff2fcc9d1b",
+    "attempt": 1,
+    "report_sha256": "4952c189cf72f72acc54ea66acfbf117581bedb8271305b02ed659212749f8ed",
+    "result_digest": "a7efd3f27c2ae3322236dd762a1058a3a13c2e36d389534d7a7777bf09ac1574"
+  },
+  "runtime_provenance": {
+    "engine": "pi",
+    "profile": "scientific-fixed-evidence-revision-v1",
+    "model": "llm-trusted",
+    "provider": "scientific-worker",
+    "pi_package": "@mariozechner/pi-coding-agent",
+    "pi_version": "0.73.1",
+    "node_version": "24.21.0",
+    "image_digest": "sha256:e74b79fc43d6ddca9075326a19f26c14cb339ed5d27ee58b71221fa5aeec6114",
+    "skill_bundle_revision": "local-procedures-v2",
+    "runtime_revision": "pi-jsonl-0.73.1-v1",
+    "fixture_mode": false,
+    "token_usage": null,
+    "execution_started_at": "2026-10-25T15:24:16Z",
+    "execution_finished_at": "2026-10-25T15:25:10Z",
+    "execution_interval_basis": "execution_envelope",
+    "retrieval_started_at": "2026-10-25T15:24:16Z",
+    "retrieval_finished_at": "2026-10-25T15:25:10Z",
+    "retrieval_interval_basis": "not_performed_recorded_evidence_only",
+    "material_policy": "recorded_evidence_only",
+    "retrieval_performed": false,
+    "full_text_restored": false,
+    "output_accounting": {
+      "message_updates": 1168,
+      "output_bytes": 180619,
+      "output_lines": 1217,
+      "output_max_line_bytes": 5157,
+      "physical_output_bytes": 180826,
+      "raw_bytes": 5026021,
+      "raw_lines": 1213,
+      "raw_max_line_bytes": 20834,
+      "tool_updates": 0
+    }
+  },
+  "worker_health": {
+    "schema_version": "1",
+    "alive": true,
+    "queue_writable": true,
+    "runtime_ready": true,
+    "worker_ready": true,
+    "capabilities": {
+      "revision_job_versions": ["1"],
+      "revision_input_scope": "recorded_evidence_only",
+      "max_revision_input_bytes": 16777216
+    }
+  },
+  "worker_deployment": {
+    "name": "scientific-pi-worker",
+    "generation": 9,
+    "observed_generation": 9,
+    "ready_replicas": 1,
+    "images": [
+      {
+        "container": "worker",
+        "image": "arm-cluster-master:5000/scientific-pi-worker@sha256:e74b79fc43d6ddca9075326a19f26c14cb339ed5d27ee58b71221fa5aeec6114"
+      }
+    ]
+  },
+  "gateway": {
+    "log_query_since": "2026-10-25T15:15:00Z",
+    "caller": "scientific-pi",
+    "requested_alias": "llm-trusted",
+    "resolved_upstream": "custom",
+    "configured_model": "gpt-6.1-sol",
+    "tier": "trusted",
+    "route_revision": "f93cc97a5fb1bebf8b24905b",
+    "wire_api": "responses",
+    "route_selected_count": 3,
+    "successful_chat_count": 3,
+    "upstream_stream_error_count": 0,
+    "calls": [
+      {
+        "route_selected_at": "2026-10-25T15:24:17.598225629Z",
+        "chat_completed_at": "2026-10-25T15:24:24.537809346Z",
+        "stream": true,
+        "prompt_tokens": 5711,
+        "completion_tokens": 172,
+        "latency_ms": 6939
+      },
+      {
+        "route_selected_at": "2026-10-25T15:24:24.581726071Z",
+        "chat_completed_at": "2026-10-25T15:24:56.518189914Z",
+        "stream": true,
+        "prompt_tokens": 8274,
+        "completion_tokens": 651,
+        "latency_ms": 31936
+      },
+      {
+        "route_selected_at": "2026-10-25T15:24:56.536185875Z",
+        "chat_completed_at": "2026-10-25T15:25:10.612139601Z",
+        "stream": true,
+        "prompt_tokens": 8869,
+        "completion_tokens": 544,
+        "latency_ms": 14076
+      }
+    ]
+  },
+  "checks": {
+    "worker_task_succeeded": true,
+    "worker_result_task_identity_matches": true,
+    "worker_result_report_sha256_matches_task": true,
+    "worker_result_digest_matches_task": true,
+    "runtime_engine_is_pi": true,
+    "runtime_fixture_mode_is_false": true,
+    "runtime_image_matches_live_worker_deployment": true,
+    "runtime_profile_is_fixed_evidence_revision": true,
+    "runtime_records_no_retrieval_or_full_text_restoration": true,
+    "gateway_caller_and_alias_match_runtime": true,
+    "gateway_completions_correlate_with_runtime_execution_interval": true,
+    "gateway_records_successful_real_model_calls": true
+  },
+  "interpretation": {
+    "conclusion": "The production worker independently reports a successful non-fixture Pi 0.73.1 revision run and a published result. Its immutable image matches the live deployment. The gateway records three successful scientific-pi calls through llm-trusted to the configured gpt-6.1-sol Responses route during the same execution interval, supporting actual model execution rather than API-only completion.",
+    "correlation_basis": "Task-bound runtime-generated worker provenance, matching result identity and digests, plus gateway caller, alias and execution timestamps. Worker timestamps have second precision; gateway timestamps retain subseconds.",
+    "limitations": [
+      "Gateway events do not contain the task ID or a shared task-level trace ID; the three gateway events are correlated by caller, alias and time rather than independently task-labelled.",
+      "gpt-6.1-sol is the gateway configured model identifier; this audit does not attest the ultimate provider implementation behind the custom upstream.",
+      "The worker result reports token_usage as null. Token counts above are observed gateway completion metadata, not a separate task-level billing record."
+    ]
+  },
+  "audit_scope": {
+    "read_only_production_audit": true,
+    "production_configuration_modified": false,
+    "database_mutations": false,
+    "tasks_created": false,
+    "tasks_cancelled_or_restarted": false,
+    "model_calls_initiated_by_auditor": false,
+    "raw_logs_exported": false,
+    "report_text_exported": false,
+    "prompts_exported": false,
+    "owner_or_credentials_exported": false
+  }
+}

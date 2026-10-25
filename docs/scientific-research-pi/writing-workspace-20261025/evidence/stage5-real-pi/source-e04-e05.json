@@ -1,0 +1,89 @@
+{
+  "source_root_commit": "09e9b5ce21627efb896e8ec0b560a79bc5e14f34",
+  "scope": "Saved public abstract records only; no new retrieval or full text",
+  "evidence": [
+    {
+      "evidence_id": "E04",
+      "paper_id": "paper-e2bb12b13951a90024cc6f6e",
+      "finding": "埋入式电源轨与背面配电研究讨论压降、功耗、延时和面积潜力，并结合TCAD与物理综合构建模型。",
+      "method": "预印本；Sentaurus TCAD及物理综合",
+      "limitations": "摘要倍数改善缺少可核对的完整基线，不宜外推；本次仅获取摘要，未读全文，未独立确认同行评审状态。",
+      "access_level": "abstract",
+      "locator": "abstract"
+    },
+    {
+      "evidence_id": "E05",
+      "paper_id": "paper-d7e5cb9f06b3847174462190",
+      "finding": "背面配电网络阻挡许多传统电气故障隔离手段；章节评估电子束、原子力探针、X射线、磁场成像、锁相热成像。",
+      "method": "故障隔离方法综述章节",
+      "limitations": "摘要未给统一诊断性能数据；本次仅获取摘要，未读全文，未独立确认同行评审状态。",
+      "access_level": "abstract",
+      "locator": "abstract"
+    }
+  ],
+  "references": [
+    {
+      "n": 4,
+      "paper_id": "paper-e2bb12b13951a90024cc6f6e"
+    },
+    {
+      "n": 5,
+      "paper_id": "paper-d7e5cb9f06b3847174462190"
+    }
+  ],
+  "papers": [
+    {
+      "paper_id": "paper-e2bb12b13951a90024cc6f6e",
+      "title": "Buried power rails and backside power distribution for nanometer-scale IC design",
+      "authors": [
+        "Дарья Рыжова",
+        "Иван Павлов",
+        "Иван Асапов"
+      ],
+      "year": 2025,
+      "doi": "10.24108/preprints-3113340",
+      "url": "https://doi.org/10.24108/preprints-3113340",
+      "abstract": "The technologies of buried power rails and backside power distribution networks are promising tools for reducing the size of nanoscale CMOS-based circuits. They provide significant improvement in many system-level parameters, for example, voltage drop and power losses are reduced by more than 2 times, and when using a ruthenium buried power rail - by more than 4 times, while also significantly reducing the delay on critical paths and the overall circuit area. However, to fully realize the potential of this technology, it is necessary to solve a number of problems related to the technological process and architecture. In this paper, the authors examine the prospects and challenges associated with the implementation of buried power rail technology and backside power distribution networks. Physical characteristics of semiconductor devices were also selected for model creation and technological simulation in the Synopsys Sentaurus TCAD environment, as well as for physical synthesis in commercial computer-aided design systems and open-source software. The developed models and methods will be included in the open design flow for integrated CMOS circuits with a technological process of 15 nm and below.",
+      "availability": {
+        "metadata": {
+          "available": true,
+          "obtained_at": "2026-10-23T15:09:39Z"
+        },
+        "abstract": {
+          "available": true,
+          "obtained_at": "2026-10-23T15:09:39Z"
+        },
+        "full_text": {
+          "available": false,
+          "obtained_at": null
+        }
+      }
+    },
+    {
+      "paper_id": "paper-d7e5cb9f06b3847174462190",
+      "title": "Leading Edge Technologies: Backside Power Delivery",
+      "authors": [
+        "William Lo",
+        "Tom Xianghong Tong"
+      ],
+      "year": 2023,
+      "doi": "10.31399/asm.tb.edfatr.t56090091",
+      "url": "https://doi.org/10.31399/asm.tb.edfatr.t56090091",
+      "abstract": "Abstract An architectural shift to buried power rails (BPRs) with backside power delivery (BPD) is on the horizon as CMOS technology approaches the 2 nm node. The obstruction created by the presence of BPD networks obsoletes many of the electrical fault isolation (EFI) techniques that have been used for the past few decades and severely degrades the performance of others. This chapter provides an overview of EFI methods that are still applicable to ICs with BPD networks, including e-beam and atomic force probing, x-ray and magnetic field imaging, and lock-in thermography. It assesses the technical challenges of each method as well as the potential for improvement.",
+      "availability": {
+        "metadata": {
+          "available": true,
+          "obtained_at": "2026-10-23T15:10:20Z"
+        },
+        "abstract": {
+          "available": true,
+          "obtained_at": "2026-10-23T15:10:20Z"
+        },
+        "full_text": {
+          "available": false,
+          "obtained_at": null
+        }
+      }
+    }
+  ]
+}

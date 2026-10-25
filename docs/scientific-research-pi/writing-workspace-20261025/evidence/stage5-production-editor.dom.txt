@@ -1,0 +1,52 @@
+    - heading "把报告改成更好的文章" [level=2]
+    - paragraph: 选择一节，说明你希望加强的分析或表达。先核对修改范围，再开始；完成后比较原文与候选，决定是否采用。
+    - paragraph: 当前阅读：原始报告。当前采用：尚未建立写作稿。
+    - generic: 阅读版本
+    - combobox "阅读版本": 原始报告 · 保留原件
+    - button "刷新写作版本"
+    - button "准备所选版本下载"
+    - button "下载所选版本" [disabled]
+    - generic: 选择要修改的章节
+    - combobox "选择要修改的章节": 8. 背面供电：配电优化必须连同测试能力评价
+    - heading "背面供电：配电优化必须连同测试能力评价" [level=3]
+    - paragraph: 背面供电与埋入式电源轨研究将压降、功耗、关键路径延时和面积作为优化目标，所纳入预印本结合 TCAD 与物理综合建立模型；但摘要所述改善倍数缺少可核对的完整基线，本文不把它们推广为普遍收益。另一篇技术章节指出，背面网络会阻挡或削弱多种传统电气故障定位方法，需重新评估电子束、原子力探针、X 射线、磁成像和锁相热成像。两类材料分别讨论设计收益与诊断约束，因此更合理的技术判断是同时考察配电、电路设计和可测试性，而不是仅凭压降改善宣布整体制造难题已经解决。[4] [5]
+    - generic: 你希望怎样改进？
+    - textbox "你希望怎样改进？":
+      - /placeholder: 例如：把逐篇罗列改成按主题综合，比较研究之间的一致与分歧，并明确现有证据的局限。
+    - generic: 修订运行上限
+    - combobox "修订运行上限": 20 分钟
+    - button "预览修改范围"
+    - paragraph: 请为这个章节写下修改目标，再预览范围。
+    - button "确认并开始章节修订" [disabled]
+    - paragraph: 本轮使用已有文献与证据，不新增检索。发现证据缺口时，应回到「开始研究」补充资料。
+    - paragraph: 尚未开始章节修订。
+    - generic: 修订任务 ID
+    - textbox "修订任务 ID":
+      - /placeholder: 开始后自动显示；保留此 ID 可恢复修订
+    - button "恢复修订"
+    - button "取消修订" [disabled]
+    - button "比较候选版本" [disabled]
+    - button "核对本次修改 ▼":
+      - generic: 核对本次修改
+      - generic: ▼
+    - heading "修改前" [level=3]
+    - heading "候选修改" [level=3]
+    - generic: 逐行差异（− 删除，+ 新增）
+    - textbox "逐行差异（− 删除，+ 新增）" [disabled]:
+      - /placeholder: ""
+    - button "采用为当前写作稿" [disabled]
+    - paragraph: 候选完成后会单独保存。采用前请核对论断、引用与局限；这些检查不能替代学术判断。
+    - button "研究记录与附件 · 用于复核过程 ▼":
+      - generic: 研究记录与附件 · 用于复核过程
+      - generic: ▼
+- contentinfo "Gradio footer navigation":
+  - link "使用 Gradio 构建 标志":
+    - /url: https://gradio.app
+    - text: 使用 Gradio 构建
+    - img "标志"
+  - generic: ·
+  - button "设置 设置":
+    - text: 设置
+    - img "设置"
+- link "津ICP备2026014922号-1":
+  - /url: https://beian.miit.gov.cn/

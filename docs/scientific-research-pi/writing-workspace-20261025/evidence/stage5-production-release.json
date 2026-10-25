@@ -1,0 +1,393 @@
+{
+  "schema_version": "1",
+  "overall_acceptance": "deployment, operator, isolated R5, authenticated read-only browser, production D2 API/scientific review, and independent D2 worker/model provenance audit passed",
+  "release": {
+    "status": "deployed_runtime_checks_passed",
+    "started_at": "2026-10-25T15:03:11.870840+00:00",
+    "finished_at": "2026-10-25T15:04:35.379398+00:00",
+    "api_image": "arm-cluster-master:5000/scientific-pi-api@sha256:77d4e47c1528ce7274e8bb9e74facb06cbeb3a7fdd3c0830700dc5cc90b3ca9e",
+    "api_source_sha256": "bfa36341fab61c62a959558fcf4b58337f78d374bb3e9c9c1e0151ae896eba40",
+    "worker_image": "arm-cluster-master:5000/scientific-pi-worker@sha256:e74b79fc43d6ddca9075326a19f26c14cb339ed5d27ee58b71221fa5aeec6114",
+    "worker_source_sha256": "7208072731e599310c2a22e5aa6f2a5d7b201726f797103a073b657fb37df738",
+    "ui_source_sha256": "240445b062fc6b1831bf776b18b4d8e03e70eeb521cbf66b13433a8beee4301a",
+    "source_commit": "d208aee9d78a56867cf8706eea4223e16eba046d",
+    "source_transport": "server_git_checkout",
+    "rollout_script_sha256": "134eb5c84c9db51c29656acdc60594f8635d2b9a8ae3decd40db6766e1723670",
+    "scope": "Worker/API images and UI source; preserved data/config; no research dispatch",
+    "browser_acceptance_at_rollout": "pending",
+    "browser_acceptance": "passed separately; see stage5-production-browser.json",
+    "new_module_sha256": {
+      "pi_citations": "121333da95d4c9e8b0c1e7fabeca83d25160fd4b852abd196450ff4bf78797ad",
+      "pi_sections": "40adf2711f453329b1d6bd62fa922a708b67205a1607c41ffe69a35685910e46",
+      "pi_report_versions": "7703b94e50a2843726f2513287f7677772c48a6f7995f77861ffe9baa3d60da6",
+      "pi_revision_contracts": "a1a76cb0732a72eccac718130cac8d6876db9a1347eb111aba362391eadbc75c",
+      "pi_revision_validation": "aa3a71004c8e07a1a16a633fe9bda2a420d94809e137377db5f521a90fd4f8b1"
+    },
+    "configmap": "scientific-workbench-ui-240445b062fc",
+    "previous_configmap": "scientific-workbench-ui-4eba0b768b66",
+    "previous_ui_source_sha256": "4eba0b768b66fda1c0264de929355aa46a9a6729cfd57ff17bf7e728f7291059",
+    "entry_restored": true,
+    "drain": {
+      "legacy_active": 0,
+      "worker_counts": {
+        "cancelled": 1,
+        "failed": 2,
+        "succeeded": 7
+      },
+      "worker_active": 0,
+      "worker_counts_after_api_stop": {
+        "cancelled": 1,
+        "failed": 2,
+        "succeeded": 7
+      },
+      "worker_active_after_api_stop": 0
+    },
+    "runtime_probes": {
+      "worker": {
+        "worker_ready": true,
+        "revision_job_versions": [
+          "1"
+        ],
+        "revision_input_scope": "recorded_evidence_only",
+        "max_revision_input_bytes": 16777216,
+        "source_sha256": "7208072731e599310c2a22e5aa6f2a5d7b201726f797103a073b657fb37df738",
+        "image_digest_metadata": "sha256:e74b79fc43d6ddca9075326a19f26c14cb339ed5d27ee58b71221fa5aeec6114"
+      },
+      "api": {
+        "source_sha256": "bfa36341fab61c62a959558fcf4b58337f78d374bb3e9c9c1e0151ae896eba40",
+        "new_modules_imported": true,
+        "module_sha256": {
+          "pi_citations": "121333da95d4c9e8b0c1e7fabeca83d25160fd4b852abd196450ff4bf78797ad",
+          "pi_sections": "40adf2711f453329b1d6bd62fa922a708b67205a1607c41ffe69a35685910e46",
+          "pi_report_versions": "7703b94e50a2843726f2513287f7677772c48a6f7995f77861ffe9baa3d60da6",
+          "pi_revision_contracts": "a1a76cb0732a72eccac718130cac8d6876db9a1347eb111aba362391eadbc75c",
+          "pi_revision_validation": "aa3a71004c8e07a1a16a633fe9bda2a420d94809e137377db5f521a90fd4f8b1"
+        },
+        "schema_routes_verified": 13,
+        "worker_ready": true,
+        "crewai_installed": false
+      },
+      "ui": {
+        "source_sha256": "240445b062fc6b1831bf776b18b4d8e03e70eeb521cbf66b13433a8beee4301a",
+        "https_root_verified": true,
+        "citation_button_present": true,
+        "editor_buttons_present": true,
+        "gradio_version": "6.19.0"
+      }
+    },
+    "events": [
+      {
+        "stage": "deployment_snapshot_saved",
+        "at": "2026-10-25T15:03:12.063794+00:00",
+        "deployment": "api"
+      },
+      {
+        "stage": "deployment_snapshot_saved",
+        "at": "2026-10-25T15:03:12.204010+00:00",
+        "deployment": "ui"
+      },
+      {
+        "stage": "deployment_snapshot_saved",
+        "at": "2026-10-25T15:03:12.325547+00:00",
+        "deployment": "scientific-pi-worker"
+      },
+      {
+        "stage": "worker_server_dry_run_passed",
+        "at": "2026-10-25T15:03:13.482416+00:00"
+      },
+      {
+        "stage": "api_server_dry_run_passed",
+        "at": "2026-10-25T15:03:13.783107+00:00"
+      },
+      {
+        "stage": "ui_server_dry_run_passed",
+        "at": "2026-10-25T15:03:14.107881+00:00"
+      },
+      {
+        "stage": "fresh_snapshots_and_server_dry_runs_passed",
+        "at": "2026-10-25T15:03:15.415689+00:00"
+      },
+      {
+        "stage": "ui_entry_maintenance_enabled",
+        "at": "2026-10-25T15:03:16.377674+00:00"
+      },
+      {
+        "stage": "ui_handlers_stopping",
+        "at": "2026-10-25T15:03:16.861989+00:00"
+      },
+      {
+        "stage": "old_ui_handlers_stopped",
+        "at": "2026-10-25T15:03:48.361213+00:00"
+      },
+      {
+        "stage": "drain_observed",
+        "at": "2026-10-25T15:03:49.250112+00:00",
+        "legacy_active": 0,
+        "worker_active": 0
+      },
+      {
+        "stage": "api_handlers_stopping",
+        "at": "2026-10-25T15:03:50.230786+00:00"
+      },
+      {
+        "stage": "api_stopped_drain_observed",
+        "at": "2026-10-25T15:03:52.341852+00:00",
+        "worker_active": 0
+      },
+      {
+        "stage": "worker_image_patched",
+        "at": "2026-10-25T15:03:54.074527+00:00"
+      },
+      {
+        "stage": "worker_rollout_waiting",
+        "at": "2026-10-25T15:03:54.200456+00:00",
+        "deployment": "scientific-pi-worker"
+      },
+      {
+        "stage": "worker_rollout_segment_finished",
+        "at": "2026-10-25T15:04:01.587362+00:00",
+        "deployment": "scientific-pi-worker",
+        "ready": true,
+        "command_succeeded": true
+      },
+      {
+        "stage": "worker_revision_capability_verified",
+        "at": "2026-10-25T15:04:02.074886+00:00"
+      },
+      {
+        "stage": "api_image_patched",
+        "at": "2026-10-25T15:04:02.841792+00:00"
+      },
+      {
+        "stage": "api_rollout_waiting",
+        "at": "2026-10-25T15:04:02.970392+00:00",
+        "deployment": "api"
+      },
+      {
+        "stage": "api_rollout_segment_finished",
+        "at": "2026-10-25T15:04:09.325571+00:00",
+        "deployment": "api",
+        "ready": true,
+        "command_succeeded": true
+      },
+      {
+        "stage": "ui_source_patched",
+        "at": "2026-10-25T15:04:10.199303+00:00"
+      },
+      {
+        "stage": "ui_rollout_waiting",
+        "at": "2026-10-25T15:04:10.332783+00:00",
+        "deployment": "ui"
+      },
+      {
+        "stage": "ui_rollout_segment_finished",
+        "at": "2026-10-25T15:04:30.802161+00:00",
+        "deployment": "ui",
+        "ready": true,
+        "command_succeeded": true
+      },
+      {
+        "stage": "worker_api_ui_runtime_checks_passed",
+        "at": "2026-10-25T15:04:34.070619+00:00"
+      },
+      {
+        "stage": "ui_entry_restored",
+        "at": "2026-10-25T15:04:35.376901+00:00"
+      }
+    ]
+  },
+  "operator_acceptance": {
+    "status": "passed",
+    "source_commit": "d208aee9d78a56867cf8706eea4223e16eba046d",
+    "scope": "deployed internal operator HTTP; existing reports; canary-only preparation",
+    "checks": [
+      "api_and_existing_worker_ready",
+      "worker_fixed_evidence_revision_capability",
+      "writing_state_comparison_adopt_and_start_routes_registered",
+      "api_initialized_private_writing_tables",
+      "legacy_shared_report_and_exact_download_preserved",
+      "pi_report_and_exact_original_download",
+      "existing_pi_evidence_trace_matches_published_report",
+      "citation_section_history_writing_state_comparison_identity_isolation",
+      "current_writing_version_exact_download_and_sections",
+      "exact_utf8_sections",
+      "section_history_get_has_no_persistent_side_effect",
+      "canary_preparation_fixes_exact_input_without_dispatch",
+      "same_key_replay_and_different_fingerprint_conflict",
+      "private_version_original_download_and_sections",
+      "private_snapshot_metadata_and_intent_owner_isolation",
+      "prepared_intent_has_explicit_start_route_without_starting",
+      "comparison_owner_isolation_and_baseline_rejection",
+      "original_report_and_existing_worker_task_unchanged",
+      "no_revision_started_or_candidate_adopted"
+    ],
+    "skipped": [],
+    "real_model_requested": false,
+    "research_submitted": false,
+    "research_cancelled": false,
+    "email_requested": false,
+    "direct_database_writes": false,
+    "real_user_login_verified": false,
+    "revision_started": false,
+    "candidate_adopted": false,
+    "read_only": false,
+    "revision_capabilities": {
+      "revision_job_versions": [
+        "1"
+      ],
+      "revision_input_scope": "recorded_evidence_only",
+      "max_revision_input_bytes": 16777216
+    },
+    "legacy_report_id": "afa187bc-8e79-4426-9adc-9f5d3d36c2bb",
+    "legacy_report_sha256": "61aa21fd67b70c4a4205c06d0267ac7f5cf3237798b879c038d63b9e7297806f",
+    "report_id": "ad888da1-6d7d-561d-9eda-4a341efae099",
+    "report_sha256": "3442677c39a8a26cca304d483c2b1e97b0dcce3ad81062a1f3d30e3f6258407d",
+    "citation_count": 2,
+    "root_report_id": "ad888da1-6d7d-561d-9eda-4a341efae099",
+    "counts_before": {
+      "versions": 1,
+      "snapshots": 1,
+      "intents": 1,
+      "revision_jobs": 0,
+      "adoptions": 0,
+      "research_index": 2
+    },
+    "intent_id": "11ddfa81-82f1-5e54-b45e-00cca7001f65",
+    "counts_after": {
+      "versions": 1,
+      "snapshots": 1,
+      "intents": 2,
+      "revision_jobs": 0,
+      "adoptions": 0,
+      "research_index": 2
+    }
+  },
+  "previous_runtime_images": {
+    "api": {
+      "replicas": 1,
+      "images": [
+        {
+          "name": "api",
+          "image": "arm-cluster-master:5000/scientific-pi-api@sha256:3f9523944e57d855a70b1593d7f0c0997e90acb235d21cbe2752eb2d3a619aaa"
+        }
+      ]
+    },
+    "scientific-pi-worker": {
+      "replicas": 1,
+      "images": [
+        {
+          "name": "worker",
+          "image": "arm-cluster-master:5000/scientific-pi-worker@sha256:bf125403086dd6d5e82174550a28e29457b30604c37fd4d239661448231016c4"
+        }
+      ]
+    },
+    "ui": {
+      "replicas": 1,
+      "images": [
+        {
+          "name": "ui",
+          "image": "arm-cluster-master:5000/agent-ui@sha256:4639d4c6d2cfbd03a26cb759f7badbc2b4fabaa988e3299adbbb00d6a7d2c482"
+        }
+      ]
+    }
+  },
+  "private_server_evidence": {
+    "directory": "/root/scientific-writing-releases/revision-d208aee-20261025-r1",
+    "receipt_sha256": "f2e2159b595f05bddb5391108fee3357c2ef66cb89c040e3f81b628cde9ec368",
+    "live_acceptance_sha256": "bff3a36b18e6719b302e2ac3398eafb4a604a0c86be54fd3d3fce29d21a5699d",
+    "full_snapshots_and_command_logs_exported": false
+  },
+  "source_archive_uploaded": false,
+  "record_scope": "Allowlisted deployment and operator receipt fields only; no deployment spec, pod spec, environment, Secret, kubeconfig or raw log",
+  "relevant_git_commits": [
+    {
+      "commit": "f076abb77af98d951b6d7d7b54e0f7a00c4ac6c4",
+      "repository": "panghu_agent",
+      "purpose": "Fixed-evidence Pi revisions and version editor"
+    },
+    {
+      "commit": "d208aee9d78a56867cf8706eea4223e16eba046d",
+      "repository": "panghu_agent",
+      "purpose": "Pinned Pi version probe correction; deployed application source"
+    },
+    {
+      "commit": "a49555811f81563d6770037eadbe2890e70b2acc",
+      "repository": "root",
+      "purpose": "Pinned Git build inputs and candidate image verification"
+    },
+    {
+      "commit": "a46572c1119086b48b38a280a31329cd70e819cd",
+      "repository": "root",
+      "purpose": "Drained worker/API/UI coordinated rollout and guarded recovery"
+    },
+    {
+      "commit": "fec3f72ff3342257d09d7afcf580218ee0d7d9d0",
+      "repository": "root",
+      "purpose": "Readable image sources and deployed API canary harness"
+    },
+    {
+      "commit": "7d7bea104f62a75966114b1cbcd59e6aa87a5804",
+      "repository": "root",
+      "purpose": "Pin application d208aee and isolated task directory traversal"
+    },
+    {
+      "commit": "09e9b5ce21627efb896e8ec0b560a79bc5e14f34",
+      "repository": "root",
+      "purpose": "Sanitized real-model diagnostics; R5 accepted source"
+    },
+    {
+      "commit": "f9f13893754b79697deb94571c6cc793e6fde9e6",
+      "repository": "root",
+      "purpose": "Only canary instruction preserves uncertain assessments; no production image/configuration change"
+    }
+  ],
+  "release_root_commit": "09e9b5ce21627efb896e8ec0b560a79bc5e14f34",
+  "application_submodule_at_release_root": "d208aee9d78a56867cf8706eea4223e16eba046d",
+  "r5_evidence": "stage5-real-pi-acceptance.json",
+  "authenticated_browser_evidence": "stage5-production-browser.json",
+  "d2": {
+    "status": "passed API start/recovery/completion/comparison/explicit canary adoption and independent scientific review",
+    "successful_task_id": "fd86d43c-13f1-5766-a8d1-bcff2fcc9d1b",
+    "source_commit": "f9f13893754b79697deb94571c6cc793e6fde9e6",
+    "candidate_sha256": "4952c189cf72f72acc54ea66acfbf117581bedb8271305b02ed659212749f8ed",
+    "selection_revision": 1,
+    "first_task_id": "6402d618-747c-580a-8e90-cf49ab96ae58",
+    "first_error_code": "unsupported_assessment_upgrade",
+    "first_classification": "expected conservative validation rejection; not a transient error",
+    "first_diagnosis": "stage5-d2-first-attempt.json",
+    "specific_first_guard_branch": "unknown; public code is shared by exact uncertain evidence-set and same-claim subset guards",
+    "validator_relaxed": false,
+    "acceptance": "stage5-d2-production-acceptance.json",
+    "scientific_review": "stage5-d2-independent-review.md",
+    "worker_model_provenance_audit": "passed; stage5-d2-worker-provenance.json"
+  },
+  "rollback_boundary": {
+    "materials_retained": true,
+    "private_directory": "/root/scientific-writing-releases/revision-d208aee-20261025-r1",
+    "files": [
+      "api-rollback.json",
+      "scientific-pi-worker-rollback.json",
+      "ui-rollback.json",
+      "ui-service-rollback.json",
+      "api-before.json",
+      "scientific-pi-worker-before.json",
+      "ui-before.json",
+      "ui-source-configmap-before.json"
+    ],
+    "guard": "Close entry before restoring only objects still matching this rollout expected spec/UID/resourceVersion; leave concurrent third-party changes untouched; reopen after old runtime ready",
+    "previous_ui_configmap": "scientific-workbench-ui-4eba0b768b66",
+    "rollback_executed_this_release": false,
+    "rollback_drill_on_production": false,
+    "database_rollback_or_record_deletion": false,
+    "append_only_writing_records_preserved": true,
+    "pending": "Any later rollback must recheck live tasks/current specs; this receipt is not evidence of a production rollback rehearsal"
+  },
+  "limitations": [
+    "Operator HTTP receipt prepared only a canary intent, never started or adopted a revision; D2 is separately recorded.",
+    "R5 used the actual candidate image and model in an isolated Pod; D2 separately exercises deployed API start/publish/compare/adopt.",
+    "Authenticated ordinary-account browser receipt covers report/citation reading, exact original download and section selection; no ordinary-account prepare/start/cancel/adopt.",
+    "D2 first conservative validation rejection is retained; the second separate intent succeeded without relaxing validation.",
+    "Independent D2 worker/model provenance passed. Gateway events have no task ID; their caller, alias and timestamps correlate with task-bound runtime provenance, without asserting a shared task trace or the ultimate custom-upstream implementation.",
+    "Production guarded rollback materials are retained; a production rollback rehearsal was not performed."
+  ]
+}

@@ -1,0 +1,3 @@
+{"claim_id": "C1", "marker": "<!-- claim:C1 -->", "evidence_ids": ["E1"], "assessment": "supported", "explanation": "限于Lewis等摘要的模型机制与相对纯参数基线的定性报告。"}
+{"claim_id": "C2", "marker": "<!-- claim:C2 -->", "evidence_ids": ["E2"], "assessment": "supported", "explanation": "限于Self-RAG摘要对固定检索的局限、按需检索和反思机制及相对其指定基线的定性报告。"}
+{"claim_id": "C3", "marker": "<!-- claim:C3 -->", "evidence_ids": ["E1", "E2"], "assessment": "insufficient", "explanation": "两份摘要没有提供可支持统一效应量比较或检索独立因果归因的实验细节；不据此判定两模型优劣。"}

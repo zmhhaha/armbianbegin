@@ -1,0 +1,78 @@
+{
+  "schema_version": "1",
+  "scope": "Saved public original/candidate report and abstract-evidence records; comparison consistency fingerprint omitted; no private resume-state or model log",
+  "task_id": "fd86d43c-13f1-5766-a8d1-bcff2fcc9d1b",
+  "source_commit": "f9f13893754b79697deb94571c6cc793e6fde9e6",
+  "files": [
+    {
+      "path": "base-claims.jsonl",
+      "bytes": 694,
+      "sha256": "076ac1325fc67cc2c5b6d02ed1c5baedf50b2afdc19bd6debdaa2fb2a6c61431"
+    },
+    {
+      "path": "base-evidence.jsonl",
+      "bytes": 1362,
+      "sha256": "c6131318b5f045191d36a0a5f23d69d13d2ea6fb1882aa5082c1997f9d39e532"
+    },
+    {
+      "path": "base-papers.jsonl",
+      "bytes": 4777,
+      "sha256": "3ebc7ec2258c88f896eaabc89a6031a0440edb38ab64080aef48b04aeecadff8"
+    },
+    {
+      "path": "base-references.json",
+      "bytes": 143,
+      "sha256": "714f0530bd10dad8b4ca2e18c5f0f6fa9790d0c5bd0ecbb1075de0242634980f"
+    },
+    {
+      "path": "before-section.md",
+      "bytes": 300,
+      "sha256": "aa73618c528d0d7f4994d4b474017eb7bd40f47d3fcb34aba53b036376988406"
+    },
+    {
+      "path": "candidate-claims.jsonl",
+      "bytes": 1214,
+      "sha256": "b5dadb59df89ffd0ab5ebe94a5f27fa9b1b1b189b63880cd9b8d24bf165a95df"
+    },
+    {
+      "path": "candidate-evidence.jsonl",
+      "bytes": 1362,
+      "sha256": "c6131318b5f045191d36a0a5f23d69d13d2ea6fb1882aa5082c1997f9d39e532"
+    },
+    {
+      "path": "candidate-papers.jsonl",
+      "bytes": 4777,
+      "sha256": "3ebc7ec2258c88f896eaabc89a6031a0440edb38ab64080aef48b04aeecadff8"
+    },
+    {
+      "path": "candidate-references.json",
+      "bytes": 143,
+      "sha256": "714f0530bd10dad8b4ca2e18c5f0f6fa9790d0c5bd0ecbb1075de0242634980f"
+    },
+    {
+      "path": "candidate-report.md",
+      "bytes": 2376,
+      "sha256": "4952c189cf72f72acc54ea66acfbf117581bedb8271305b02ed659212749f8ed"
+    },
+    {
+      "path": "candidate-revision_output.json",
+      "bytes": 1995,
+      "sha256": "e63470775b52fe8b80ba6800cc7b64a843453230ab37fafe13dfc82d5db01e04"
+    },
+    {
+      "path": "candidate-section.md",
+      "bytes": 1152,
+      "sha256": "48d05a1178ba6028574b127e610a81194370f5d589f817d28697f7b513646e73"
+    },
+    {
+      "path": "comparison.json",
+      "bytes": 5535,
+      "sha256": "826d22c377beaf6ca6f5e3f68ec64af4012db03fbccf0a12ca10040f307f4560"
+    },
+    {
+      "path": "original-report.md",
+      "bytes": 1524,
+      "sha256": "3442677c39a8a26cca304d483c2b1e97b0dcce3ad81062a1f3d30e3f6258407d"
+    }
+  ]
+}

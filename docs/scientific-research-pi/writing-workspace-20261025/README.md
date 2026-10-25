@@ -4,7 +4,7 @@
 
 2026-10-25 15:49:52（Asia/Shanghai）：阶段 1 引用追溯 UI 与阶段 2 章节、版本及修订准备 API 已从固定 Git 提交部署。224 项本地回归、14 项 ARM64 隔离镜像检查和 13 项生产 operator 接口检查通过。正式用户登录后的浏览器验收仍待完成。以下阶段 1/2 的本地记录保留其当时验证边界。
 
-阶段 3 的修订协议、共享队列、章节合成、完整校验和候选发布已完成本地实现，详见文末。当前本地回归发现 442 项，439 项通过、3 项按平台跳过；另一次完整 runtime 尝试有 4 项因本机 Pi 启动探针问题未通过。真实 Pi 修订验收、编辑界面及阶段 3 生产发布仍待完成。
+2026-10-25 23:25:22（Asia/Shanghai）：阶段 3/4 的 worker、API 和编辑界面已通过固定 Git 提交构建并部署，三者就绪、入口恢复。R5 真实 Pi 隔离修订、线上 operator 19 项、正式账号的引用阅读/原件下载/章节选择，以及 D2 生产专用 canary 的开始、恢复、候选比较、显式采用和独立科学审阅均通过。D2 首次保守校验拒绝的失败记录保留；第二个独立意图成功，没有放宽校验。D2 实际 worker/model provenance 的独立核对仍在单独记录，不用 API 回执或文章审阅替代。详见文末阶段 5。
 
 ## 阶段与交付
 
@@ -96,7 +96,7 @@ API 下载摘要绑定的模型输出和四份 records，独立重建完整候�
 - 独立复核先复现并修复了候选配额耗尽时无法结束发布、任务 ID 域碰撞；复核确认已在派发前拒绝、预留无法被抢、模糊提交不双计。主测试入口已纳入 `revisions`，API Dockerfile 的输入均在固定 Git 构建清单中。
 - 完整 runtime 的另一次 40 项尝试有 4 项未通过：本地实际 Pi CLI 的版本探针超过既有 5 秒时限（直接运行约 7.4 秒），后续几项无法获得准入任务。保留原超时和环境，不将其计作真实 Pi 验收通过；详细测试名和来源在验证摘要中。
 
-本轮尚未提交、推送、构建生产镜像或上线。现有 Git 发布脚本仍限 API/UI；阶段 3 上线还需要固定新 worker 镜像及对应能力验证，不能沿用“worker 不变”的阶段 1/2 发布回执。R5 真实 Pi 结果、E1—E4 编辑交互、D1—D3 完整发布及 T6 正式账号浏览器继续待办。
+以上保留阶段 3 本地交付时的验证范围。当时尚未提交、推送、构建生产镜像或上线，不能沿用“worker 不变”的阶段 1/2 发布回执。后续 worker/API/UI 协同发布、R5 真实结果和生产验收进度见阶段 5。
 
 ## 阶段 4 本地交付
 
@@ -111,4 +111,27 @@ API 下载摘要绑定的模型输出和四份 records，独立重建完整候�
 - [阶段 4 本地验证摘要](evidence/stage4-local-validation.json)：297 项 API/UI、48 项修订契约、18 项研究发布链路、4 项修订链路及 3 项编辑采用链路，共 370 项通过。其中新增 API/采用存储 17、UI 29、完整编辑链路 3。新增链路使用真实 API/client/worker/queue 和合成模型输出，验证显式采用、同键重放、旧分支冲突、账号隔离、采用后继续修订及原件保持。
 - [阶段 4 浏览器验收](evidence/stage4-browser-acceptance.json)：真实 Gradio 6.19/FastAPI，本地合成报告，桌面及 390×844 手机实际点击、候选比较、采用和版本回看。演示不访问生产数据库，不调用真实模型，不发送邮件。
 
-E1—E4 的本地交付与真实浏览器交互证据单独记录。R5 真实 Pi 修订、T6 正式账号浏览器以及 D1—D3 完整发布继续待办；变更不归档。本阶段未提交、推送或部署。发布仍需依用户要求通过固定 Git 提交拉取、构建 worker/API/UI，并记录新镜像及回滚证据。
+以上保留阶段 4 本地交付时的验证范围。E1—E4 的本地交付与真实浏览器交互证据单独记录；后续 Git 发布、正式账号只读浏览器检查及仍未完成的真实生产验收见下。变更不归档。
+
+## 阶段 5 生产发布与验收边界
+
+应用提交 `d208aee9d78a56867cf8706eea4223e16eba046d` 包含阶段 3/4 功能；根提交 `09e9b5ce21627efb896e8ec0b560a79bc5e14f34` 固定该子模块并提供本轮构建、隔离验收和发布脚本。服务器通过 Git 拉取固定来源，构建专用 worker/API 镜像和不可变 UI 源引用，没有上传源码压缩包。构建来源、相关 Git 提交、运行源码摘要和排空/就绪事件见[本轮净化发布回执](evidence/stage5-production-release.json)。
+
+| 组件 | 线上固定内容 |
+|---|---|
+| worker | `scientific-pi-worker@sha256:e74b79fc43d6ddca9075326a19f26c14cb339ed5d27ee58b71221fa5aeec6114` |
+| API | `scientific-pi-api@sha256:77d4e47c1528ce7274e8bb9e74facb06cbeb3a7fdd3c0830700dc5cc90b3ca9e` |
+| UI | 不可变 ConfigMap `scientific-workbench-ui-240445b062fc`，源码 SHA-256 `240445b062fc6b1831bf776b18b4d8e03e70eeb521cbf66b13433a8beee4301a` |
+
+镜像位于 `arm-cluster-master:5000`。发布前既有研究排空为 0，停止旧 handlers 后再核对；依次更新 worker、API、UI，并验证修订能力、13 条 API 路由和界面入口。三者 rollout Ready，HTTPS 根入口已恢复。旧环境、数据和卷边界保留；本轮发布自身未启动或取消研究，没有直接写数据库或发送邮件。
+
+- [R5 真实 Pi 验收](evidence/stage5-real-pi-acceptance.json)：在同一候选 worker 镜像的独立 Pod 中，使用真实历史摘要材料调用 Pi 0.73.1 与实际模型；不挂生产 PVC、不接生产流量。首轮任务 `469abc62-2e54-4ded-a339-267b964c8654` 以 `model_error` 失败，净化记录不足以确定具体供应商原因；失败没有被隐藏或改记成功。第二轮 `806cfd4e-a785-4237-ba91-8bd6641e7a2e` 成功，未改正文前 5281、后 8312 字节以及 papers/evidence/references 原件保持。两轮独立 Pod、ConfigMap、NetworkPolicy 均按归属和 UID 精确清理。
+- [独立科学审阅](evidence/stage5-real-pi/independent-review.md)通过，无阻断。背面供电两条新 claim 与 E04/E05 及摘要 [4]/[5] 一致，没有新增性能数字、跨指标排名或全文/新检索声明。候选 SHA-256 为 `6ecb51eb4461f80de7b8089e2276d765424a54680873c830e48d417b602324cc`。[公开候选与来源材料清单](evidence/stage5-real-pi/artifact-manifest.json)保存报告、修订输出、必要 provenance、验证记录及对应摘要，未复制模型日志、Pod spec 或环境配置。
+- 线上 operator **19 项通过**，核对已有报告、旧报告兼容、writing-state、版本精确下载、401/404 隔离、准备幂等与不同指纹冲突。仅对既有 canary 经 API 增加一个 prepared 意图；revision_jobs/adoptions/研究任务数不变。`dispatch_available=false` 保持“准备尚未派发”的语义，恢复响应提供显式 start_url；该组检查没有调用 start 或 adopt。
+- [正式账号浏览器记录](evidence/stage5-production-browser.json)通过：真实线上 Gradio、既有 Casdoor 会话，打开原报告和 15 个引用卡片、实际点击 [4] 定位、下载 14343 字节原件并核对 SHA-256 `996ee4402200ef328dfabbed847a51d74e8d2eb64f05c38c72045f3c4fd42b7c`、选择第 8 节核对精确原文；390×844 无横向页面溢出。普通账号操作限阅读、选择与下载，没有准备、启动、取消或采用；不以该记录替代真实编辑全链或所有 Casdoor 登录方式验收。
+- [D2 生产 API 验收](evidence/stage5-d2-production-acceptance.json)与[独立科学审阅](evidence/stage5-d2-independent-review.md)通过。专用 canary 第二次任务 `fd86d43c-13f1-5766-a8d1-bcff2fcc9d1b` 使用根提交 `f9f13893754b79697deb94571c6cc793e6fde9e6` 的独立新意图，经生产 API start、同意图重放/恢复、succeeded、comparison、显式 adopt 和同键重放，selection_revision 从 0 到 1。所选“局限”章节只依据 RAG 与 Self-RAG 两篇已有摘要，两条新 claim 均保持 insufficient，没有跨研究优劣、独立因果贡献或消除错误的断言。候选 2376 字节、SHA-256 `4952c189cf72f72acc54ea66acfbf117581bedb8271305b02ed659212749f8ed`；原稿 1524 字节、非目标前 907/后 317 字节及 papers/evidence/references 精确保持。[公开材料](evidence/stage5-d2-real-api/artifact-manifest.json)保留前后全文、章节、claims 和证据，comparison 一致性指纹不公开。实际 worker/model provenance 由独立审计另行确认，API receipt 单独不能证明模型实际执行。
+- [D2 首次诊断](evidence/stage5-d2-first-attempt.json)继续保留任务 `6402d618-747c-580a-8e90-cf49ab96ae58` 在 validate 阶段的 `unsupported_assessment_upgrade` 拒绝。它是保守判断校验拒绝，不能称为瞬时错误。原材料只有两条摘要证据，既有判断包含 insufficient；现存证据不能区分是相同 ID 子集还是完整证据集合分支，不猜测具体触发路径。第二次只明确 canary 指令保留不确定判断，没有修改 runtime、放宽校验、取消失败任务或借用普通用户。
+
+回滚材料保存在服务器私有目录 `/root/scientific-writing-releases/revision-d208aee-20261025-r1`，包括 worker/API/UI 与入口的旧快照、预期 spec 和 guarded 回滚文件。本轮没有执行生产回滚演练。实际回滚需先重新核对活动任务、UID、新鲜 resourceVersion 和本轮预期 spec，关入口后仅恢复仍由本次发布控制的对象，旧版本就绪后重开；第三方并发变更不覆盖，追加写作记录和用户资料不删除。旧镜像与 UI ConfigMap 的精确引用在发布回执中，完整快照、原始命令输出、Secret、kubeconfig、环境和会话凭据不进入 Git。
+
+当前已发布，R5 隔离实际模型、operator 准备检查、正式账号只读浏览器，以及 D2 生产 API 修订/显式采用与科学审阅分别有证据。[独立生产 worker/model 审计](evidence/stage5-d2-worker-provenance.json)也已通过：task/result 摘要一致，非 fixture 的 Pi 0.73.1 固定证据修订使用实际线上 worker 镜像；网关在同一执行时间内记录 3 轮成功模型调用。网关未包含任务 ID，关联依据为 caller、alias 和时间；模型名称是网关配置标识，不据此证明 custom 上游的最终实现。普通账号浏览器的 start/比较/采用全链和生产回滚演练不在上述已通过范围内。OpenSpec 回填后仍保持未归档。
