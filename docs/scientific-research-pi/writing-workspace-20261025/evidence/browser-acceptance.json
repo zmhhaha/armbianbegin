@@ -1,0 +1,36 @@
+{
+  "record_type": "local_browser_acceptance_summary",
+  "recorded_on": "2026-10-25",
+  "source_sha256": "4eba0b768b66fda1c0264de929355aa46a9a6729cfd57ff17bf7e728f7291059",
+  "mode": "real Gradio 6.19 and FastAPI; in-memory synthetic DB and worker; fixed preview-only identity middleware",
+  "preview": "http://127.0.0.1:17864/",
+  "api": "http://127.0.0.1:17865/",
+  "fixture_script": ".research-temp/scientific-citation-preview.py",
+  "checks": [
+    "Explicit citation loading renders public paper, availability, identifier verification, evidence, locator, limitations and recorded claim assessment.",
+    "Single numbered citation jumps to the report-bound evidence card; inline code remains unchanged.",
+    "Browser Markdown download matches original report SHA256 and 1027 bytes.",
+    "Expired and legacy records preserve report and download with a clear explanation.",
+    "Task input and history selection clear the prior citation notice.",
+    "Mobile at 390x844 has no horizontal overflow; document width 375 and card width 305.",
+    "Temporary viewport override reset after verification."
+  ],
+  "download": {
+    "bytes": 1027,
+    "sha256": "c6a7b0e2b2887adad9b910cc4e68b73874d81049866c4d19f16533f188a0722d"
+  },
+  "screenshots": [
+    {
+      "file": "desktop-citation.jpg",
+      "sha256": "1fe02d741832c887d3739dfa5f02c0ae71d98e4538916f82c1e587b35eeae275"
+    },
+    {
+      "file": "mobile-citation.jpg",
+      "sha256": "7ac32d142e74a179482fc2a053717cbb738bac1f75295a97d3c5299430b4e6b1"
+    }
+  ],
+  "real_user_login_verified": false,
+  "real_model_verified": false,
+  "production_modified": false,
+  "limitations": "Local browser checks do not constitute production Casdoor login, real literature search or scientific accuracy acceptance."
+}

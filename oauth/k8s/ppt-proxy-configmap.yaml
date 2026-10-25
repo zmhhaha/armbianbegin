@@ -1,0 +1,45 @@
+# Canonical public authentication configuration. Credentials belong in Vault.
+# Register the dedicated client and maintain the separate ppt-owner list.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ppt-auth
+  namespace: ppt-service
+data:
+  OIDC_ISSUER: https://auth.panghuer.top
+  OIDC_JWKS_URL: https://auth.panghuer.top/.well-known/jwks
+  OIDC_AUDIENCE: REQUIRED_DEDICATED_PPT_CLIENT_ID
+  ALLOWED_ORIGINS: https://ppt.panghuer.top
+  # Both site and OAuth proxy read the same independently managed email file.
+  INVITATION_EMAILS_FILE: /owner/emails
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ppt-oidc
+  namespace: ppt-service
+data:
+  oauth2-proxy.cfg: |
+    http_address = "0.0.0.0:4180"
+    provider = "oidc"
+    oidc_issuer_url = "https://auth.panghuer.top"
+    redirect_url = "https://ppt.panghuer.top/oauth2/callback"
+    client_id = "REQUIRED_DEDICATED_PPT_CLIENT_ID"
+    scope = "openid email profile"
+    upstreams = ["http://127.0.0.1:8000/"]
+    pass_host_header = true
+    reverse_proxy = true
+    proxy_websockets = true
+    pass_authorization_header = true
+    pass_access_token = false
+    authenticated_emails_file = "/owner/emails"
+    api_routes = ["^/api/"]
+    cookie_name = "__Host-ppt"
+    cookie_path = "/"
+    cookie_secure = true
+    cookie_httponly = true
+    cookie_samesite = "lax"
+    cookie_expire = "8h"
+    cookie_csrf_per_request = true
+    request_logging = false
+    skip_provider_button = true

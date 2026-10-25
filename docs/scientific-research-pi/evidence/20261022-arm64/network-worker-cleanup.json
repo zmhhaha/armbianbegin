@@ -1,0 +1,10 @@
+{
+  "batches": [
+    "20261022-net1",
+    "20261022-net2"
+  ],
+  "namespace": "scientific-agent",
+  "remaining_resources": 0,
+  "verified_at": "2026-10-22T08:18:53.445476+00:00",
+  "scope": "only the two newly created network acceptance batches"
+}

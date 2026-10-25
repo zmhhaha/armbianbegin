@@ -1,0 +1,59 @@
+{
+  "schema_version": "1",
+  "recorded_at_utc": "2026-10-25T15:16:26Z",
+  "environment": "deployed production Gradio UI through the existing authenticated Casdoor browser session",
+  "url": "https://scientific-agent.panghuer.top/",
+  "browser": "Codex in-app browser using the browser skill",
+  "application_commit": "d208aee9d78a56867cf8706eea4223e16eba046d",
+  "ui_source_sha256": "240445b062fc6b1831bf776b18b4d8e03e70eeb521cbf66b13433a8beee4301a",
+  "report_id": "1e5cec61-23d5-5a68-a658-82a9b168de2d",
+  "report_title": "2020—2026 年芯片制造新技术：从尺寸缩放到器件、供电与集成协同",
+  "scenarios": [
+    "Navigate to production and load the signed-in account's report library",
+    "Find and open a completed report through the report library",
+    "Actively load 15 citation cards showing abstract availability, full text unavailable, evidence limitations and recorded claim assessments",
+    "Click an actual report [4] link and reach its exact report/SHA-bound reference card",
+    "Download the original report after loading citations and verify exact SHA256 against the committed report blob",
+    "Load writing-state and version controls without creating a private writing baseline",
+    "Choose section 8 and verify its exact original text, existing [4]/[5] citations and unchanged reading/adoption selections",
+    "Verify start and adoption remain disabled before preparing a revision or comparing a candidate",
+    "Inspect the production editor at 390 by 844 without horizontal page overflow and reset the temporary viewport"
+  ],
+  "citation_navigation": {
+    "number": 4,
+    "target_heading": "参考文献 [4]",
+    "target_top_px": 23.9375,
+    "viewport_height_px": 690,
+    "report_sha_bound": true
+  },
+  "download": {
+    "kind": "original",
+    "bytes": 14343,
+    "sha256": "996ee4402200ef328dfabbed847a51d74e8d2eb64f05c38c72045f3c4fd42b7c",
+    "matches_committed_report_blob": true,
+    "after_citation_view": true
+  },
+  "mobile": {
+    "width": 390,
+    "height": 844,
+    "document_width": 375,
+    "horizontal_overflow": false,
+    "viewport_reset": true
+  },
+  "artifacts": [
+    "stage5-production-citation.jpg",
+    "stage5-production-editor.jpg",
+    "stage5-production-mobile.jpg",
+    "stage5-production-editor.dom.txt"
+  ],
+  "ordinary_account_operations": "read-only UI/report access and download; no prepare, start, cancel or adopt",
+  "browser_model_task_started": false,
+  "browser_adoption_requested": false,
+  "direct_database_access": false,
+  "credentials_or_session_storage_inspected": false,
+  "boundaries": [
+    "Uses an existing signed-in session; does not recertify all Casdoor login methods.",
+    "Production browser acceptance covers citation reading, original download and editor selection. Full edit/start/compare/adopt interactions are separately recorded using synthetic local data.",
+    "Actual Pi and deployed-API canary results are separate evidence and must not be inferred from this browser check."
+  ]
+}

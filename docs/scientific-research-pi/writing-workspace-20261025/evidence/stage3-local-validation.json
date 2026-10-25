@@ -1,0 +1,331 @@
+{
+  "schema_version": "1",
+  "recorded_at_utc": "2026-10-25T09:06:55.085380+00:00",
+  "project_id": "ec663f5a-53d3-4a0e-9037-933eb788d183",
+  "change_id": "add-scientific-evidence-linked-revisions",
+  "phase": 3,
+  "scope": "Local implementation and synthetic validation; real Pi acceptance remains pending",
+  "source_state": "Uncommitted workspace inputs, individually hashed; not a release artifact",
+  "source_base_commit": "94a18c69320a5fb3ebe53444323defa283aa09e9",
+  "suites": [
+    {
+      "name": "api",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/api",
+        "-p",
+        "test*.py",
+        "-q"
+      ],
+      "exit_code": 0,
+      "tests": 251,
+      "duration_seconds": 16.443,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "3baf3e87e9eba02b2de0fe589dcecb7fe1a036224f5db0e21bf97855006e0a33"
+    },
+    {
+      "name": "local_publication_integration",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/integration",
+        "-p",
+        "test*end_to_end.py",
+        "-q"
+      ],
+      "exit_code": 0,
+      "tests": 22,
+      "duration_seconds": 7.916,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "cb9cd1fb3e4c2f7c245afd334aa6c321020648bdeda9ea7428ee1fcb520eea25"
+    },
+    {
+      "name": "research_contract",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/contracts",
+        "-p",
+        "test*.py",
+        "-q"
+      ],
+      "exit_code": 0,
+      "tests": 8,
+      "duration_seconds": 0.179,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "81ab88b80128ddf12d3a37b981e01b2c266ad0a64957fed008e4a7ee40b47a63"
+    },
+    {
+      "name": "research_outputs_and_transport",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/research",
+        "-p",
+        "test*.py",
+        "-q"
+      ],
+      "exit_code": 0,
+      "tests": 51,
+      "duration_seconds": 1.701,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "3b22ba8f5ca038f9c43ae841fe2aae1ed55e0c05ebacc8ad2db4d4a548822129"
+    },
+    {
+      "name": "revision_contract_and_validation",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/revisions",
+        "-p",
+        "test*.py",
+        "-q"
+      ],
+      "exit_code": 0,
+      "tests": 48,
+      "duration_seconds": 2.817,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "656797842356489c4fbc11b1ed455c5e0948eb6d818b1e8be2192adbcd7a4afe"
+    },
+    {
+      "name": "runtime_base",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/runtime",
+        "-p",
+        "test_runtime.py",
+        "-q"
+      ],
+      "exit_code": 0,
+      "tests": 22,
+      "duration_seconds": 7.779,
+      "skipped": 1,
+      "passed": true,
+      "log_sha256": "f7f30357fd7cc41385f8106000eb7a7cfb1cf06e874fb423f7399168d84306cc"
+    },
+    {
+      "name": "worker",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/worker",
+        "-p",
+        "test*.py",
+        "-q"
+      ],
+      "exit_code": 0,
+      "tests": 40,
+      "duration_seconds": 6.6,
+      "skipped": 2,
+      "passed": true,
+      "log_sha256": "78fd154152f3836d5690eb4d187c73006dce7eee5184ea881653cc9acc4f8348"
+    }
+  ],
+  "tests_discovered": 442,
+  "tests_skipped": 3,
+  "selected_suites_passed": true,
+  "newly_added_tests": 95,
+  "material_policy": "recorded_evidence_only",
+  "full_text_files_restored": false,
+  "independent_review": {
+    "status": "passed_after_fixes",
+    "fixes": [
+      "Atomic candidate count/2MiB byte reservation shared with all version admissions",
+      "Dedicated revision task UUID namespace",
+      "New revision suite included in official test runner"
+    ],
+    "checks": [
+      "Private ownership precedes worker reads",
+      "Immutable input and active snapshot pin",
+      "Persisted cancellation covers late acceptance and rejected dispatch updates",
+      "Candidate lineage precedes readable report; lost insert/ack responses recover",
+      "Input/tool/output boundaries and API independent byte-for-byte composition",
+      "Quota reservation consumed by stored source identity, including ambiguous commits"
+    ]
+  },
+  "full_runtime_attempt": {
+    "status": "failed",
+    "tests_discovered": 40,
+    "failures": 1,
+    "errors": 3,
+    "skipped": 1,
+    "evidence_source": "Worker agent tool session 60379, final chunk ec212a (reported execution)",
+    "duration_seconds": 44.982,
+    "failure_tests": [
+      "test_gateway_compat.GatewayCompatTests.test_actual_pinned_cli_strict_gateway_schema_two_tool_rounds",
+      "test_model_retry.ActualPiRetryTests.test_actual_429_503_shapes_and_scheduler_caps_two_fresh_attempts",
+      "test_model_retry.ActualPiRetryTests.test_actual_503_then_second_attempt_research_publishes_once",
+      "test_model_retry.ActualPiRetryTests.test_actual_auth_error_with_transient_number_in_body_never_retries"
+    ],
+    "observed_cause": "Existing five-second version probe times out on this Windows host; direct pinned CLI --version succeeded in about 7.4 seconds; subsequent admissions lack task IDs.",
+    "probe_timeout_or_environment_modified": false,
+    "counts_toward_real_pi_acceptance": false
+  },
+  "packaging_checks": {
+    "api_overlay_imports": "passed in API suite",
+    "fixed_git_manifest_covers_api_dockerfile_copy_inputs": true,
+    "official_runner_includes_revisions": true,
+    "scoped_diff_check": "passed",
+    "image_built": false,
+    "new_and_tracked_file_whitespace": "passed",
+    "ast_parse_python_files": 21
+  },
+  "production_deployed": false,
+  "production_database_accessed": false,
+  "real_model_called": false,
+  "email_sent": false,
+  "formal_login_tested": false,
+  "new_browser_acceptance": false,
+  "completed_local_tasks": [
+    "R1",
+    "R2",
+    "R3",
+    "R4"
+  ],
+  "remaining": [
+    "R5 real Pi scientific revision acceptance",
+    "E1-E4 editor/diff/adoption UI",
+    "D1-D3 immutable release and complete production acceptance",
+    "T6 formal-user browser acceptance"
+  ],
+  "limitations": [
+    "Validation establishes structure, recorded relationships and transfer integrity; it does not establish scientific accuracy.",
+    "No production image build, commit, push or deployment was performed for this stage.",
+    "The existing release script only builds API/UI. Deploying revisions also requires a new fixed worker image and capability verification."
+  ],
+  "files": {
+    "panghu_agent/Dockerfile.scientific-pi": {
+      "bytes": 2099,
+      "sha256": "edf4dbcf5eec8bc8deb44377b98c6ddb073e605f3a731a8e458dc52d46e39660"
+    },
+    "panghu_agent/Dockerfile.scientific-pi-api": {
+      "bytes": 1297,
+      "sha256": "1c8b968ae7f24fe4811387ad1113d4f84d333b01cbf531a6f804e7cd072d7f2e"
+    },
+    "panghu_agent/app/api/scientific_agent.py": {
+      "bytes": 30791,
+      "sha256": "fdd61d815fd78800d981410a74614cf80d04159cbaeabe807b9ab33a9755cbb5"
+    },
+    "panghu_agent/scientific_agent/pi_revision_contracts.py": {
+      "bytes": 7116,
+      "sha256": "a1a76cb0732a72eccac718130cac8d6876db9a1347eb111aba362391eadbc75c"
+    },
+    "panghu_agent/scientific_agent/pi_revision_validation.py": {
+      "bytes": 25954,
+      "sha256": "aa3a71004c8e07a1a16a633fe9bda2a420d94809e137377db5f521a90fd4f8b1"
+    },
+    "panghu_agent/scientific_agent/pi_report_versions.py": {
+      "bytes": 37643,
+      "sha256": "1c5aac8b7977c82fff556166746cd71121436290625eb55476962a0b75009eca"
+    },
+    "panghu_agent/scientific_agent/pi_projection.py": {
+      "bytes": 21635,
+      "sha256": "94a9dfbfd175aa4e4707b3ed0b7988ba89f9a7c55315b8ed76fda087fc3ef898"
+    },
+    "panghu_agent/scientific_agent/pi_client.py": {
+      "bytes": 6119,
+      "sha256": "577df009c6ec767086d14028564a773ba58970ecedec7238b108331d86a98f45"
+    },
+    "panghu_agent/pi_worker/app.py": {
+      "bytes": 12040,
+      "sha256": "7208072731e599310c2a22e5aa6f2a5d7b201726f797103a073b657fb37df738"
+    },
+    "panghu_agent/pi_worker/store.py": {
+      "bytes": 22913,
+      "sha256": "786f94d7f9f9cbe268dfc6a47e527f803e79e3458edc9d49a14387feedead513"
+    },
+    "panghu_agent/pi_worker/scheduler.py": {
+      "bytes": 9583,
+      "sha256": "7a964396c1839a7d6fbcfcf2150976cc9bb7b4b4c01f8bf045c865624cd8ff7e"
+    },
+    "panghu_agent/pi_worker/artifacts.py": {
+      "bytes": 13426,
+      "sha256": "ecf6ddf73dafe375d0d53524c5b28dafda5e6dcf2f2ecaf51f2103db0b0cbfc2"
+    },
+    "panghu_agent/pi_worker/runtime/adapter.py": {
+      "bytes": 49048,
+      "sha256": "84cf285f3f0bf337ee6c86d21e9898667103b5f2ff04c212bfdc41a551721a0c"
+    },
+    "panghu_agent/pi_worker/runtime/profiles.py": {
+      "bytes": 7345,
+      "sha256": "47c27f3c2a082eee78f8d73127909ccf23abbd25672efb9aa397d1737fe57949"
+    },
+    "panghu_agent/scripts/test-scientific-pi.py": {
+      "bytes": 1100,
+      "sha256": "edc89b63b601a7efa57280653aad76bafdb19deaebcef8ad4102f16b1c3a2389"
+    },
+    "panghu_agent/tests/scientific_pi/revisions/test_revision_contracts.py": {
+      "bytes": 14225,
+      "sha256": "8469dc435d80a1ecb369f544fc0ce206f03e08555ed78c257f95fe97539f765f"
+    },
+    "panghu_agent/tests/scientific_pi/revisions/test_revision_validation.py": {
+      "bytes": 23535,
+      "sha256": "453a4015da2821f7fa4cc235baf6ecd0c2ae6fcded6fcfdce513a64823acfda4"
+    },
+    "panghu_agent/tests/scientific_pi/api/test_revision_execution.py": {
+      "bytes": 22242,
+      "sha256": "01b14d7bb941e7b08cb360a108f9f76c0a32fac1ca7bf392b3e7ab2ea4d0c5c4"
+    },
+    "panghu_agent/tests/scientific_pi/api/test_revision_quotas.py": {
+      "bytes": 9836,
+      "sha256": "826e7c8e5caa4cbd7eb3f4e3f5fa4e05634e5cbc34039651d7c74a535ee78929"
+    },
+    "panghu_agent/tests/scientific_pi/api/test_overlay_import.py": {
+      "bytes": 4494,
+      "sha256": "3665c9f67469a20758b581c6283f39ccdb51eae7a35804933040b1a38d568d59"
+    },
+    "panghu_agent/tests/scientific_pi/worker/test_revision_worker.py": {
+      "bytes": 23119,
+      "sha256": "e70888b02714583289deeedfd4ec605014157231e2472a85da5719d60d7eb7b8"
+    },
+    "panghu_agent/tests/scientific_pi/integration/test_revision_end_to_end.py": {
+      "bytes": 8014,
+      "sha256": "fa7ff77f44fe22765004f9f6c6a4c17813941119ab938f20576cb42e317f971d"
+    },
+    "panghu_agent/docs/scientific-pi-api.md": {
+      "bytes": 29433,
+      "sha256": "3d25896d45c0138e469984aaae02b7a368765f0fd0abaf238e07c0e1189de4de"
+    },
+    "docs/scientific-research-pi/writing-workspace-20261025/release/build_from_git.py": {
+      "bytes": 5852,
+      "sha256": "78cd138dab125cb884306cab9dba829e90d5a033e83e2a25f4aa4b553f4cb077"
+    }
+  },
+  "tests_passed": 439,
+  "openspec": {
+    "revision": "831fa7bea2c4afed267d99594e196852df5da7c9",
+    "valid": true,
+    "issues": [],
+    "completed_tasks": 16,
+    "total_tasks": 25,
+    "archived": false
+  }
+}

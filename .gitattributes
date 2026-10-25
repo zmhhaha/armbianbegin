@@ -1,1 +1,4 @@
 vps/** text eol=lf
+# Acceptance manifests hash exact artifact and log bytes across checkouts.
+docs/scientific-research-pi/evidence/** -text whitespace=cr-at-eol
+docs/scientific-research-pi/evidence/**/*.log -whitespace

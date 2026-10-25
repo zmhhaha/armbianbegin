@@ -1,0 +1,68 @@
+{
+  "projectId": "ec663f5a-53d3-4a0e-9037-933eb788d183",
+  "baseUrl": "https://openspec.panghuer.top/mcp",
+  "changeId": "add-scientific-pi-worker",
+  "created": false,
+  "revision": "383738bda99cf9e106a8bfa54feeaf6480098030",
+  "submittedAt": "2026-10-22T05:49:27.994Z",
+  "taskStatus": {
+    "total": 47,
+    "completed": 9,
+    "remaining": 38
+  },
+  "artifacts": {
+    "proposal.md": {
+      "bytes": 3319,
+      "sha256": "0883b6a561d7a2b27909916c7d2d587b314f4de181e428342b48616fc0d11175",
+      "matches": true
+    },
+    "design.md": {
+      "bytes": 38382,
+      "sha256": "8491e8f0a84b64627d8396bc03a047018298368ede9cf8e77de9a2f3500763b8",
+      "matches": true
+    },
+    "tasks.md": {
+      "bytes": 16744,
+      "sha256": "36d25bb26ecf71df9fdfbb360ce36f2ebdca3c89a41a6e9989cf1243754cb429",
+      "matches": true
+    },
+    "specs/scientific-execution/spec.md": {
+      "bytes": 11595,
+      "sha256": "5056c7a0cf15ab5c1e4d64dad3e14f4c6595388a6cbcb1cdd9aa477bac325ddf",
+      "matches": true
+    }
+  },
+  "validation": {
+    "projectId": "ec663f5a-53d3-4a0e-9037-933eb788d183",
+    "id": "add-scientific-pi-worker",
+    "valid": true,
+    "result": {
+      "items": [
+        {
+          "id": "add-scientific-pi-worker",
+          "type": "change",
+          "valid": true,
+          "issues": [],
+          "durationMs": 94
+        }
+      ],
+      "summary": {
+        "totals": {
+          "items": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "byType": {
+          "change": {
+            "items": 1,
+            "passed": 1,
+            "failed": 0
+          }
+        }
+      },
+      "version": "1.0"
+    }
+  },
+  "applied": false,
+  "archived": false
+}

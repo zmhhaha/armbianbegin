@@ -99,9 +99,14 @@ spec:
       protocol: UDP
     - port: 53
       protocol: TCP
-  # 各命名空间里常见 Web 服务的端口（新增对外服务时按需加）
+  # 保留现有服务的 Web 端口。PPT 使用独立的精确 4180 策略；
+  # NetworkPolicy 规则取并集，只新增窄策略不足以排除这条旧规则。
   - to:
-    - namespaceSelector: {}
+    - namespaceSelector:
+        matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: [ppt-service, ppt-service-test]
     ports:
     - { port: 80,   protocol: TCP }
     - { port: 3000, protocol: TCP }

@@ -1,0 +1,25 @@
+# Template only: replace REQUIRED_CONNECTOR_NAMESPACE and the entire placeholder
+# matchLabels map with the real Connector Pod identity. No token belongs here.
+# Verify the reciprocal PPT ingress uses exactly the same namespace/labels.
+# Kubernetes policies are additive: audit any existing broad egress separately.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: cloudflared-ppt-service-egress
+  namespace: REQUIRED_CONNECTOR_NAMESPACE
+spec:
+  podSelector:
+    matchLabels:
+      REQUIRED_CONNECTOR_LABEL_KEY: REQUIRED_CONNECTOR_LABEL_VALUE
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ppt-service
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ppt-site
+      ports:
+        - protocol: TCP
+          port: 4180

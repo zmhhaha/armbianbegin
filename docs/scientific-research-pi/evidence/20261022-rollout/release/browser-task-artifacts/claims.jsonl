@@ -1,0 +1,3 @@
+{"claim_id": "C1", "marker": "<!-- claim:C1 -->", "evidence_ids": ["E1", "E2"], "assessment": "supported", "explanation": "以摘要中的外部记忆机制及事实性比较结果，支持有限的机制说明与改善方向。"}
+{"claim_id": "C2", "marker": "<!-- claim:C2 -->", "evidence_ids": ["E3"], "assessment": "supported", "explanation": "忠实转述摘要的检索局限、按需检索与自我反思机制，以及作者报告的比较结果。"}
+{"claim_id": "C3", "marker": "<!-- claim:C3 -->", "evidence_ids": ["E2", "E3"], "assessment": "insufficient", "explanation": "两篇摘要没有足以计算统一幻觉降低幅度或保证普遍可靠性的指标与数据，因而只支持明确的证据不足判断。"}

@@ -11,6 +11,7 @@
 #   LE_EMAIL           stage2 必填。Let's Encrypt 通知邮箱
 #   BASE_DOMAIN        可选，默认 panghuer.top
 #   FRP_VER            可选，默认 0.71.0
+#   PPT_VPS_ENABLED    可选，默认 0；设为 1 才安装 PPT 的可选 VPS 专用站点
 #
 # 设计文档：../docs/vps-ingress-design.md
 set -Eeuo pipefail
@@ -224,6 +225,19 @@ install_nginx_and_cert() {
   install -m 0644 "$clp" /etc/nginx/sites-available/custom-llm-proxy.conf
   rm -f "$clp"
   ln -sf /etc/nginx/sites-available/custom-llm-proxy.conf /etc/nginx/sites-enabled/custom-llm-proxy.conf
+
+  # Optional: the current PPT deployment uses Cloudflare Tunnel. Installing
+  # its VPS alternative requires an explicit switch; an existing site is kept.
+  # Its authenticated assets must bypass public caching/HTML transformations.
+  if [[ "${PPT_VPS_ENABLED:-0}" == 1 ]]; then
+    log "安装 PPT 专用站点配置（所有路径不缓存）"
+    local ppt; ppt="$(mktemp)"
+    BASE_DOMAIN="$BASE_DOMAIN" HTTPS_PORT="$HTTPS_PORT" envsubst '${BASE_DOMAIN} ${HTTPS_PORT}' \
+      < "${SCRIPT_DIR}/nginx/ppt-service.conf.template" | tr -d '\357\273\277\r' > "$ppt"
+    install -m 0644 "$ppt" /etc/nginx/sites-available/ppt-service.conf
+    rm -f "$ppt"
+    ln -sf /etc/nginx/sites-available/ppt-service.conf /etc/nginx/sites-enabled/ppt-service.conf
+  fi
   mkdir -p /var/www/certbot
 
   # Git HTTP/LFS uploads need a larger limit than the wildcard default.

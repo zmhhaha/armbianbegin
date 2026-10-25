@@ -1,0 +1,136 @@
+{
+  "workloads": {
+    "scientific-pi-worker": {
+      "generation": 4,
+      "ready": 1,
+      "pods": [
+        {
+          "name": "scientific-pi-worker-5f645b8b4b-vhbgn",
+          "uid": "07d74ede-6829-4bdc-b3aa-c33372c8b045",
+          "node": "orangepi5-max-server1",
+          "started": "2026-10-22T09:07:41Z",
+          "images": [
+            "arm-cluster-master:5000/scientific-pi-worker@sha256:c2f7b99f9ed61b4362f0b3d3d83e5d2e7ca1b072646bb75c8c998b79af6bdda0"
+          ]
+        }
+      ]
+    },
+    "api": {
+      "generation": 38,
+      "ready": 1,
+      "pods": [
+        {
+          "name": "api-7894cbbddd-qv4b7",
+          "uid": "1573b332-2ed5-47d1-900c-f8eef128b467",
+          "node": "orangepi5-max-server1",
+          "started": "2026-10-22T09:06:38Z",
+          "images": [
+            "arm-cluster-master:5000/scientific-pi-api@sha256:89caf56457ee7f778ebe26337278ca3ede6bf6550d7f6339386473c18dcfbaa9"
+          ]
+        }
+      ]
+    },
+    "ui": {
+      "generation": 9,
+      "ready": 1,
+      "pods": [
+        {
+          "name": "ui-6b7d77b76f-f4q9q",
+          "uid": "bba3194e-e442-4657-9dc6-da5c3d5888af",
+          "node": "orangepi5-max-server1",
+          "started": "2026-10-22T08:27:56Z",
+          "images": [
+            "arm-cluster-master:5000/agent-ui@sha256:4639d4c6d2cfbd03a26cb759f7badbc2b4fabaa988e3299adbbb00d6a7d2c482"
+          ]
+        }
+      ]
+    }
+  },
+  "pvc": {
+    "uid": "c736257d-e970-4f2d-98c3-e21346c07d18",
+    "volume": "pvc-c736257d-e970-4f2d-98c3-e21346c07d18",
+    "phase": "Bound"
+  },
+  "worker": {
+    "tasks": [
+      {
+        "id": "b60e5e53-c72e-56b5-8c30-7e7bc2fb7270",
+        "state": "failed",
+        "stage": "search",
+        "attempt": 1,
+        "revision": 2,
+        "created_at": "2026-10-22T08:11:07Z",
+        "started_at": "2026-10-22T08:11:07Z",
+        "finished_at": "2026-10-22T08:12:32Z",
+        "error_code": "model_error",
+        "report_id": null,
+        "report_sha256": null,
+        "result_digest": null
+      },
+      {
+        "id": "83726a4e-cd39-5735-80c8-78a01d2dd1ff",
+        "state": "failed",
+        "stage": "search",
+        "attempt": 1,
+        "revision": 2,
+        "created_at": "2026-10-22T08:18:49Z",
+        "started_at": "2026-10-22T08:18:51Z",
+        "finished_at": "2026-10-22T08:20:50Z",
+        "error_code": "runtime_output_limit",
+        "report_id": null,
+        "report_sha256": null,
+        "result_digest": null
+      },
+      {
+        "id": "d45d0afa-8faf-51fc-9a13-cb830a27fd9f",
+        "state": "running",
+        "stage": null,
+        "attempt": 2,
+        "revision": 3,
+        "created_at": "2026-10-22T09:05:56Z",
+        "started_at": "2026-10-22T09:07:55Z",
+        "finished_at": null,
+        "error_code": "worker_interrupted",
+        "report_id": null,
+        "report_sha256": null,
+        "result_digest": null
+      }
+    ],
+    "uid_allocations": [
+      {
+        "sequence": 1,
+        "task_id": "b60e5e53-c72e-56b5-8c30-7e7bc2fb7270",
+        "attempt": 1,
+        "uid": 200000
+      },
+      {
+        "sequence": 2,
+        "task_id": "83726a4e-cd39-5735-80c8-78a01d2dd1ff",
+        "attempt": 1,
+        "uid": 200001
+      },
+      {
+        "sequence": 3,
+        "task_id": "d45d0afa-8faf-51fc-9a13-cb830a27fd9f",
+        "attempt": 1,
+        "uid": 200002
+      },
+      {
+        "sequence": 4,
+        "task_id": "d45d0afa-8faf-51fc-9a13-cb830a27fd9f",
+        "attempt": 2,
+        "uid": 200003
+      }
+    ],
+    "cgroup": {
+      "memory.current": "166764544",
+      "memory.peak": "175984640",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+      "cpu.stat": "usage_usec 9033702\nuser_usec 7760496\nsystem_usec 1273206\nnr_periods 182\nnr_throttled 7\nthrottled_usec 323887\nnr_bursts 0\nburst_usec 0"
+    }
+  },
+  "api": {
+    "active_crewai_tasks": 0,
+    "reports": 4
+  }
+}

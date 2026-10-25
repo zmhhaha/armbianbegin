@@ -1,0 +1,189 @@
+{
+  "schema_version": "1",
+  "recorded_at_utc": "2026-10-25T12:55:52.912681+00:00",
+  "project_id": "ec663f5a-53d3-4a0e-9037-933eb788d183",
+  "change_id": "add-scientific-evidence-linked-revisions",
+  "phase": 4,
+  "scope": "Local editor/API implementation, synthetic tests and actual local Gradio browser clicks",
+  "source_state": "Uncommitted workspace inputs; not a production release",
+  "source_base_commit": "c696a52a3ccbf4af5236f562f688020eb69d17d1",
+  "suites": [
+    {
+      "name": "api_and_ui",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/api",
+        "-p",
+        "test*.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "tests": 297,
+      "duration_seconds": 21.379,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "1863e4520469efbce8aa56d7a5443eaf7973f2572867a5402eb083903715ce43",
+      "log_file": "api_and_ui-final.log"
+    },
+    {
+      "name": "local_editor_integration",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/integration",
+        "-p",
+        "test_revision_editor_end_to_end.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "tests": 3,
+      "duration_seconds": 6.334,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "4711a5a9a6249274971d909ca94966030810c66f526409f708d870d3fb32deb6"
+    },
+    {
+      "name": "local_publication_integration",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/integration",
+        "-p",
+        "test_end_to_end.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "tests": 18,
+      "duration_seconds": 8.723,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "f05c5a007a171f7617406102dfe36bea9dd6e06e65bb7f8f2da282fc0c1d2843"
+    },
+    {
+      "name": "local_revision_integration",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/integration",
+        "-p",
+        "test_revision_end_to_end.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "tests": 4,
+      "duration_seconds": 4.676,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "2094afb876b7ad3834fd2a9c0867cd210462753901f9a4b8b7a594824acc2029"
+    },
+    {
+      "name": "revision_contract_and_validation",
+      "command": [
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests/scientific_pi/revisions",
+        "-p",
+        "test*.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "tests": 48,
+      "duration_seconds": 3.749,
+      "skipped": 0,
+      "passed": true,
+      "log_sha256": "44737cd9aac218c740ec71305f34a9700e9ac81f0d2ae2be5ce6aff2ae27b37d"
+    }
+  ],
+  "tests_discovered": 370,
+  "tests_skipped": 0,
+  "tests_passed": 370,
+  "selected_suites_passed": true,
+  "new_api_store_tests": 17,
+  "new_ui_tests": 29,
+  "new_integration_tests": 3,
+  "independent_review": {
+    "status": "passed_after_fixes",
+    "fixes": [
+      "Monotonic selection_revision merge prevents old refresh/adoption responses from rolling back the head",
+      "Comparison controls reject a stale locally known head"
+    ],
+    "checks": [
+      "Single SQL adoption event is both CAS and idempotency receipt",
+      "Publication and revision binding checked before adoption and inside the conditional insert",
+      "Owner/root isolation and late candidate branch rejection",
+      "Reading, editing and task tracking have independent invalidation tokens"
+    ]
+  },
+  "production_deployed": false,
+  "production_database_accessed": false,
+  "real_model_called": false,
+  "email_sent": false,
+  "formal_login_tested": false,
+  "new_browser_acceptance": true,
+  "completed_local_tasks": [
+    "E1",
+    "E2",
+    "E3",
+    "E4"
+  ],
+  "remaining": [
+    "R5 real Pi scientific revision acceptance",
+    "T6 formal-user browser acceptance",
+    "D1-D3 immutable release and complete production acceptance"
+  ],
+  "limitations": [
+    "Synthetic browser fixture cannot certify real scientific quality or production login.",
+    "The prior Windows pinned CLI probe timeout remains unresolved; it is not counted as real Pi acceptance.",
+    "No commit, push, image build or deployment performed in stage4."
+  ],
+  "files": {
+    "panghu_agent/app/api/scientific_agent.py": {
+      "bytes": 34582,
+      "sha256": "bfa36341fab61c62a959558fcf4b58337f78d374bb3e9c9c1e0151ae896eba40"
+    },
+    "panghu_agent/app/ui/scientific_agent.py": {
+      "bytes": 129496,
+      "sha256": "240445b062fc6b1831bf776b18b4d8e03e70eeb521cbf66b13433a8beee4301a"
+    },
+    "panghu_agent/scientific_agent/pi_report_versions.py": {
+      "bytes": 51001,
+      "sha256": "7703b94e50a2843726f2513287f7677772c48a6f7995f77861ffe9baa3d60da6"
+    },
+    "panghu_agent/docs/scientific-pi-api.md": {
+      "bytes": 33255,
+      "sha256": "f188ff087985886192a9aff9fef7575eca01494212b61a7c71b339fe86ccbbe2"
+    },
+    "panghu_agent/tests/scientific_pi/api/test_revision_editor_api.py": {
+      "bytes": 11709,
+      "sha256": "f648d0c9144ee05bd4c90d23be2434463c1f12da985ed301be94de8f48744bb4"
+    },
+    "panghu_agent/tests/scientific_pi/api/test_report_adoptions.py": {
+      "bytes": 8335,
+      "sha256": "16d49aafabc8a48aec12f7246887d2a2259d4bc06e64b53b9f5857575e0b883d"
+    },
+    "panghu_agent/tests/scientific_pi/api/test_revision_ui.py": {
+      "bytes": 27549,
+      "sha256": "3eb66b994ef9c7b215d68f254dd3430885360258c62d79a8aadfe44353e73320"
+    },
+    "panghu_agent/tests/scientific_pi/integration/test_revision_editor_end_to_end.py": {
+      "bytes": 6098,
+      "sha256": "34e8ae0f726786bb40afd48770897bc4df523624f28d62ac3b7cc2aaf3468f4d"
+    }
+  }
+}

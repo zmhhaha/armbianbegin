@@ -1,0 +1,105 @@
+{
+  "schema_version": "1",
+  "recorded_at_utc": "2026-10-25T06:47:29.976659+00:00",
+  "change_id": "add-scientific-evidence-linked-revisions",
+  "project_id": "ec663f5a-53d3-4a0e-9037-933eb788d183",
+  "phase": 2,
+  "scope": "local synthetic contract and API verification",
+  "command": "python -m unittest discover -s tests/scientific_pi/api -p test*.py",
+  "result": {
+    "exit_code": 0,
+    "tests": 224,
+    "duration_seconds": 11.431,
+    "passed": true,
+    "sections": 21,
+    "report_version_store": 37,
+    "report_writing_api": 17,
+    "existing_regressions": 149
+  },
+  "checks": [
+    "Exact UTF-8 section ranges and original version downloads",
+    "Parent/root/published-source lineage and append-only registration",
+    "Owner and alias isolation before worker reads",
+    "Matching report and four evidence artifacts before snapshot persistence",
+    "Same-key retry recovery and different-fingerprint conflict",
+    "Independent SQLite connections for atomic quota and concurrent admission",
+    "Lost responses after successful commits and store restart recovery",
+    "Serialized UTF-8 payload quota and instruction byte boundaries",
+    "Pinned expiry, atomic cleanup, tombstones and quota reclamation",
+    "Periodic cleanup continues after projection failure",
+    "GET section/history creates no private records",
+    "Dedicated API image-layout import regression"
+  ],
+  "fixture_sources": [
+    "In-memory FakeWorker and report/evidence fixtures",
+    "Temporary local SQLite files with a new connection per SQL request"
+  ],
+  "material_policy": "recorded_evidence_only",
+  "original_full_text_files_saved": false,
+  "dispatch_available": false,
+  "ui_changed_in_phase2": false,
+  "production_deployed": false,
+  "production_database_accessed": false,
+  "real_model_called": false,
+  "email_sent": false,
+  "formal_login_tested": false,
+  "independent_review": "Read-only API/store review found no blocking issue; phase3 publication and lineage recovery window remains pending.",
+  "whitespace_checks": {
+    "tracked_diff_check": "passed",
+    "listed_file_trailing_whitespace": "passed"
+  },
+  "limitations": [
+    "Internal append_candidate is a registration hook, not scientific validation or a client draft-upload API.",
+    "RevisionJob dispatch, whole-report candidate validation, shared runtime limits, cancellation, publication recovery and live model acceptance remain phase3.",
+    "Original full-text files are not in the saved records; a snapshot-aware validation strategy is required.",
+    "Diff/adoption UI and production rollout have not been implemented or validated in this phase."
+  ],
+  "files": {
+    "scientific_agent/pi_sections.py": {
+      "sha256": "40adf2711f453329b1d6bd62fa922a708b67205a1607c41ffe69a35685910e46",
+      "bytes": 9165
+    },
+    "scientific_agent/pi_report_versions.py": {
+      "sha256": "0d8061d5772ef206c34b388ce967e607414a0b905cdb09bdf2a6092a3d1eef48",
+      "bytes": 27622
+    },
+    "app/api/scientific_agent.py": {
+      "sha256": "9169e719dc3ad6b00441a50962a28630657acf3d1b425304833eca967353158c",
+      "bytes": 27726
+    },
+    "Dockerfile.scientific-pi-api": {
+      "sha256": "fd9b385630b5a04e55a5d1dd7761fa5446f84b41b45d1951686b9da9558813f2",
+      "bytes": 1184
+    },
+    "tests/scientific_pi/api/test_sections.py": {
+      "sha256": "c7899643dbbc558296b2423f14a8e1e4330504ecaa2ed7dabec521c876d45b19",
+      "bytes": 9955
+    },
+    "tests/scientific_pi/api/test_report_versions.py": {
+      "sha256": "6ca4114f68cf189fe54deb32907d4f1664eb7781dc31b8f8d313a0fc8ba09973",
+      "bytes": 29078
+    },
+    "tests/scientific_pi/api/test_report_writing_api.py": {
+      "sha256": "4c897dd6fa9bba3ed7f92a31cd2bdc8612dc4cc1028daebc84635d2a5aa4c0a2",
+      "bytes": 18487
+    },
+    "tests/scientific_pi/api/test_overlay_import.py": {
+      "sha256": "1b17500b14395d66af152df13286af113492c6f20bd30dd811c15c5a2f24ff37",
+      "bytes": 4206
+    },
+    "docs/scientific-pi-api.md": {
+      "sha256": "39621190ff65d2b8a23150f99a75e83228feed648d02df8d1094ead063608087",
+      "bytes": 24331
+    }
+  },
+  "openspec": {
+    "revision": "206d6f37e17b97cbc74893882faa270b581fdb06",
+    "valid": true,
+    "issues": [],
+    "tasks": {
+      "total": 25,
+      "completed": 12,
+      "remaining": 13
+    }
+  }
+}

@@ -1,0 +1,298 @@
+Running scientific Pi suite: contracts
+test_input_vector_matches_documented_unicode_bytes (test_contracts.ContractTests.test_input_vector_matches_documented_unicode_bytes) ... ok
+test_job_rejects_unknown_fields_wrong_types_and_deadline (test_contracts.ContractTests.test_job_rejects_unknown_fields_wrong_types_and_deadline) ... ok
+test_job_round_trip_and_hash_tampering (test_contracts.ContractTests.test_job_round_trip_and_hash_tampering) ... ok
+test_no_ambiguous_terminal_status (test_contracts.ContractTests.test_no_ambiguous_terminal_status) ... ok
+test_rejects_unsafe_canonical_types (test_contracts.ContractTests.test_rejects_unsafe_canonical_types) ... ok
+test_replay_hash_ignores_server_metadata (test_contracts.ContractTests.test_replay_hash_ignores_server_metadata) ... ok
+test_report_and_result_digest_vectors (test_contracts.ContractTests.test_report_and_result_digest_vectors) ... ok
+test_timestamps_need_utc_and_schema_is_serializable (test_contracts.ContractTests.test_timestamps_need_utc_and_schema_is_serializable) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.003s
+
+OK
+Running scientific Pi suite: research
+test_bundle_local_hashes_and_unreviewed_upstream (test_research.BridgeTests.test_bundle_local_hashes_and_unreviewed_upstream) ... ok
+test_cli_schema_and_validation_exit_codes (test_research.BridgeTests.test_cli_schema_and_validation_exit_codes) ... ok
+test_exact_query_logging_dedup_and_partial_source_failure (test_research.BridgeTests.test_exact_query_logging_dedup_and_partial_source_failure) ... ok
+test_identifier_lookup_verifies_only_exact_identifier (test_research.BridgeTests.test_identifier_lookup_verifies_only_exact_identifier) ... ok
+test_identifier_timeout_is_unknown_not_verified (test_research.BridgeTests.test_identifier_timeout_is_unknown_not_verified) ... ok
+test_invalid_provider_and_identifiers_fail_before_network (test_research.BridgeTests.test_invalid_provider_and_identifiers_fail_before_network) ... ok
+test_prompt_omits_private_fields_and_contains_exact_contract (test_research.BridgeTests.test_prompt_omits_private_fields_and_contains_exact_contract) ... ok
+test_validator_import_never_loads_crewai (test_research.BridgeTests.test_validator_import_never_loads_crewai) ... ok
+test_abstract_limits_must_be_disclosed (test_research.ValidationTests.test_abstract_limits_must_be_disclosed) ... ok
+test_abstract_only_with_unknown_verification (test_research.ValidationTests.test_abstract_only_with_unknown_verification) ... ok
+test_bool_reference_number_and_unknown_fields_fail (test_research.ValidationTests.test_bool_reference_number_and_unknown_fields_fail) ... ok
+test_claim_marker_and_screening_links_required (test_research.ValidationTests.test_claim_marker_and_screening_links_required) ... ok
+test_claim_paragraph_requires_citation_not_only_bibliography (test_research.ValidationTests.test_claim_paragraph_requires_citation_not_only_bibliography) ... ok
+test_conflicting_evidence_remains_traceable (test_research.ValidationTests.test_conflicting_evidence_remains_traceable) ... ok
+test_duplicate_papers_fail (test_research.ValidationTests.test_duplicate_papers_fail) ... ok
+test_full_text_acquisition_requires_actual_workspace_file (test_research.ValidationTests.test_full_text_acquisition_requires_actual_workspace_file) ... ok
+test_full_text_level_cannot_be_invented_from_abstract (test_research.ValidationTests.test_full_text_level_cannot_be_invented_from_abstract) ... ok
+test_full_text_report_wording_cannot_contradict_access (test_research.ValidationTests.test_full_text_report_wording_cannot_contradict_access) ... ok
+test_invalid_reference_and_missing_evidence_fail (test_research.ValidationTests.test_invalid_reference_and_missing_evidence_fail) ... ok
+test_json_duplicate_keys_invalid_utf8_and_missing_files (test_research.ValidationTests.test_json_duplicate_keys_invalid_utf8_and_missing_files) ... ok
+test_malformed_identifiers_and_source_urls_fail (test_research.ValidationTests.test_malformed_identifiers_and_source_urls_fail) ... ok
+test_report_size_limit (test_research.ValidationTests.test_report_size_limit) ... ok
+test_screening_counts_cannot_contradict_observed_records (test_research.ValidationTests.test_screening_counts_cannot_contradict_observed_records) ... ok
+test_source_failure_unknown_count_and_disclosure (test_research.ValidationTests.test_source_failure_unknown_count_and_disclosure) ... ok
+test_symlink_and_hardlink_required_file_rejected (test_research.ValidationTests.test_symlink_and_hardlink_required_file_rejected) ... ok
+test_timestamps_require_utc_rfc3339 (test_research.ValidationTests.test_timestamps_require_utc_rfc3339) ... ok
+test_traversal_and_encoded_full_text_paths_fail (test_research.ValidationTests.test_traversal_and_encoded_full_text_paths_fail) ... ok
+test_unknown_citation_and_duplicate_number_fail (test_research.ValidationTests.test_unknown_citation_and_duplicate_number_fail) ... ok
+test_zero_evidence_is_valid_only_as_insufficiency (test_research.ValidationTests.test_zero_evidence_is_valid_only_as_insufficiency) ... ok
+test_cache_obeys_zero_and_short_ttl (test_transport.DnsValidationTests.test_cache_obeys_zero_and_short_ttl) ... ok
+test_cname_chain_preserves_smallest_ttl_and_rejects_cycle (test_transport.DnsValidationTests.test_cname_chain_preserves_smallest_ttl_and_rejects_cycle) ... ok
+test_mixed_public_private_answers_fail_closed (test_transport.DnsValidationTests.test_mixed_public_private_answers_fail_closed) ... ok
+test_negative_truncated_or_invalid_ttl_answers_are_rejected (test_transport.DnsValidationTests.test_negative_truncated_or_invalid_ttl_answers_are_rejected) ... ok
+test_non_public_multicast_and_all_ipv6_are_rejected (test_transport.DnsValidationTests.test_non_public_multicast_and_all_ipv6_are_rejected) ... ok
+test_public_a_and_ttl (test_transport.DnsValidationTests.test_public_a_and_ttl) ... ok
+test_question_mismatch_and_unrelated_a_record_are_rejected (test_transport.DnsValidationTests.test_question_mismatch_and_unrelated_a_record_are_rejected) ... ok
+test_bridge_search_and_identifier_use_scoped_transport (test_transport.ScopedIntegrationTests.test_bridge_search_and_identifier_use_scoped_transport) ... ok
+test_context_override_restores_and_does_not_leak_into_threads (test_transport.ScopedIntegrationTests.test_context_override_restores_and_does_not_leak_into_threads) ... ok
+test_final_body_read_may_close_socket_before_another_read (test_transport.TransportBoundaryTests.test_final_body_read_may_close_socket_before_another_read) ... ok
+test_https_response_retains_requests_interface_and_parameters (test_transport.TransportBoundaryTests.test_https_response_retains_requests_interface_and_parameters) ... ok
+test_pinned_ip_preserves_tls_sni_and_http_host_without_system_dns (test_transport.TransportBoundaryTests.test_pinned_ip_preserves_tls_sni_and_http_host_without_system_dns) ... ok
+test_redirect_and_response_limit_are_not_followed_or_relaxed (test_transport.TransportBoundaryTests.test_redirect_and_response_limit_are_not_followed_or_relaxed) ... ok
+test_resolver_failure_never_falls_back_to_system_dns (test_transport.TransportBoundaryTests.test_resolver_failure_never_falls_back_to_system_dns) ... ok
+test_tls_context_requires_trust_and_hostname_checks (test_transport.TransportBoundaryTests.test_tls_context_requires_trust_and_hostname_checks) ... ok
+test_urls_are_rejected_before_dns_or_socket (test_transport.TransportBoundaryTests.test_urls_are_rejected_before_dns_or_socket) ... ok
+
+----------------------------------------------------------------------
+Ran 45 tests in 0.199s
+
+OK
+Running scientific Pi suite: worker
+/usr/local/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_atomic_user_admission_and_replay_conflict (test_worker.WorkerTests.test_atomic_user_admission_and_replay_conflict) ... ok
+test_cancel_before_publish_wins (test_worker.WorkerTests.test_cancel_before_publish_wins) ... ok
+test_declared_full_text_is_private_bounded_and_hashed (test_worker.WorkerTests.test_declared_full_text_is_private_bounded_and_hashed) ... ok
+test_definitive_rejection_tombstone_survives_capacity_and_restart (test_worker.WorkerTests.test_definitive_rejection_tombstone_survives_capacity_and_restart) ... ok
+test_fail_closed (test_worker.WorkerTests.test_fail_closed) ... ok
+test_fake_scheduler_lifecycle (test_worker.WorkerTests.test_fake_scheduler_lifecycle) ... ok
+test_fifo_artifact_is_rejected_without_blocking (test_worker.WorkerTests.test_fifo_artifact_is_rejected_without_blocking) ... ok
+test_http_auth_status_codes_and_no_factory_io (test_worker.WorkerTests.test_http_auth_status_codes_and_no_factory_io) ... ok
+test_instance_lock (test_worker.WorkerTests.test_instance_lock) ... ok
+test_lease_expiry_fences_late_attempt (test_worker.WorkerTests.test_lease_expiry_fences_late_attempt) ... ok
+test_manifest_whitelist_integrity_and_expiry (test_worker.WorkerTests.test_manifest_whitelist_integrity_and_expiry) ... ok
+test_paths_symlinks_and_malicious_manifest (test_worker.WorkerTests.test_paths_symlinks_and_malicious_manifest) ... ok
+test_persistent_uid_allocation_and_pagination (test_worker.WorkerTests.test_persistent_uid_allocation_and_pagination) ... ok
+test_publishing_commit_ack_and_deadline (test_worker.WorkerTests.test_publishing_commit_ack_and_deadline) ... ok
+test_queued_cancel_and_deadline (test_worker.WorkerTests.test_queued_cancel_and_deadline) ... ok
+test_real_research_validator_zero_evidence (test_worker.WorkerTests.test_real_research_validator_zero_evidence) ... ok
+test_recovery_refuses_unconfirmed_orphans (test_worker.WorkerTests.test_recovery_refuses_unconfirmed_orphans) ... ok
+test_retention_cleanup_preserves_publishing_and_task_history (test_worker.WorkerTests.test_retention_cleanup_preserves_publishing_and_task_history) ... ok
+test_runtime_cancel_and_unstoppable_process (test_worker.WorkerTests.test_runtime_cancel_and_unstoppable_process) ... ok
+test_runtime_reports_unverified_process_tree (test_worker.WorkerTests.test_runtime_reports_unverified_process_tree) ... ok
+test_size_and_failed_validation (test_worker.WorkerTests.test_size_and_failed_validation) ... ok
+test_stale_attempt_recovery_and_persistence (test_worker.WorkerTests.test_stale_attempt_recovery_and_persistence) ... ok
+test_unstoppable_runner_blocks_replacement (test_worker.WorkerTests.test_unstoppable_runner_blocks_replacement) ... ok
+test_validator_observes_copy_and_missing_required_output (test_worker.WorkerTests.test_validator_observes_copy_and_missing_required_output) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.630s
+
+OK
+Running scientific Pi suite: api
+/usr/local/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_all_cancel_timeout_public_mappings (test_api.ClientTests.test_all_cancel_timeout_public_mappings) ... ok
+test_exact_v1_routes_and_auth_including_health (test_api.ClientTests.test_exact_v1_routes_and_auth_including_health) ... ok
+test_import_and_construction_do_not_touch_network (test_api.ClientTests.test_import_and_construction_do_not_touch_network) ... ok
+test_no_control_secret_in_errors_or_transport_exceptions (test_api.ClientTests.test_no_control_secret_in_errors_or_transport_exceptions) ... ok
+test_ack_commit_response_loss_recovers_notification_independently (test_api.ProjectionTests.test_ack_commit_response_loss_recovers_notification_independently) ... Pi publication pending for 1836e0da-b0a0-5631-9e6f-2a01bf6b5994
+Traceback (most recent call last):
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 144, in reconcile
+    try: self.publish(snapshot)
+         ~~~~~~~~~~~~^^^^^^^^^^
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 105, in publish
+    self.worker.ack(task_id, dict(attempt=result['attempt'],result_digest=result['result_digest'],report_id=task_id))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/tests/scientific_pi/api/test_api.py", line 110, in ack
+    if self.ack_failure == 'after': raise WorkerError(503, 'worker_unavailable', 'Ack response lost', True)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scientific_agent.pi_client.WorkerError: Ack response lost
+ok
+test_ambiguous_acceptance_preserves_id_and_recovers_without_new_put (test_api.ProjectionTests.test_ambiguous_acceptance_preserves_id_and_recovers_without_new_put) ... ok
+test_artifact_metadata_filtered_and_headers_safe (test_api.ProjectionTests.test_artifact_metadata_filtered_and_headers_safe) ... ok
+test_cancelled_mapping_and_idempotent_cancel (test_api.ProjectionTests.test_cancelled_mapping_and_idempotent_cancel) ... ok
+test_corrupt_worker_result_is_not_stored_or_acknowledged (test_api.ProjectionTests.test_corrupt_worker_result_is_not_stored_or_acknowledged) ... Pi publication pending for 1836e0da-b0a0-5631-9e6f-2a01bf6b5994
+Traceback (most recent call last):
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 144, in reconcile
+    try: self.publish(snapshot)
+         ~~~~~~~~~~~~^^^^^^^^^^
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 91, in publish
+    raise WorkerError(409, 'publication_conflict', 'Worker result digest or identity mismatch')
+scientific_agent.pi_client.WorkerError: Worker result digest or identity mismatch
+ok
+test_definitive_rejections_never_replayed (test_api.ProjectionTests.test_definitive_rejections_never_replayed) ... ok
+test_health_uses_actual_worker_readiness (test_api.ProjectionTests.test_health_uses_actual_worker_readiness) ... ok
+test_index_failure_does_not_dispatch (test_api.ProjectionTests.test_index_failure_does_not_dispatch) ... ok
+test_legacy_default_fields_without_pi_fallback (test_api.ProjectionTests.test_legacy_default_fields_without_pi_fallback) ... ok
+test_legacy_execution_stores_before_done_and_mail_failure_stays_done (test_api.ProjectionTests.test_legacy_execution_stores_before_done_and_mail_failure_stays_done) ... Notification failed for fixture-id
+Traceback (most recent call last):
+  File "/app/app/api/../../app/api/scientific_agent.py", line 95, in _run_refinement
+    try: projection.notify(task_id,email,topic) if projection else _send_notification(email,topic,task_id)
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/app/tests/scientific_pi/api/test_api.py", line 325, in <lambda>
+    notifier = types.SimpleNamespace(notify=lambda *args:(_ for _ in ()).throw(TimeoutError('mail failed')))
+                                                         ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/tests/scientific_pi/api/test_api.py", line 325, in <genexpr>
+    notifier = types.SimpleNamespace(notify=lambda *args:(_ for _ in ()).throw(TimeoutError('mail failed')))
+TimeoutError: mail failed
+ok
+test_missing_insert_readback_does_not_ack (test_api.ProjectionTests.test_missing_insert_readback_does_not_ack) ... Pi publication pending for 1836e0da-b0a0-5631-9e6f-2a01bf6b5994
+Traceback (most recent call last):
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 144, in reconcile
+    try: self.publish(snapshot)
+         ~~~~~~~~~~~~^^^^^^^^^^
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 101, in publish
+    raise WorkerError(503, 'storage_unavailable', 'Report insert could not be read back', True)
+scientific_agent.pi_client.WorkerError: Report insert could not be read back
+ok
+test_notification_failure_never_reverses_success (test_api.ProjectionTests.test_notification_failure_never_reverses_success) ... Notification delivery uncertain for 1836e0da-b0a0-5631-9e6f-2a01bf6b5994
+ok
+test_prepared_intent_recovers_and_replay_keeps_original_job (test_api.ProjectionTests.test_prepared_intent_recovers_and_replay_keeps_original_job) ... ok
+test_recovery_get_definitive_errors_never_put (test_api.ProjectionTests.test_recovery_get_definitive_errors_never_put) ... ok
+test_report_conflict_never_overwrites_or_acks (test_api.ProjectionTests.test_report_conflict_never_overwrites_or_acks) ... Pi publication pending for 1836e0da-b0a0-5631-9e6f-2a01bf6b5994
+Traceback (most recent call last):
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 144, in reconcile
+    try: self.publish(snapshot)
+         ~~~~~~~~~~~~^^^^^^^^^^
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 103, in publish
+    raise WorkerError(409, 'publication_conflict', 'Stored report does not match immutable worker result')
+scientific_agent.pi_client.WorkerError: Stored report does not match immutable worker result
+ok
+test_report_store_failure_keeps_running_then_recovers_exact_bytes (test_api.ProjectionTests.test_report_store_failure_keeps_running_then_recovers_exact_bytes) ... Pi publication pending for 1836e0da-b0a0-5631-9e6f-2a01bf6b5994
+Traceback (most recent call last):
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 144, in reconcile
+    try: self.publish(snapshot)
+         ~~~~~~~~~~~~^^^^^^^^^^
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 98, in publish
+    self.db._execute('INSERT INTO scientific_reports (id,task_id,topic,summary,keywords,content,model_used) VALUES (' + ','.join(map(sql,values)) + ') ON CONFLICT(id) DO NOTHING')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/tests/scientific_pi/api/test_api.py", line 31, in _execute
+    if self.fail_reports and 'scientific_reports' in sql: raise OSError('report store offline')
+                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: report store offline
+ok
+test_restart_after_report_insert_before_ack (test_api.ProjectionTests.test_restart_after_report_insert_before_ack) ... Pi publication pending for 1836e0da-b0a0-5631-9e6f-2a01bf6b5994
+Traceback (most recent call last):
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 144, in reconcile
+    try: self.publish(snapshot)
+         ~~~~~~~~~~~~^^^^^^^^^^
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 105, in publish
+    self.worker.ack(task_id, dict(attempt=result['attempt'],result_digest=result['result_digest'],report_id=task_id))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/tests/scientific_pi/api/test_api.py", line 108, in ack
+    if self.ack_failure == 'before': raise WorkerError(503, 'worker_unavailable', 'Ack lost', True)
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+scientific_agent.pi_client.WorkerError: Ack lost
+ok
+test_validation_and_idempotency_scope (test_api.ProjectionTests.test_validation_and_idempotency_scope) ... ok
+test_absent_extension_does_not_mask_missing_modules (test_overlay_import.OverlayImportTests.test_absent_extension_does_not_mask_missing_modules) ... ok
+test_incomplete_extension_fails_without_dependency_fallback (test_overlay_import.OverlayImportTests.test_incomplete_extension_fails_without_dependency_fallback) ... ok
+test_overlay_preserves_crew_and_canonical_pi_module_identity (test_overlay_import.OverlayImportTests.test_overlay_preserves_crew_and_canonical_pi_module_identity) ... ok
+test_ambiguous_submission_preserves_recoverable_id (test_ui.UITests.test_ambiguous_submission_preserves_recoverable_id) ... ok
+test_every_callback_has_the_required_component_inputs (test_ui.UITests.test_every_callback_has_the_required_component_inputs) ... ok
+test_invalid_task_id_does_not_call_api (test_ui.UITests.test_invalid_task_id_does_not_call_api) ... ok
+test_manual_query_and_cancel_show_state_and_stage (test_ui.UITests.test_manual_query_and_cancel_show_state_and_stage) ... ok
+test_submission_defaults_and_completed_poll (test_ui.UITests.test_submission_defaults_and_completed_poll) ... ok
+test_real_http_admission_cancel_and_publication (test_worker_http.WorkerHTTPTests.test_real_http_admission_cancel_and_publication) ... ok
+test_startup_reconciler_publishes_without_browser_polling (test_worker_http.WorkerHTTPTests.test_startup_reconciler_publishes_without_browser_polling) ... ok
+test_worker_rejection_survives_failed_index_update_and_restart (test_worker_http.WorkerHTTPTests.test_worker_rejection_survives_failed_index_update_and_restart) ... Pi dispatch recovery failed for 5e17506e-c30e-56b6-9320-dc66aea0ee67
+Traceback (most recent call last):
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 138, in reconcile
+    try: self.dispatch(row)
+         ~~~~~~~~~~~~~^^^^^
+  File "/app/app/api/../../scientific_agent/pi_projection.py", line 73, in dispatch
+    snapshot = self.worker.get(row['id'])
+  File "/app/app/api/../../scientific_agent/pi_client.py", line 74, in get
+    def get(self, task_id): return self.request('GET', self._task(task_id))
+                                   ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/app/api/../../scientific_agent/pi_client.py", line 63, in request
+    raise WorkerError(status, code, messages.get(code, 'Pi worker request failed'), err.get('retryable') is True or status >= 500)
+scientific_agent.pi_client.WorkerError: You already have an active Pi task
+ok
+
+----------------------------------------------------------------------
+Ran 33 tests in 3.585s
+
+OK
+Running scientific Pi suite: runtime
+test_actual_pinned_cli_strict_gateway_schema_two_tool_rounds (test_gateway_compat.GatewayCompatTests.test_actual_pinned_cli_strict_gateway_schema_two_tool_rounds)
+Validate both real SDK requests with the actual gateway ChatRequest class. ... ok
+test_compatibility_and_token_limit_fail_closed_before_launch (test_gateway_compat.GatewayCompatTests.test_compatibility_and_token_limit_fail_closed_before_launch) ... ok
+test_direct_provider_can_clear_only_the_fixed_profile (test_gateway_compat.GatewayCompatTests.test_direct_provider_can_clear_only_the_fixed_profile) ... ok
+test_factory_completions_defaults_and_preserves_gates (test_gateway_compat.GatewayCompatTests.test_factory_completions_defaults_and_preserves_gates) ... ok
+test_responses_has_token_cap_without_completions_compat (test_gateway_compat.GatewayCompatTests.test_responses_has_token_cap_without_completions_compat) ... ok
+test_atomic_output_does_not_follow_existing_temporary_link (test_runtime.RuntimeTest.test_atomic_output_does_not_follow_existing_temporary_link) ... ok
+test_cancel_stops_descendant_before_return (test_runtime.RuntimeTest.test_cancel_stops_descendant_before_return) ... ok
+test_custom_endpoint_uses_env_reference_without_persisted_key (test_runtime.RuntimeTest.test_custom_endpoint_uses_env_reference_without_persisted_key) ... ok
+test_directory_mode_is_set_while_owned_by_root (test_runtime.RuntimeTest.test_directory_mode_is_set_while_owned_by_root) ... ok
+test_event_sink_failure_still_stops_descendant (test_runtime.RuntimeTest.test_event_sink_failure_still_stops_descendant) ... ok
+test_fixture_group_scan_ignores_zombies_and_handles_complex_comm (test_runtime.RuntimeTest.test_fixture_group_scan_ignores_zombies_and_handles_complex_comm) ... ok
+test_fixture_group_stop_fails_closed_when_descendant_stays_active (test_runtime.RuntimeTest.test_fixture_group_stop_fails_closed_when_descendant_stays_active) ... ok
+test_fixture_group_stop_waits_for_two_empty_scans_after_signal (test_runtime.RuntimeTest.test_fixture_group_stop_waits_for_two_empty_scans_after_signal) ... ok
+test_fixture_recovery_without_orphans (test_runtime.RuntimeTest.test_fixture_recovery_without_orphans) ... ok
+test_normal_root_exit_stops_lingering_descendant (test_runtime.RuntimeTest.test_normal_root_exit_stops_lingering_descendant) ... ok
+test_pre_cancel_and_deadline (test_runtime.RuntimeTest.test_pre_cancel_and_deadline) ... ok
+test_process_limit_applies_without_cgroup_and_respects_inherited_hard (test_runtime.RuntimeTest.test_process_limit_applies_without_cgroup_and_respects_inherited_hard) ... ok
+test_production_gate_and_injected_control_secret_fail_closed (test_runtime.RuntimeTest.test_production_gate_and_injected_control_secret_fail_closed) ... ok
+test_protocol_exit_model_and_idle_errors (test_runtime.RuntimeTest.test_protocol_exit_model_and_idle_errors) ... ok
+test_readiness_checks_hashes_executables_and_actual_version (test_runtime.RuntimeTest.test_readiness_checks_hashes_executables_and_actual_version) ... ok
+test_recovery_unknown_orphan_is_not_claimed_safe (test_runtime.RuntimeTest.test_recovery_unknown_orphan_is_not_claimed_safe) ... ok
+test_running_deadline_stops_descendant (test_runtime.RuntimeTest.test_running_deadline_stops_descendant) ... ok
+test_second_attempt_gets_fresh_home_and_refuses_reuse (test_runtime.RuntimeTest.test_second_attempt_gets_fresh_home_and_refuses_reuse) ... ok
+test_skill_and_manifest_mismatch_fail_closed (test_runtime.RuntimeTest.test_skill_and_manifest_mismatch_fail_closed) ... ok
+test_success_minimal_env_actual_provenance_and_reviewed_skill (test_runtime.RuntimeTest.test_success_minimal_env_actual_provenance_and_reviewed_skill) ... ok
+test_uncertain_cleanup_fences_runtime_and_keeps_journal (test_runtime.RuntimeTest.test_uncertain_cleanup_fences_runtime_and_keeps_journal) ... ok
+test_version_probe_accepts_exact_stderr_and_bounds_both_streams (test_runtime.RuntimeTest.test_version_probe_accepts_exact_stderr_and_bounds_both_streams) ... ok
+
+----------------------------------------------------------------------
+Ran 27 tests in 10.700s
+
+OK
+Running scientific Pi suite: integration
+/usr/local/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_accepted_submit_response_loss_recovers_original_task_without_second_put (test_end_to_end.LocalPublicationIntegrationTests.test_accepted_submit_response_loss_recovers_original_task_without_second_put) ... ok
+test_acquired_full_text_is_validated_and_hashed_but_not_publicly_downloadable (test_end_to_end.LocalPublicationIntegrationTests.test_acquired_full_text_is_validated_and_hashed_but_not_publicly_downloadable) ... ok
+test_artifact_proxy_whitelist_integrity_and_private_metadata (test_end_to_end.LocalPublicationIntegrationTests.test_artifact_proxy_whitelist_integrity_and_private_metadata) ... ok
+test_cancel_after_publishing_keeps_result_and_user_admission_until_ack (test_end_to_end.LocalPublicationIntegrationTests.test_cancel_after_publishing_keeps_result_and_user_admission_until_ack) ... ok
+test_corrupt_controller_artifact_is_rejected_without_changing_published_report (test_end_to_end.LocalPublicationIntegrationTests.test_corrupt_controller_artifact_is_rejected_without_changing_published_report) ... ok
+test_durable_rejection_prevents_execution_after_index_update_loss_and_capacity_recovers (test_end_to_end.LocalPublicationIntegrationTests.test_durable_rejection_prevents_execution_after_index_update_loss_and_capacity_recovers) ... ok
+test_existing_foreign_report_is_never_overwritten_or_acked (test_end_to_end.LocalPublicationIntegrationTests.test_existing_foreign_report_is_never_overwritten_or_acked) ... ok
+test_foreign_hardlinked_report_is_rejected_by_actual_controller (test_end_to_end.LocalPublicationIntegrationTests.test_foreign_hardlinked_report_is_rejected_by_actual_controller) ... ok
+test_full_chain_validates_persists_acks_and_downloads_exact_bytes (test_end_to_end.LocalPublicationIntegrationTests.test_full_chain_validates_persists_acks_and_downloads_exact_bytes) ... ok
+test_invalid_citation_fails_actual_output_validation_and_cannot_publish (test_end_to_end.LocalPublicationIntegrationTests.test_invalid_citation_fails_actual_output_validation_and_cannot_publish) ... ok
+test_lost_ack_before_commit_replays_existing_report_then_acknowledges (test_end_to_end.LocalPublicationIntegrationTests.test_lost_ack_before_commit_replays_existing_report_then_acknowledges) ... ok
+test_lost_ack_response_after_commit_preserves_success (test_end_to_end.LocalPublicationIntegrationTests.test_lost_ack_response_after_commit_preserves_success) ... ok
+test_manifest_foreign_path_is_rejected_before_publication (test_end_to_end.LocalPublicationIntegrationTests.test_manifest_foreign_path_is_rejected_before_publication) ... ok
+test_publishing_is_not_timed_out_after_execution_deadline (test_end_to_end.LocalPublicationIntegrationTests.test_publishing_is_not_timed_out_after_execution_deadline) ... ok
+test_queued_cancel_never_runs_and_worker_unavailable_is_not_legacy_404 (test_end_to_end.LocalPublicationIntegrationTests.test_queued_cancel_never_runs_and_worker_unavailable_is_not_legacy_404) ... ok
+test_report_store_outage_preserves_result_then_recovers_without_research_rerun (test_end_to_end.LocalPublicationIntegrationTests.test_report_store_outage_preserves_result_then_recovers_without_research_rerun) ... ok
+test_running_cancel_propagates_signal_and_no_result_is_published (test_end_to_end.LocalPublicationIntegrationTests.test_running_cancel_propagates_signal_and_no_result_is_published) ... ok
+test_worker_authentication_and_stale_publication_ack_fail_closed (test_end_to_end.LocalPublicationIntegrationTests.test_worker_authentication_and_stale_publication_ack_fail_closed) ... ok
+test_actual_pi_reads_skill_validates_fixture_and_publishes_exact_download (test_real_pi_research.ActualPiResearchIntegrationTests.test_actual_pi_reads_skill_validates_fixture_and_publishes_exact_download) ... ok
+test_pinned_actual_cli_bash_tool_result_returns_to_loopback_model (test_real_pi_smoke.ActualPiLocalSmokeTests.test_pinned_actual_cli_bash_tool_result_returns_to_loopback_model) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 14.833s
+
+OK
+Running scientific Pi suite: deployment
+test_api_patch_retains_crewai_and_bypasses_old_entrypoint_overlay (test_deployment.DeploymentTests.test_api_patch_retains_crewai_and_bypasses_old_entrypoint_overlay) ... ok
+test_default_closed_no_human_resources_or_api_network_isolation (test_deployment.DeploymentTests.test_default_closed_no_human_resources_or_api_network_isolation) ... ok
+test_factory_cannot_enable_fixture_or_inherit_control_secret (test_deployment.DeploymentTests.test_factory_cannot_enable_fixture_or_inherit_control_secret) ... ok
+test_images_require_immutable_digests (test_deployment.DeploymentTests.test_images_require_immutable_digests) ... ok
+test_invalid_evidence_flag_does_not_silently_enable (test_deployment.DeploymentTests.test_invalid_evidence_flag_does_not_silently_enable) ... ok
+test_model_path_and_namespace_are_trusted_configuration (test_deployment.DeploymentTests.test_model_path_and_namespace_are_trusted_configuration) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.003s
+
+OK
+All 7 scientific Pi suites passed; inspect explicit platform/runtime skips above.

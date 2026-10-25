@@ -1,0 +1,272 @@
+{
+  "version": "scientific-pi-worker-network-acceptance-v1",
+  "batch": "20261022-net2",
+  "pods": [
+    {
+      "name": "spnet-20261022-net2-baseline",
+      "node": "orangepi5-max-server1",
+      "labels": {
+        "llm-client": "true",
+        "network-profile": "baseline",
+        "validation-batch": "20261022-net2",
+        "validation-suite": "scientific-pi-network"
+      },
+      "image": "arm-cluster-master:5000/scientific-pi-worker@sha256:af410cb49100f4864c0d445d35079f1ba133a502b7a1862da9b63f371e508dd9",
+      "imageID": "docker-pullable://arm-cluster-master:5000/scientific-pi-worker@sha256:af410cb49100f4864c0d445d35079f1ba133a502b7a1862da9b63f371e508dd9",
+      "terminated": {
+        "containerID": "docker://e41d3a850a474c32224ea83e9885af5c07936bf0ca1b7a573144e679d755753e",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T07:53:32Z",
+        "reason": "Completed",
+        "startedAt": "2026-10-22T07:53:15Z"
+      },
+      "pod_security_context": {
+        "runAsGroup": 10001,
+        "runAsNonRoot": true,
+        "runAsUser": 10001,
+        "seccompProfile": {
+          "type": "RuntimeDefault"
+        }
+      },
+      "container_security_context": {
+        "allowPrivilegeEscalation": false,
+        "capabilities": {
+          "drop": [
+            "ALL"
+          ]
+        },
+        "readOnlyRootFilesystem": true
+      },
+      "automount_service_account_token": false,
+      "volumes": [
+        {
+          "configMap": {
+            "defaultMode": 420,
+            "name": "spnet-20261022-net2"
+          },
+          "name": "validation"
+        },
+        {
+          "configMap": {
+            "defaultMode": 420,
+            "name": "kube-root-ca.crt"
+          },
+          "name": "ca"
+        },
+        {
+          "emptyDir": {
+            "sizeLimit": "16Mi"
+          },
+          "name": "tmp"
+        }
+      ]
+    },
+    {
+      "name": "spnet-20261022-net2-restricted",
+      "node": "orangepi5-max-server1",
+      "labels": {
+        "llm-client": "true",
+        "network-profile": "restricted",
+        "validation-batch": "20261022-net2",
+        "validation-suite": "scientific-pi-network"
+      },
+      "image": "arm-cluster-master:5000/scientific-pi-worker@sha256:af410cb49100f4864c0d445d35079f1ba133a502b7a1862da9b63f371e508dd9",
+      "imageID": "docker-pullable://arm-cluster-master:5000/scientific-pi-worker@sha256:af410cb49100f4864c0d445d35079f1ba133a502b7a1862da9b63f371e508dd9",
+      "terminated": {
+        "containerID": "docker://ad96085f8125b0e983ff5b8e748a6b16ca27324baa25c13ff6ac8d49274b1930",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T07:53:48Z",
+        "reason": "Completed",
+        "startedAt": "2026-10-22T07:53:15Z"
+      },
+      "pod_security_context": {
+        "runAsGroup": 10001,
+        "runAsNonRoot": true,
+        "runAsUser": 10001,
+        "seccompProfile": {
+          "type": "RuntimeDefault"
+        }
+      },
+      "container_security_context": {
+        "allowPrivilegeEscalation": false,
+        "capabilities": {
+          "drop": [
+            "ALL"
+          ]
+        },
+        "readOnlyRootFilesystem": true
+      },
+      "automount_service_account_token": false,
+      "volumes": [
+        {
+          "configMap": {
+            "defaultMode": 420,
+            "name": "spnet-20261022-net2"
+          },
+          "name": "validation"
+        },
+        {
+          "configMap": {
+            "defaultMode": 420,
+            "name": "kube-root-ca.crt"
+          },
+          "name": "ca"
+        },
+        {
+          "emptyDir": {
+            "sizeLimit": "16Mi"
+          },
+          "name": "tmp"
+        }
+      ]
+    }
+  ],
+  "policy": {
+    "name": "spnet-20261022-net2-restricted",
+    "spec": {
+      "egress": [
+        {
+          "ports": [
+            {
+              "port": 53,
+              "protocol": "UDP"
+            },
+            {
+              "port": 53,
+              "protocol": "TCP"
+            }
+          ],
+          "to": [
+            {
+              "namespaceSelector": {
+                "matchLabels": {
+                  "kubernetes.io/metadata.name": "kube-system"
+                }
+              },
+              "podSelector": {
+                "matchLabels": {
+                  "k8s-app": "kube-dns"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ports": [
+            {
+              "port": 443,
+              "protocol": "TCP"
+            }
+          ],
+          "to": [
+            {
+              "ipBlock": {
+                "cidr": "0.0.0.0/0",
+                "except": [
+                  "10.0.0.0/8",
+                  "172.16.0.0/12",
+                  "192.168.0.0/16",
+                  "127.0.0.0/8",
+                  "169.254.0.0/16",
+                  "198.18.0.0/15",
+                  "224.0.0.0/4",
+                  "240.0.0.0/4"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "ports": [
+            {
+              "port": 8000,
+              "protocol": "TCP"
+            }
+          ],
+          "to": [
+            {
+              "namespaceSelector": {
+                "matchLabels": {
+                  "kubernetes.io/metadata.name": "llm"
+                }
+              },
+              "podSelector": {
+                "matchLabels": {
+                  "app": "llm-service"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "podSelector": {
+        "matchLabels": {
+          "llm-client": "true",
+          "network-profile": "restricted",
+          "validation-batch": "20261022-net2",
+          "validation-suite": "scientific-pi-network"
+        }
+      },
+      "policyTypes": [
+        "Ingress",
+        "Egress"
+      ]
+    },
+    "matches_rendered_policy": true,
+    "normalization": "apiserver omits empty ingress list"
+  },
+  "probe_sha256": {
+    "academic_transport_probe.py": "0f4185172b443875f68600bbf39e657bef39ddb48ab84b59600a6f0b3e2e3f34",
+    "network_probe.py": "b40f4d3d5f1f5afffdbfeae4bf7326f202263acdaace58ee9d14e10536e8c3ae",
+    "run_acceptance.py": "e5986888dd984f1b8c87867207aaa7ed087a3777f9278f65535af5b8ebb75a45"
+  },
+  "llm_health": "HTTP200_and_expected_format_in_both_profiles",
+  "academic_https": "three_sources_HTTP200_TLS_verified_expected_format_in_both_profiles",
+  "academic_bridge": "three_real_searches_and_DOI_PMID_verification_passed_in_both_profiles",
+  "paired_private_checks": [
+    {
+      "target": "kubernetes",
+      "baseline_response": "http_response",
+      "restricted_result": "timeout_without_protocol_response",
+      "interpretation": "supported_denial"
+    },
+    {
+      "target": "vault",
+      "baseline_response": "http_response",
+      "restricted_result": "timeout_without_protocol_response",
+      "interpretation": "supported_denial"
+    },
+    {
+      "target": "sqlite",
+      "baseline_response": "http_response",
+      "restricted_result": "timeout_without_protocol_response",
+      "interpretation": "supported_denial"
+    },
+    {
+      "target": "redis",
+      "baseline_response": "redis_response",
+      "restricted_result": "timeout_without_protocol_response",
+      "interpretation": "supported_denial"
+    },
+    {
+      "target": "node_ssh",
+      "baseline_response": "ssh_banner",
+      "restricted_result": "timeout_without_protocol_response",
+      "interpretation": "supported_denial"
+    },
+    {
+      "target": "pi_web",
+      "baseline_error": "timeout",
+      "restricted_error": "timeout",
+      "interpretation": "unknown_baseline_unavailable"
+    },
+    {
+      "target": "metadata_root",
+      "baseline_error": "refused",
+      "restricted_error": "timeout",
+      "interpretation": "unknown_baseline_unavailable"
+    }
+  ],
+  "ipv6": "loopback_and_link_local_only_no_usable_default_route; network_policy_enforcement_unverified; transport_rejects_all_IPv6",
+  "production_deployment_performed": false
+}

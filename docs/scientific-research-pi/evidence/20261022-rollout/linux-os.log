@@ -1,0 +1,13 @@
+{"acceptance_scope": "synthetic-linux-os-only", "fixture_version": "0.0.0-linux-os-fixture-v1", "controller_capabilities": ["CHOWN", "DAC_OVERRIDE", "KILL", "SETGID", "SETUID"], "capability_mask": "0xe3", "root_readonly": true, "tmpfs": ["/data", "/tmp"], "network_interfaces": ["lo"]}
+test_actual_uid_caps_groups_nnp_nproc_environment_and_private_controls (test_linux_acceptance.LinuxContainerAcceptance.test_actual_uid_caps_groups_nnp_nproc_environment_and_private_controls) ... ok
+test_controller_sigkill_parentdeath_and_persisted_uid_recovery (test_linux_acceptance.LinuxContainerAcceptance.test_controller_sigkill_parentdeath_and_persisted_uid_recovery) ... ok
+test_detached_descendant_cleanup_after_normal_exit (test_linux_acceptance.LinuxContainerAcceptance.test_detached_descendant_cleanup_after_normal_exit) ... ok
+test_detached_descendant_cleanup_after_running_cancel (test_linux_acceptance.LinuxContainerAcceptance.test_detached_descendant_cleanup_after_running_cancel) ... ok
+test_detached_descendant_cleanup_after_running_deadline (test_linux_acceptance.LinuxContainerAcceptance.test_detached_descendant_cleanup_after_running_deadline) ... ok
+test_new_uid_cannot_read_or_write_previous_real_attempt (test_linux_acceptance.LinuxContainerAcceptance.test_new_uid_cannot_read_or_write_previous_real_attempt) ... ok
+test_task_created_fifo_artifact_is_rejected_without_blocking (test_linux_acceptance.LinuxContainerAcceptance.test_task_created_fifo_artifact_is_rejected_without_blocking) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 7.229s
+
+OK

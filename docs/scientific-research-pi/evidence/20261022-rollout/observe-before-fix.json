@@ -1,0 +1,110 @@
+{
+  "workloads": {
+    "scientific-pi-worker": {
+      "generation": 2,
+      "ready": 1,
+      "pods": [
+        {
+          "name": "scientific-pi-worker-5dbf79bb54-wh7js",
+          "uid": "b09ac6e3-fb27-488d-9e33-afc16f688bbe",
+          "node": "orangepi5-max-server1",
+          "started": "2026-10-22T08:07:29Z",
+          "images": [
+            "arm-cluster-master:5000/scientific-pi-worker@sha256:af410cb49100f4864c0d445d35079f1ba133a502b7a1862da9b63f371e508dd9"
+          ]
+        }
+      ]
+    },
+    "api": {
+      "generation": 37,
+      "ready": 1,
+      "pods": [
+        {
+          "name": "api-8cc84764c-x7ln9",
+          "uid": "491c53b2-eddf-4a92-9644-d10b951d1209",
+          "node": "orangepi5-max-server1",
+          "started": "2026-10-22T08:09:13Z",
+          "images": [
+            "arm-cluster-master:5000/scientific-pi-api@sha256:89caf56457ee7f778ebe26337278ca3ede6bf6550d7f6339386473c18dcfbaa9"
+          ]
+        }
+      ]
+    },
+    "ui": {
+      "generation": 9,
+      "ready": 1,
+      "pods": [
+        {
+          "name": "ui-6b7d77b76f-f4q9q",
+          "uid": "bba3194e-e442-4657-9dc6-da5c3d5888af",
+          "node": "orangepi5-max-server1",
+          "started": "2026-10-22T08:27:56Z",
+          "images": [
+            "arm-cluster-master:5000/agent-ui@sha256:4639d4c6d2cfbd03a26cb759f7badbc2b4fabaa988e3299adbbb00d6a7d2c482"
+          ]
+        }
+      ]
+    }
+  },
+  "pvc": {
+    "uid": "c736257d-e970-4f2d-98c3-e21346c07d18",
+    "volume": "pvc-c736257d-e970-4f2d-98c3-e21346c07d18",
+    "phase": "Bound"
+  },
+  "worker": {
+    "tasks": [
+      {
+        "id": "b60e5e53-c72e-56b5-8c30-7e7bc2fb7270",
+        "state": "failed",
+        "stage": "search",
+        "attempt": 1,
+        "revision": 2,
+        "created_at": "2026-10-22T08:11:07Z",
+        "started_at": "2026-10-22T08:11:07Z",
+        "finished_at": "2026-10-22T08:12:32Z",
+        "error_code": "model_error",
+        "report_id": null,
+        "report_sha256": null,
+        "result_digest": null
+      },
+      {
+        "id": "83726a4e-cd39-5735-80c8-78a01d2dd1ff",
+        "state": "failed",
+        "stage": "search",
+        "attempt": 1,
+        "revision": 2,
+        "created_at": "2026-10-22T08:18:49Z",
+        "started_at": "2026-10-22T08:18:51Z",
+        "finished_at": "2026-10-22T08:20:50Z",
+        "error_code": "runtime_output_limit",
+        "report_id": null,
+        "report_sha256": null,
+        "result_digest": null
+      }
+    ],
+    "uid_allocations": [
+      {
+        "sequence": 1,
+        "task_id": "b60e5e53-c72e-56b5-8c30-7e7bc2fb7270",
+        "attempt": 1,
+        "uid": 200000
+      },
+      {
+        "sequence": 2,
+        "task_id": "83726a4e-cd39-5735-80c8-78a01d2dd1ff",
+        "attempt": 1,
+        "uid": 200001
+      }
+    ],
+    "cgroup": {
+      "memory.current": "49848320",
+      "memory.peak": "315957248",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+      "cpu.stat": "usage_usec 172379410\nuser_usec 145840942\nsystem_usec 26538467\nnr_periods 14449\nnr_throttled 97\nthrottled_usec 2798643\nnr_bursts 0\nburst_usec 0"
+    }
+  },
+  "api": {
+    "active_crewai_tasks": 0,
+    "reports": 4
+  }
+}

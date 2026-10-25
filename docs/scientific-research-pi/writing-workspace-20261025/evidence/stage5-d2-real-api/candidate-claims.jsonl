@@ -1,0 +1,4 @@
+{"claim_id": "C1", "marker": "<!-- claim:C1 -->", "evidence_ids": ["E1"], "assessment": "supported", "explanation": "限于Lewis等摘要的模型机制与相对纯参数基线的定性报告。"}
+{"claim_id": "C2", "marker": "<!-- claim:C2 -->", "evidence_ids": ["E2"], "assessment": "supported", "explanation": "限于Self-RAG摘要对固定检索的局限、按需检索和反思机制及相对其指定基线的定性报告。"}
+{"claim_id":"revision_limits_1","marker":"<!-- claim:revision_limits_1 -->","evidence_ids":["E1","E2"],"assessment":"insufficient","explanation":"E1与E2支持各摘要中限定于自身基线的定性报告，但不能支持跨研究的改善幅度比较；关于检索内容与使用方式的综合仍沿用原C3的insufficient判断，未提高支持强度。"}
+{"claim_id":"revision_limits_2","marker":"<!-- claim:revision_limits_2 -->","evidence_ids":["E1","E2"],"assessment":"insufficient","explanation":"保留原C3的证据不足判断。E1缺少评估细节、效应量和统计不确定性，E2缺少指标数值、误差与控制实验；两者不能确立模型间优劣、独立因果贡献或普遍消除错误的结论，相关问题仍待全文及实证核验。"}

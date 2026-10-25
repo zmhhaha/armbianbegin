@@ -1,0 +1,4 @@
+{"source":"arxiv","query":"ti:\"Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks\"","searched_at":"2026-10-22T11:26:29Z","status":"success","result_count":1,"error":null}
+{"source": "crossref", "query": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks", "searched_at": "2026-10-22T11:27:10Z", "status": "success", "result_count": 1, "error": null}
+{"source": "arxiv", "query": "ti:\"Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection\"", "searched_at": "2026-10-22T11:27:38Z", "status": "success", "result_count": 1, "error": null}
+{"source": "crossref", "query": "Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection", "searched_at": "2026-10-22T11:27:49Z", "status": "success", "result_count": 1, "error": null}

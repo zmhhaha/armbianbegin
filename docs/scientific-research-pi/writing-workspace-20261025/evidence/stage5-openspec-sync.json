@@ -1,0 +1,23 @@
+{
+  "schema_version": "1",
+  "service": "https://openspec.panghuer.top/mcp",
+  "project_id": "ec663f5a-53d3-4a0e-9037-933eb788d183",
+  "change_id": "add-scientific-evidence-linked-revisions",
+  "revision": "229f0cb0278f5369f2242a70e0bca6f4b8a80648",
+  "task_status": {
+    "total": 25,
+    "completed": 25,
+    "remaining": 0
+  },
+  "validation": {
+    "valid": true,
+    "issues": []
+  },
+  "archive_requested": false,
+  "archived": false,
+  "evidence_commit": "487b7d8bba17dfa87e5bb289b80254104d1d53e3",
+  "deployed_application_commit": "d208aee9d78a56867cf8706eea4223e16eba046d",
+  "release_root_commit": "09e9b5ce21627efb896e8ec0b560a79bc5e14f34",
+  "recorded_at_utc": "2026-10-25 16:37:15 UTC",
+  "scope": "Completion and validation receipt only; canonical OpenSpec artifacts remain in the service"
+}

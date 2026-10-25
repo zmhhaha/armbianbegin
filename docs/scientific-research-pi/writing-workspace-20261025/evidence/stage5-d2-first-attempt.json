@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "production_revision_canary_first_attempt_diagnosis",
+  "sanitized": true,
+  "task": {
+    "task_id": "6402d618-747c-580a-8e90-cf49ab96ae58",
+    "task_kind": "revision",
+    "state": "failed",
+    "stage": "validate",
+    "error_code": "unsupported_assessment_upgrade",
+    "attempt": 1,
+    "revision": 3,
+    "created_at": "2026-10-25T15:05:27Z",
+    "started_at": "2026-10-25T15:05:27Z",
+    "finished_at": "2026-10-25T15:06:16Z",
+    "updated_at": "2026-10-25T15:06:16Z",
+    "deadline": "2026-10-25T15:15:27Z",
+    "acceptance_receipt_observed_at": "2026-10-25T15:06:18.394687+00:00",
+    "acceptance_receipt_error": "revision_terminal_failure",
+    "public_error_length": 30
+  },
+  "baseline": {
+    "claim_count": 3,
+    "assessment_counts": {
+      "supported": 2,
+      "insufficient": 1
+    },
+    "claim_evidence_counts": [
+      {
+        "assessment": "supported",
+        "evidence_count": 1
+      },
+      {
+        "assessment": "supported",
+        "evidence_count": 1
+      },
+      {
+        "assessment": "insufficient",
+        "evidence_count": 2
+      }
+    ],
+    "evidence_count": 2,
+    "access_level_counts": {
+      "abstract": 2
+    }
+  },
+  "validator": {
+    "source": "panghu_agent/scientific_agent/pi_revision_validation.py",
+    "error_code": "unsupported_assessment_upgrade",
+    "possible_guard_branches": [
+      {
+        "branch": "exact_uncertain_evidence_set",
+        "condition": "A replacement claim is supported and uses the exact evidence set of an existing conflicting or insufficient claim."
+      },
+      {
+        "branch": "same_claim_uncertain_evidence_subset",
+        "condition": "A replacement claim keeps an existing claim ID, changes conflicting or insufficient to supported, and uses the same evidence or a subset of it."
+      }
+    ],
+    "specific_guard_branch": "unknown",
+    "reason": "Both guards emit the same public error code. The scheduler deliberately discards failed revision workspaces, and the retained public task and acceptance materials do not include the rejected revision output. Claim ID reuse and the exact guard branch cannot be established from retained evidence."
+  },
+  "assessment": {
+    "classification": "expected_conservative_validation_rejection",
+    "conclusion": "The validator rejected an unsupported upgrade of an uncertain assessment. This attempt did not fail with model_error and provides no observed evidence of a product state or publication defect.",
+    "parent_report_unchanged": "not_independently_verified_by_this_audit",
+    "runtime_or_validator_relaxation_recommended": false,
+    "minimal_retry": "Create a separate canary intent from fixed Git source with explicit instructions to preserve existing conflicting and insufficient assessments, retain existing evidence and limitations, and keep new or split claims conservative when no additional evidence is available. Preserve this failed attempt as evidence."
+  },
+  "audit_scope": {
+    "production_configuration_modified": false,
+    "database_mutations": false,
+    "tasks_created": false,
+    "tasks_cancelled_or_restarted": false,
+    "model_calls_initiated": false,
+    "raw_report_or_prompt_included": false,
+    "owner_or_credentials_included": false,
+    "local_diagnostic_file_written": true
+  }
+}

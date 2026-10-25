@@ -15,6 +15,10 @@
 
 本目录是这台机器的**唯一事实来源** ✓：换机器时 `git clone` + `bash install.sh` 即可重建。
 
+PPT 测试站的精确域名、认证资产不缓存及 frpc 路由/网络规则见 [PPT 接入](PPT.md)。
+该可选站点由 `nginx/ppt-service.conf.template` 单独管理，显式设 `PPT_VPS_ENABLED=1`
+时由 `install.sh stage2` 安装；本次PPT入口由用户自行配置Cloudflare Tunnel。
+
 ## 二、前置条件
 
 | 项 | 说明 |
@@ -68,6 +72,8 @@ nginx -t                                     # 改配置后先校验
 
 **新增一个对外域名**：**不需要动本机** ✓ —— 只要在集群的 `frpc` 配置里加一条 `[[proxies]]`，
 再到 Cloudflare 加一条 A 记录（DNS only → 本机 IP）✓。通配符证书与 nginx 配置都无需改 ✓。
+
+PPT 是认证资产不缓存的例外：必须同时启用 [PPT 专用站点](PPT.md)，不能直接使用通配符静态缓存。
 
 `custom-llm-proxy.panghuer.top` 是例外：它在 VPS 上直接转发至外部 LLM 上游，不经过 frps。
 它是模板 `nginx/custom-llm-proxy.conf.template`，由 `install.sh` 用 `envsubst` 渲染后装到

@@ -1,0 +1,4 @@
+{"source": "arxiv", "query": "ti:\"Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks\"", "searched_at": "2026-10-22T09:08:23Z", "status": "success", "result_count": 1, "error": null}
+{"source": "crossref", "query": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks", "searched_at": "2026-10-22T09:08:23Z", "status": "success", "result_count": 2, "error": null}
+{"source": "arxiv", "query": "ti:\"Retrieval Augmentation Reduces Hallucination in Conversation\"", "searched_at": "2026-10-22T09:08:33Z", "status": "success", "result_count": 1, "error": null}
+{"source": "crossref", "query": "Retrieval Augmentation Reduces Hallucination in Conversation", "searched_at": "2026-10-22T09:08:33Z", "status": "success", "result_count": 1, "error": null}

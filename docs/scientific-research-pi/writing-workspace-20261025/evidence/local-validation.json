@@ -1,0 +1,46 @@
+{
+  "record_type": "local_validation_summary",
+  "recorded_on": "2026-10-25",
+  "timezone": "Asia/Shanghai",
+  "change_id": "add-scientific-evidence-linked-revisions",
+  "deployed": false,
+  "sources": [
+    {
+      "path": "panghu_agent/app/api/scientific_agent.py",
+      "sha256": "ee14d4fe3d96eb1011ae8e2b29de49fd099c20846417c5f1fb941b76bee6b544"
+    },
+    {
+      "path": "panghu_agent/app/ui/scientific_agent.py",
+      "sha256": "4eba0b768b66fda1c0264de929355aa46a9a6729cfd57ff17bf7e728f7291059"
+    },
+    {
+      "path": "panghu_agent/scientific_agent/pi_citations.py",
+      "sha256": "121333da95d4c9e8b0c1e7fabeca83d25160fd4b852abd196450ff4bf78797ad"
+    },
+    {
+      "path": "panghu_agent/scientific_agent/pi_client.py",
+      "sha256": "8fa68aa2058841c7aa2c7e662f6327bc2f71a6c1a27c89db54a123d120d91839"
+    }
+  ],
+  "tests": {
+    "command": "python -m unittest discover -s tests/scientific_pi/api -p test*.py",
+    "passed": 149,
+    "failed": 0,
+    "duration_seconds": 5.658,
+    "ui_tests": 68,
+    "citation_module_tests": 28,
+    "citation_api_tests": 12,
+    "bounded_transport_tests": 6,
+    "includes_fresh_process_image_layout": true,
+    "notes": "Expected injected storage/ack/recovery errors are part of passing failure-path tests."
+  },
+  "targeted_diff_check_passed": true,
+  "network_calls_to_production": 0,
+  "real_model_calls": 0,
+  "production_database_modified": false,
+  "image_built": false,
+  "remaining": [
+    "Stage 1 production image build and paired API/UI release, authenticated production browser acceptance.",
+    "Section/version storage, revision protocol, Pi section rewrite and explicit adoption."
+  ]
+}

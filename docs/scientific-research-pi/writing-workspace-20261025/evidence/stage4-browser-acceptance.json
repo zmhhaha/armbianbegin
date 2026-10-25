@@ -1,0 +1,95 @@
+{
+  "schema_version": "1",
+  "recorded_at_utc": "2026-10-25T12:58:05.774533+00:00",
+  "phase": 4,
+  "environment": "Actual Gradio 6.19.0 and FastAPI; loopback only, in-memory SQLite, synthetic worker output",
+  "final_ui": "http://127.0.0.1:17868/",
+  "api": "http://127.0.0.1:17867",
+  "identity": "local fixture identity injected by loopback-only middleware; no Casdoor login",
+  "browser": "Codex in-app browser via documented browser skill",
+  "desktop": true,
+  "mobile": {
+    "width": 390,
+    "height": 844,
+    "document_width": 390,
+    "horizontal_overflow": false
+  },
+  "scenarios": [
+    "Restore original report and load exact owner-scoped sections and version history",
+    "Select target and preview fixed evidence/instruction/time limit before explicit start",
+    "Mobile start and automatic progress transition to succeeded candidate",
+    "Candidate completion leaves reading and adopted selection unchanged",
+    "Mobile before/after and plain-text unified diff",
+    "Explicit adoption changes current selection while reading remains baseline",
+    "Switch to candidate version and return to original/base without adopting history",
+    "Final desktop start then cancel; candidate not created and current selection remains revision1",
+    "Prepare exactly once enables download for original and candidate in final UI",
+    "Version switch clears old download and disables the button until newly prepared",
+    "Browser files match exact original/candidate bytes and SHA256",
+    "Citation view loads records for selected candidate source",
+    "Final desktop and mobile comparison remains usable without horizontal page overflow",
+    "Temporary viewport override reset before handing back"
+  ],
+  "browser_discovered_fix": "First prepared version download stayed hidden. Download control now stays mounted, disabled until verified, and clears old file on version change; first-prepare downloads passed.",
+  "downloads": [
+    {
+      "kind": "original",
+      "bytes": 1027,
+      "sha256": "c6a7b0e2b2887adad9b910cc4e68b73874d81049866c4d19f16533f188a0722d",
+      "browser_download_matches_exact_api_version": true,
+      "first_prepare_succeeded": true
+    },
+    {
+      "kind": "candidate",
+      "bytes": 1220,
+      "sha256": "495badf04cb71c53135c548d3ffabc1d0914695f36812d05f726e923e4489723",
+      "browser_download_matches_exact_api_version": true,
+      "first_prepare_succeeded": true
+    }
+  ],
+  "adopted_version_id": "0113c044-b57e-5869-9adf-17196b78cb57",
+  "selection_revision": 1,
+  "cancelled_task_id": "e49ca60f-fca5-5d02-b013-c1770406c47b",
+  "screenshots": {
+    "stage4-desktop-comparison.png": {
+      "bytes": 441594,
+      "sha256": "992557eeee83956d5a8d90b2fdbf3f425a597227d588af3e972d75d4b284f506"
+    },
+    "stage4-mobile-comparison.png": {
+      "bytes": 360141,
+      "sha256": "d0c92fda130653ea53f393358f562d53f4e9d0fa966fe9fe790110d7bc9c0225"
+    },
+    "stage4-editor-preview.png": {
+      "bytes": 421396,
+      "sha256": "00fec3f57774f6067d3e366855a791b7e0e620146f007e12f90cbee211da5764"
+    }
+  },
+  "dom_evidence": {
+    "final-cancel.dom.txt": {
+      "bytes": 8943,
+      "sha256": "83d547949bb3597b9e6a25a0ed07c834183b44fd1768b27596a1428d02cd2329"
+    },
+    "mobile-comparison.dom.txt": {
+      "bytes": 8486,
+      "sha256": "8c3800b6cd064cf2bfa566d992639bb769da0eca9625e3a9b02bad14ebceb8ed"
+    },
+    "final-desktop-comparison.dom.txt": {
+      "bytes": 10834,
+      "sha256": "8a2c85941767721d69adc34a800215f1816b8807093be2c0c8c1ea38729c544f"
+    },
+    "final-mobile-comparison.dom.txt": {
+      "bytes": 10776,
+      "sha256": "f3240d3221638c2e7af1d9ccf1e7960d010daf98732d9b2feaef32faf5c69414"
+    }
+  },
+  "real_model_called": false,
+  "email_sent": false,
+  "production_database_accessed": false,
+  "production_deployed": false,
+  "formal_login_tested": false,
+  "limitations": [
+    "Browser data/output are synthetic, not scientific-quality or real-Pi acceptance.",
+    "Conflict, lost response, delayed old selection and owner isolation additionally verified by local unit/HTTP-chain tests.",
+    "Legacy/expired material behavior is covered by API/UI regression; not recertified in this browser session."
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-22T11:25:59Z",
+  "namespace": "scientific-agent",
+  "deployment": "ui",
+  "ui_configmap": "scientific-pi-ui-f2b437737cb5",
+  "verification_method": "Read-only HTTP GET from inside the UI Pod to its normal Gradio file endpoint; compare response bytes with the expected published report SHA-256.",
+  "ui_port": 7860,
+  "reports": [
+    {
+      "name": "Pi canary03",
+      "task_id_prefix": "d45d0afa",
+      "endpoint": "/gradio_api/file=/tmp/gradio/2c93e995d3613161e091f1a39aa838a43a9e4db69f01679e6f9ea594bfc62a7e/d45d0afa_e9k3easc.md",
+      "http_status": 200,
+      "content_type": "application/octet-stream",
+      "content_disposition": "attachment; filename=\"d45d0afa_e9k3easc.md\"",
+      "response_bytes": 6873,
+      "response_sha256": "64ecec0c48a2e67c8d941b192f311065fb0d58d427fba12a1eac47eb2c98bdf0",
+      "cache_file_bytes": 6873,
+      "cache_file_sha256": "64ecec0c48a2e67c8d941b192f311065fb0d58d427fba12a1eac47eb2c98bdf0",
+      "matches_expected_published_report": true
+    },
+    {
+      "name": "Existing CrewAI report via history download",
+      "task_id": "afa187bc-8e79-4426-9adc-9f5d3d36c2bb",
+      "endpoint": "/gradio_api/file=/tmp/gradio/2317e66dd74c7468d0a0642e0b37615cf515d95687bd158108e8841a9091387e/afa187bc_h0n11i0d.md",
+      "http_status": 200,
+      "content_type": "application/octet-stream",
+      "content_disposition": "attachment; filename=\"afa187bc_h0n11i0d.md\"",
+      "response_bytes": 3633,
+      "response_sha256": "61aa21fd67b70c4a4205c06d0267ac7f5cf3237798b879c038d63b9e7297806f",
+      "cache_file_bytes": 3633,
+      "cache_file_sha256": "61aa21fd67b70c4a4205c06d0267ac7f5cf3237798b879c038d63b9e7297806f",
+      "matches_expected_published_report": true
+    }
+  ],
+  "access_logs": {
+    "window_minutes": 20,
+    "total_http_access_records": 0,
+    "matching_report_file_requests": [],
+    "installed_source": "gradio.http_server.start_server",
+    "uvicorn_log_level": "warning",
+    "interpretation": "Normal INFO access records are suppressed by the installed server log level. Missing file request records do not establish whether the browser requested the file. The local HTTP checks establish the server response independently."
+  },
+  "initial_probe": {
+    "port": 7861,
+    "result": "URLError",
+    "resolution": "The declared GRADIO_SERVER_PORT and active listening socket both identify 7860; the successful checks use that port."
+  },
+  "gradio_request_header_regression": {
+    "installed_version": "6.19.0",
+    "method": "Serialize and deserialize a synthetic Gradio Request backed by a synthetic Starlette HTTP request; no real user headers were read.",
+    "restored_headers_type": "Obj",
+    "uppercase_lookup_preserves_synthetic_user": false,
+    "normalized_lowercase_lookup_preserves_synthetic_user": true
+  },
+  "gateway_compatibility_checked_earlier_in_this_task": {
+    "source_revision": "64a6188",
+    "comparison": "Live source bytes equal repository source after LF normalization.",
+    "llm_gateway_sha256": "42fbab476e3e4a54835fff3695a1f522632a951a2f91a250902402961977423b",
+    "responses_client_sha256": "156ee725e900b54b10d53da8aa15406de3c4cd2e52a15e4d094d1bafffd3f592",
+    "executor_history_fix_present": true,
+    "crew_source_limit": "The mounted scientific_agent/crew.py is a deployment variant with _agent/_task factories, not byte-for-byte or AST-identical to the repository crew.py. It imports GatewayResponsesLLM and has the same _make_llm function; no claim of full source identity is made."
+  },
+  "limitations": [
+    "These checks validate the UI server file endpoint and exact report bytes. They do not prove the in-app browser saved either file into Windows Downloads.",
+    "Browser click request status could not be recovered from access logs at the installed warning level.",
+    "No OAuth, session, cookie or token data was inspected or recorded. No code, database, deployment or authentication configuration was changed by these checks."
+  ]
+}

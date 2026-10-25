@@ -1,0 +1,56 @@
+# PPT is authenticated even for /assets/. Keep it out of the wildcard site's
+# public static cache and HTML rewriting. Render only BASE_DOMAIN/HTTPS_PORT;
+# nginx variables below must remain literal.
+server {
+    listen ${HTTPS_PORT} ssl http2;
+    listen [::]:${HTTPS_PORT} ssl http2;
+    server_name ppt.${BASE_DOMAIN};
+
+    # OAuth callback query strings contain short-lived authorization codes.
+    access_log off;
+
+    ssl_certificate     /etc/letsencrypt/live/${BASE_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${BASE_DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    client_header_buffer_size 16k;
+    large_client_header_buffers 8 32k;
+    # The API permits a 25 MiB file within a 26 MiB multipart request.
+    client_max_body_size 26m;
+
+    location / {
+        # frps selects the existing HTTP proxy by the original Host header.
+        # It can reach only the OAuth sidecar's Service port, never site:8000.
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_redirect off;
+        proxy_intercept_errors off;
+
+        # Do not read an old cache entry or write a new authenticated response.
+        # This applies to HTML, API, uploads, previews, downloads and /assets/.
+        proxy_cache off;
+        proxy_cache_bypass 1;
+        proxy_no_cache 1;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-store" always;
+
+        proxy_buffer_size 64k;
+        proxy_buffers 8 64k;
+        proxy_busy_buffers_size 128k;
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}

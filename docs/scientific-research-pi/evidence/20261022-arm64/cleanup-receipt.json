@@ -1,0 +1,6 @@
+{
+  "validation_resources_deleted": 7,
+  "scientific_api_image": "arm-cluster-master:5000/agent-api:ac61414",
+  "scientific_default_engine": [],
+  "production_api_patched_by_validation": false
+}

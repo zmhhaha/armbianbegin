@@ -1,0 +1,7 @@
+{
+  "hostname": "ppt.panghuer.top",
+  "service": "http://ppt-site.ppt-service.svc.cluster.local:4180",
+  "originRequest": {
+    "httpHostHeader": "ppt.panghuer.top"
+  }
+}

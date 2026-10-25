@@ -1,0 +1,88 @@
+{
+  "valid": true,
+  "task_id": "c6215730-d752-4293-8013-8e67f0180281",
+  "engine": "pi",
+  "mode": "brief",
+  "state": "succeeded",
+  "email_requested": false,
+  "notification_status": null,
+  "attempt": 1,
+  "revision": 4,
+  "stage": "publish",
+  "code": "production_canary_verified",
+  "report_id": "c6215730-d752-4293-8013-8e67f0180281",
+  "report_sha256": "7f01b9df6b8576525f09ae18bf88009b2161d1e9743a0401cbb1f41c8a7a7eff",
+  "result_digest": "45703a169453c37801f6f53a225a2cb02203f8f1d7a6264f8d8b5a5830dd384a",
+  "report_bytes": 4686,
+  "artifacts": [
+    {
+      "artifact_id": "claims",
+      "media_type": "application/x-ndjson",
+      "size": 732,
+      "sha256": "9022082572dbd71a35182c40ae89cdabb165d1eb35d231a06fce0a342d9d6663"
+    },
+    {
+      "artifact_id": "evidence",
+      "media_type": "application/x-ndjson",
+      "size": 1973,
+      "sha256": "9793b3c3b2bce00f40d99c4048ce90a71dccaf7fe72ca67ef2730a90cae56122"
+    },
+    {
+      "artifact_id": "papers",
+      "media_type": "application/x-ndjson",
+      "size": 10081,
+      "sha256": "d74dc7c2be9ad3c38ac4b00b136d146de1e7283c9725368f2252af6f078ab736"
+    },
+    {
+      "artifact_id": "references",
+      "media_type": "application/json",
+      "size": 143,
+      "sha256": "714f0530bd10dad8b4ca2e18c5f0f6fa9790d0c5bd0ecbb1075de0242634980f"
+    },
+    {
+      "artifact_id": "report",
+      "media_type": "text/markdown",
+      "size": 4686,
+      "sha256": "7f01b9df6b8576525f09ae18bf88009b2161d1e9743a0401cbb1f41c8a7a7eff"
+    },
+    {
+      "artifact_id": "screening",
+      "media_type": "application/x-ndjson",
+      "size": 1288,
+      "sha256": "de373db1d401ec9010591258d2cc74c7e78d6a086a6e37e6ad4b27ffe4ce490a"
+    },
+    {
+      "artifact_id": "searches",
+      "media_type": "application/x-ndjson",
+      "size": 801,
+      "sha256": "89011d856eae09e4c4169275dde0a68c42b539a94edff3b5cc64abe33dc3dbc2"
+    },
+    {
+      "artifact_id": "validation",
+      "media_type": "application/json",
+      "size": 17749,
+      "sha256": "b8e19154ae257dffd3e41346817d2ba00bc28259672131dda2e032aa0320fd6b"
+    }
+  ],
+  "artifact_bytes": 37453,
+  "validation_valid": true,
+  "evidence_chain": {
+    "searches": 4,
+    "papers": 4,
+    "screened": 4,
+    "included": 2,
+    "evidence_items": 3,
+    "claims": 3,
+    "references": 2,
+    "linked_evidence_items": 3
+  },
+  "search_compatible": true,
+  "keywords_compatible": true,
+  "download_verified": true,
+  "fixture_mode": false,
+  "scientific_accuracy_accepted": false,
+  "notification_verification": "API notification_status is null; submission email was empty",
+  "image_digest": "sha256:f1a4c5150463a0b5358796cb0608c2d2252480ca014d756db93c06ea9cdb4983",
+  "submission_surface": "authenticated Gradio browser",
+  "user_id_sha256": "89885f69a9d6a17692bbc669f5ed406fe7c57f082a32cadc953688d975ce190b"
+}
