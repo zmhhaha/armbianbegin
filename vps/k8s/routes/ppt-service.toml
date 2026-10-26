@@ -4,6 +4,6 @@
 [[proxies]]
 name = "ppt-service"
 type = "http"
-customDomains = ["ppt.panghuer.top"]
+customDomains = ["ppt-service.panghuer.top"]
 localIP = "ppt-site.ppt-service.svc.cluster.local"
 localPort = 4180

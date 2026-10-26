@@ -1,6 +1,6 @@
 # PPT 的 Cloudflare Tunnel 接入
 
-PPT 站点域名为 `ppt.panghuer.top`。由管理员在 Cloudflare 后台配置域名/Tunnel，
+PPT 站点域名为 `ppt-service.panghuer.top`，与正式 namespace `ppt-service` 保持一致。由管理员在 Cloudflare 后台配置域名/Tunnel，
 Casdoor 应用也由管理员在后台配置。
 
 ## Public Hostname
@@ -9,10 +9,10 @@ Casdoor 应用也由管理员在后台配置。
 
 | 字段 | 值 |
 | --- | --- |
-| Public hostname | `ppt.panghuer.top` |
+| Public hostname | `ppt-service.panghuer.top` |
 | Service type | `HTTP` |
 | Service URL | `ppt-site.ppt-service.svc.cluster.local:4180` |
-| HTTP Host Header | `ppt.panghuer.top` |
+| HTTP Host Header | `ppt-service.panghuer.top` |
 
 正式部署的namespace固定为 `ppt-service`。如果后台还保留旧源站
 `ppt-site.ppt-service-test.svc.cluster.local:4180`，请编辑原有Public Hostname，
@@ -21,7 +21,7 @@ Casdoor 应用也由管理员在后台配置。
 本次旧源站导致502、入口策略修复及公网恢复的实际结果见
 [2026-10-24 部署排障记录](../panghu_agent/ppt_service/deploy/k8s/TROUBLESHOOTING.md)。
 
-对应的非敏感配置片段见 [public-hostname.json](ppt/public-hostname.json)。
+对应的非敏感配置片段见 [public-hostname.json](ppt-service/public-hostname.json)。
 这份片段不是整条Tunnel配置，不能覆盖现有Public Hostname列表。
 域名应按Cloudflare为该Tunnel生成的记录路由；不要同时给同一个主机名保留VPS的A记录。
 仓库的 `TunnelRoute` 只是备份，不能代替后台配置，原因见 [路由权威来源](README.md#路由的权威来源重要)。
@@ -39,12 +39,12 @@ Casdoor 应用也由管理员在后台配置。
 
 PPT namespace默认拒绝入口。2026-10-24已确认实际Connector为
 `default/cf-tunnel-main`，Pod标签同时包含 `app=cloudflared,tunnel=main`。
-[site-ingress.yaml](ppt/site-ingress.yaml) 使用这组身份，仅允许访问
+[site-ingress.yaml](ppt-service/site-ingress.yaml) 使用这组身份，仅允许访问
 `ppt-service` 中 `app.kubernetes.io/name=ppt-site` 的TCP4180。
 在仓库根目录部署这条规则：
 
 ```bash
-kubectl apply -f cloudflare-tunnel/ppt/site-ingress.yaml
+kubectl apply -f cloudflare-tunnel/ppt-service/site-ingress.yaml
 ```
 
 `deploy.sh` 的基线仅包含frpc入口许可，使用Tunnel时还须应用以上Cloudflare入口规则。
@@ -57,8 +57,8 @@ kubectl apply -f cloudflare-tunnel/ppt/site-ingress.yaml
 完整规则，再统一部署和验证；PPT的新增目标应同时匹配namespace `ppt-service` 和Pod标签
 `app.kubernetes.io/name=ppt-site`，仅允许TCP4180。
 
-[connector-egress.yaml.template](ppt/connector-egress.yaml.template) 和
-[site-ingress.yaml.template](ppt/site-ingress.yaml.template) 保留供其他Connector部署使用，
+[connector-egress.yaml.template](ppt-service/connector-egress.yaml.template) 和
+[site-ingress.yaml.template](ppt-service/site-ingress.yaml.template) 保留供其他Connector部署使用，
 不能直接apply。使用前须填写同一个真实Connector namespace，并把两份文件中的占位
 matchLabels整体替换成同一组完整的精确Pod标签；出口模板须纳入上述完整出口方案。
 Kubernetes策略取并集：若Connector已有广泛出口，新增窄策略不会自动收窄它，
@@ -76,8 +76,8 @@ Kubernetes策略取并集：若Connector已有广泛出口，新增窄策略不�
 
 ## 缓存与验收
 
-在Cloudflare为精确主机名 `ppt.panghuer.top` 设置Cache Rule：
-表达式 `http.host eq "ppt.panghuer.top"`，动作 **Bypass cache**，覆盖该站所有路径。
+在Cloudflare为精确主机名 `ppt-service.panghuer.top` 设置Cache Rule：
+表达式 `http.host eq "ppt-service.panghuer.top"`，动作 **Bypass cache**，覆盖该站所有路径。
 保留上游的 `Cache-Control: no-store`，不得对assets、预览、下载或API套用Cache Everything，
 也不要给本应用启用HTML/JS改写来绕过CSP。
 
@@ -94,5 +94,5 @@ OAuth配置见 [OAuth PPT](../oauth/k8s/PPT.md)，精确邮箱名单独立维护
 ## 可选的 VPS 入口
 
 如以后选择国内VPS，使用 [VPS PPT配置](../vps/PPT.md)：
-`A ppt → 62.234.50.20`、DNS only，启用专用不缓存nginx站点及frpc路由。
+`A ppt-service → 62.234.50.20`、DNS only，启用专用不缓存nginx站点及frpc路由。
 同一时刻为该主机名选择一条入口链；切换入口不会替代专用OAuth与Vault配置。

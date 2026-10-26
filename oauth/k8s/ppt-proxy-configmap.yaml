@@ -9,7 +9,7 @@ data:
   OIDC_ISSUER: https://auth.panghuer.top
   OIDC_JWKS_URL: https://auth.panghuer.top/.well-known/jwks
   OIDC_AUDIENCE: REQUIRED_DEDICATED_PPT_CLIENT_ID
-  ALLOWED_ORIGINS: https://ppt.panghuer.top
+  ALLOWED_ORIGINS: https://ppt-service.panghuer.top
   # Both site and OAuth proxy read the same independently managed email file.
   INVITATION_EMAILS_FILE: /owner/emails
 ---
@@ -23,7 +23,7 @@ data:
     http_address = "0.0.0.0:4180"
     provider = "oidc"
     oidc_issuer_url = "https://auth.panghuer.top"
-    redirect_url = "https://ppt.panghuer.top/oauth2/callback"
+    redirect_url = "https://ppt-service.panghuer.top/oauth2/callback"
     client_id = "REQUIRED_DEDICATED_PPT_CLIENT_ID"
     scope = "openid email profile"
     upstreams = ["http://127.0.0.1:8000/"]

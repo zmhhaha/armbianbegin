@@ -4,7 +4,7 @@
 server {
     listen ${HTTPS_PORT} ssl http2;
     listen [::]:${HTTPS_PORT} ssl http2;
-    server_name ppt.${BASE_DOMAIN};
+    server_name ppt-service.${BASE_DOMAIN};
 
     # OAuth callback query strings contain short-lived authorization codes.
     access_log off;

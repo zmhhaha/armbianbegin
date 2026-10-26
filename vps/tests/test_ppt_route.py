@@ -38,7 +38,7 @@ class PptEntryContracts(unittest.TestCase):
     def test_exact_server_disables_all_cache_and_public_static_locations(self):
         source = (VPS / 'nginx/ppt-service.conf.template').read_text(encoding='utf-8')
         body = re.sub(r'#[^\n]*', '', source)
-        self.assertIn('server_name ppt.${BASE_DOMAIN};', body)
+        self.assertIn('server_name ppt-service.${BASE_DOMAIN};', body)
         self.assertNotIn('default_server', body)
         self.assertIn('access_log off;', body)
         self.assertEqual(re.findall(r'\blocation\s+([^\{]+)\{', body), ['/ '])
@@ -72,7 +72,7 @@ class PptEntryContracts(unittest.TestCase):
         self.assertNotIn('${HTTPS_PORT}', rendered)
         self.assertNotIn('SHOULD_NOT_RENDER', rendered)
         self.assertNotIn('attacker.invalid', rendered)
-        for directive in ('listen 443 ssl http2;', 'server_name ppt.panghuer.top;',
+        for directive in ('listen 443 ssl http2;', 'server_name ppt-service.panghuer.top;',
                           'proxy_set_header Host $host;',
                           'proxy_set_header Authorization $http_authorization;',
                           'proxy_set_header Cookie $http_cookie;',
@@ -124,17 +124,17 @@ class PptEntryContracts(unittest.TestCase):
         data = tomllib.loads(fragment)
         self.assertEqual(set(data), {'proxies'})
         self.assertEqual(data['proxies'], [{
-            'name': 'ppt-service', 'type': 'http', 'customDomains': ['ppt.panghuer.top'],
+            'name': 'ppt-service', 'type': 'http', 'customDomains': ['ppt-service.panghuer.top'],
             'localIP': 'ppt-site.ppt-service.svc.cluster.local', 'localPort': 4180}])
         self.assertTrue(fragment.isascii())
 
     def test_tunnel_fragment_targets_oauth_and_egress_requires_identity(self):
-        public = json.loads((REPOSITORY / 'cloudflare-tunnel/ppt/public-hostname.json').read_text(encoding='utf-8'))
+        public = json.loads((REPOSITORY / 'cloudflare-tunnel/ppt-service/public-hostname.json').read_text(encoding='utf-8'))
         self.assertEqual(public, {
-            'hostname': 'ppt.panghuer.top',
+            'hostname': 'ppt-service.panghuer.top',
             'service': 'http://ppt-site.ppt-service.svc.cluster.local:4180',
-            'originRequest': {'httpHostHeader': 'ppt.panghuer.top'}})
-        template = yaml.safe_load((REPOSITORY / 'cloudflare-tunnel/ppt/connector-egress.yaml.template')
+            'originRequest': {'httpHostHeader': 'ppt-service.panghuer.top'}})
+        template = yaml.safe_load((REPOSITORY / 'cloudflare-tunnel/ppt-service/connector-egress.yaml.template')
                                   .read_text(encoding='utf-8'))
         self.assertEqual(template['metadata']['namespace'], 'REQUIRED_CONNECTOR_NAMESPACE')
         self.assertIn('REQUIRED_CONNECTOR_LABEL_KEY', template['spec']['podSelector']['matchLabels'])
@@ -143,7 +143,7 @@ class PptEntryContracts(unittest.TestCase):
         self.assertEqual(rule['to'], [{
             'namespaceSelector': {'matchLabels': {'kubernetes.io/metadata.name': 'ppt-service'}},
             'podSelector': {'matchLabels': {'app.kubernetes.io/name': 'ppt-site'}}}])
-        ingress = yaml.safe_load((REPOSITORY / 'cloudflare-tunnel/ppt/site-ingress.yaml.template')
+        ingress = yaml.safe_load((REPOSITORY / 'cloudflare-tunnel/ppt-service/site-ingress.yaml.template')
                                  .read_text(encoding='utf-8'))
         self.assertEqual(ingress['metadata']['namespace'], 'ppt-service')
         self.assertEqual(ingress['spec']['policyTypes'], ['Ingress'])

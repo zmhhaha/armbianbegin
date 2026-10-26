@@ -1,6 +1,6 @@
 # PPT 站点入口
 
-本目录提供 `ppt.panghuer.top` 的**可选** VPS/nginx/frp 接入。
+本目录提供 `ppt-service.panghuer.top` 的**可选** VPS/nginx/frp 接入。
 用户本次选择自行配置 [Cloudflare Tunnel](../cloudflare-tunnel/PPT.md)，无需启用这条VPS链。
 选择该入口时，由部署者安装专用 nginx 站点并合并 frpc 路由。
 
@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 精确域名 nginx server | [ppt-service.conf.template](nginx/ppt-service.conf.template) | TLS 终止，原 Host 转发到 frps，全路径不缓存 |
 | 公共 nginx 安装入口 | [install.sh](install.sh) 的 stage2 | 显式设 `PPT_VPS_ENABLED=1` 时渲染并启用，`nginx -t` 后 reload |
-| 非敏感 frpc 路由片段 | [ppt-service.toml](k8s/routes/ppt-service.toml) | `ppt.panghuer.top` → `ppt-site.ppt-service.svc.cluster.local:4180` |
+| 非敏感 frpc 路由片段 | [ppt-service.toml](k8s/routes/ppt-service.toml) | `ppt-service.panghuer.top` → `ppt-site.ppt-service.svc.cluster.local:4180` |
 | frpc 公共出口 | [frpc.yaml](k8s/frpc.yaml) | 旧 Web 广泛规则排除 PPT namespace，其他 namespace 保持原规则 |
 | PPT 精确出口 | [ppt-service-egress.yaml](k8s/ppt-service-egress.yaml) | 仅 `frpc/app=frpc` → `ppt-service/app.kubernetes.io/name=ppt-site` 的 TCP4180 |
 | 入口选择记录 | [Cloudflare PPT](../cloudflare-tunnel/PPT.md) | 本次使用Tunnel；仅选择VPS时配置A记录、DNS only |
@@ -16,7 +16,7 @@
 ## 为什么使用专用 nginx server
 
 公共通配符站点会缓存 `/assets/`，并忽略上游 `Cache-Control`。PPT 的 HTML、静态资源、
-API、预览和下载都必须经过认证，因此精确 `server_name ppt.${BASE_DOMAIN}` 的模板覆盖该主机，
+API、预览和下载都必须经过认证，因此精确 `server_name ppt-service.${BASE_DOMAIN}` 的模板覆盖该主机，
 关闭缓存读取与写入，统一回传 `Cache-Control: no-store`，不继承公共静态 location 或 HTML 改写。
 其他域名继续使用现有通配符站点。HTTP80仍使用既有跳转规则。
 
@@ -43,7 +43,7 @@ CSRF 头和 WebSocket/SSE；26 MiB入口请求上限配合应用的25 MiB文件�
    管理员也可按相同受限变量渲染，安装到 `/etc/nginx/sites-available/ppt-service.conf`，
    在 `sites-enabled` 建同名链接，校验后只reload nginx。不得直接把未渲染模板放入生效目录。
 5. 仅在选择本VPS方案时，确认独立站认证及以下检查通过后，将Cloudflare DNS设为
-   `A ppt → 62.234.50.20`、DNS only，并停用同主机名的Tunnel路由。
+   `A ppt-service → 62.234.50.20`、DNS only，并停用同主机名的Tunnel路由。
    本次用户选择的Tunnel链不需要这些VPS启用步骤。
 
 ## 入口验收

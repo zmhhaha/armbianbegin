@@ -27,7 +27,7 @@ class PptConfigureTests(unittest.TestCase):
         self.assertEqual(maps["ppt-auth"]["OIDC_AUDIENCE"], "ppt-test-client")
         self.assertEqual(tomllib.loads(maps["ppt-oidc"]["oauth2-proxy.cfg"])["client_id"],
                          "ppt-test-client")
-        self.assertEqual(maps["ppt-auth"]["ALLOWED_ORIGINS"], "https://ppt.panghuer.top")
+        self.assertEqual(maps["ppt-auth"]["ALLOWED_ORIGINS"], "https://ppt-service.panghuer.top")
         self.assertEqual(CONFIG.TEMPLATE.read_bytes(), original)
 
     def test_site_and_proxy_reference_one_external_email_file(self):
