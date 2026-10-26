@@ -1,6 +1,6 @@
 # PPT 工作台：登录配置与部署
 
-PPT 部署到 `ppt-service`，公开地址为 **https://ppt-service.panghuer.top**。在 Casdoor 后台创建独立应用、填写邮箱名单并准备 Vault 凭据后，用服务器部署脚本发布网站；Cloudflare Tunnel 由你在后台配置。
+PPT 部署到 `ppt-service`，公开地址为 **https://ppt-service.panghuer.top**。在 Casdoor 后台创建独立应用、填写邮箱名单并准备 Vault 凭据后，用服务器部署脚本发布网站；公网入口按已确认方案接入 VPS/nginx/frp，Cloudflare Tunnel 配置保留为可选路线。
 
 ## 配置放在哪里
 
@@ -11,8 +11,8 @@ PPT 部署到 `ppt-service`，公开地址为 **https://ppt-service.panghuer.top
 | 生成填写后的公开配置 | [configure-ppt.py](configure-ppt.py) |
 | 网站/代理到集群内 Casdoor HTTPS 的网络许可 | [ppt-oidc-egress.yaml](ppt-oidc-egress.yaml) |
 | 密钥与数据库凭据的 Vault/ESO 映射 | [Vault 配置](../../vault/inventory/PPT-SERVICE.md) |
-| Cloudflare Tunnel 入口与两端网络策略 | [Cloudflare 配置](../../cloudflare-tunnel/PPT.md) |
-| 可选的 VPS Nginx/frpc 入口 | [VPS 配置](../../vps/PPT.md) |
+| 当前 VPS Nginx/frpc 入口与公网 DNS | [VPS 配置](../../vps/PPT.md) |
+| 可选的 Cloudflare Tunnel 入口与两端网络策略 | [Cloudflare 配置](../../cloudflare-tunnel/PPT.md) |
 | 站点镜像、数据库、PVC、显式迁移、回滚 | [业务部署说明](../../panghu_agent/ppt_service/deploy/k8s/README.md) |
 | 后续任务模型代理与 llm-service 的边界 | [模型接入合同](../../llm-service/design/ppt-service-integration.md) |
 
@@ -79,9 +79,17 @@ kubectl apply -f oauth/k8s/ppt-owner-configmap.yaml
 
 在已登录 Vault 的 Bash 终端执行 [Vault 凭据准备中的四条直接写入命令](../../vault/inventory/PPT-SERVICE.md#凭据准备)，无需创建 JSON 文件；只替换 PPT 应用 Client Secret，其余密钥自动生成。首次写入一次即可，后续部署无需重复生成。数据库 URL 使用 `postgresql+psycopg://`，两个应用 URL 指向新 `ppt_service` 数据库、使用不同角色。ESO 负责同步凭据；`deploy.sh` 使用专用凭据完成数据库初建或升级及角色授权检查。
 
-## 4. Cloudflare Tunnel 配入口
+## 4. 配置公网入口
 
-在能解析、访问集群 Service 的 cloudflared 上配置 Public Hostname：
+### VPS/nginx/frp
+
+按 [VPS 配置](../../vps/PPT.md) 安装专用 nginx 禁缓存站点，合并 `ppt-service` 的 frpc 路由，并保留到 OAuth 代理 4180 的精确网络许可。VPS 入口仍使用同一 Casdoor 应用、HTTPS 回调和 `ALLOWED_ORIGINS`。
+
+入口准备就绪后，核对 Cloudflare 中实际 DNS，将 `ppt-service.panghuer.top` 切换为 `A ppt-service → 62.234.50.20`、DNS only，移除同名 Tunnel CNAME 并停用其公开路由。服务器配置与公网 DNS 切换分别核对，同一主机名不同时使用两条公网入口。
+
+### 可选的 Cloudflare Tunnel
+
+若选择 Tunnel 作为公网入口，在能解析、访问集群 Service 的 cloudflared 上配置 Public Hostname：
 
 | 字段 | 值 |
 | --- | --- |
@@ -91,7 +99,7 @@ kubectl apply -f oauth/k8s/ppt-owner-configmap.yaml
 
 若界面合并协议字段，填写 `http://ppt-site.ppt-service.svc.cluster.local:4180`。8000 是同 Pod 内的 loopback API，不作为 Tunnel 目标。外部访问保持 HTTPS，转发保留 Host 与 HTTPS 来源信息。仅有 DNS 记录不能使部署在集群外的 cloudflared 访问 `.svc.cluster.local`；必须先选择具备实际连通性的 Tunnel 实例。
 
-按 [Cloudflare 说明](../../cloudflare-tunnel/PPT.md) 用实际 cloudflared namespace/Pod 标签填写并应用**两端**网络策略。不要把管理 Tunnel 的 operator 标签当作流量来源。Cloudflare Cache Rule 应对该主机全部 Bypass；PPT 的页面、资产与 API 均需认证并返回 `no-store`。不要增加 Cache Everything。若改用 VPS 链路，使用专用禁缓存模板并按 VPS 文档处理 frpc，而不同时覆盖同一主机入口。
+使用 Tunnel 时按 [Cloudflare 说明](../../cloudflare-tunnel/PPT.md) 用实际 cloudflared namespace/Pod 标签填写并应用**两端**网络策略。不要把管理 Tunnel 的 operator 标签当作流量来源。Cloudflare Cache Rule 应对该主机全部 Bypass；PPT 的页面、资产与 API 均需认证并返回 `no-store`。不要增加 Cache Everything。切回 Tunnel 时用对应 CNAME 替换 VPS A 记录，先准备好上述配置，再调整公网入口。
 
 ## 5. 在服务器仓库构建和部署
 
@@ -114,13 +122,13 @@ bash deploy.sh --skip-build
 
 `rendered/image.txt` 保存成功推送后的 registry digest，`--skip-build` 复用该摘要。用 `PPT_SITE_IMAGE` 可显式指定完整镜像摘要。`PPT_AUTH_CONFIG` 可指定由 `configure-ppt.py` 生成的公开配置，替代 `PPT_CLIENT_ID`；后续两者均未提供时，可复用线上已有的有效公开配置。
 
-域名统一为 `ppt-service.panghuer.top` 后，已有部署需同步更新 `ppt-auth` 的 `ALLOWED_ORIGINS` 和 `ppt-oidc` 的 `redirect_url`。使用实际 `PPT_CLIENT_ID` 从当前模板重新生成配置，或指定已经更新域名的 `PPT_AUTH_CONFIG`，避免复用旧域名的线上配置。Casdoor 应用回调和 Cloudflare Public Hostname 由管理员在后台同步更新；namespace、数据库、Vault 路径及现有用户项目继续沿用。
+域名统一为 `ppt-service.panghuer.top` 后，已有部署需同步更新 `ppt-auth` 的 `ALLOWED_ORIGINS` 和 `ppt-oidc` 的 `redirect_url`。使用实际 `PPT_CLIENT_ID` 从当前模板重新生成配置，或指定已经更新域名的 `PPT_AUTH_CONFIG`，避免复用旧域名的线上配置。Casdoor 应用回调与所选入口的 DNS 由管理员在后台同步更新；选择 Tunnel 时还须更新 Public Hostname。namespace、数据库、Vault 路径及现有用户项目继续沿用。
 
 普通部署保留已有 `ppt-owner` 名单，首次才从源文件创建；明确要替换时使用 `PPT_OWNER_CONFIG`，或按第 2 节单独应用名单。修改公开认证参数或环境变量中的 Secret 后需重启对应消费者；仅增删邮箱则等待两个容器的目录投影更新即可。
 
 Casdoor 继续访问 `https://auth.panghuer.top`，通过现有 CoreDNS split horizon 与集群内 TLS ingress 连接；`ppt-oidc-egress.yaml` 只允许指定 `ingress-nginx` controller Pod 的 TCP443。DNS 使用业务基线许可，实际部署后核查 discovery/token/JWKS 路径及 CNI 允许和拒绝行为。
 
-网站就绪后开放 Tunnel。完整部署前置、数据库与存储处理及故障排查见 [服务器部署说明](../../panghu_agent/ppt_service/deploy/k8s/README.md#服务器标准入口)。Pi 模型生成尚未接通，`PPT_EXECUTION_ENABLED=false` 保持关闭，生成请求仍返回 `503 execution_not_connected`。
+网站就绪后按第 4 节接通 VPS/nginx/frp 并核对公网 DNS；Tunnel 为可选路线。完整部署前置、数据库与存储处理及故障排查见 [服务器部署说明](../../panghu_agent/ppt_service/deploy/k8s/README.md#服务器标准入口)。Pi 模型生成尚未接通，`PPT_EXECUTION_ENABLED=false` 保持关闭，生成请求仍返回 `503 execution_not_connected`。
 
 ## 6. 部署后验收
 

@@ -4,7 +4,7 @@ PPT 部署使用 `ppt-service` namespace，凭据由 Vault 管理并通过 ESO �
 
 ## 配置归属
 
-敏感值由 Vault 管理，映射集中在 [ppt-service-externalsecret.yaml](ppt-service-externalsecret.yaml)。非敏感 Casdoor issuer、client ID、回调域名、代理规则集中在 [OAuth 配置](../../oauth/k8s/ppt-proxy-configmap.yaml) 和 [配置说明](../../oauth/k8s/PPT.md)。允许访问的精确邮箱白名单单独放在 [ppt-owner-configmap.yaml](../../oauth/k8s/ppt-owner-configmap.yaml) 的 `ppt-owner.data.emails`，每行一个邮箱，不需配置 `sub`，也不放入 Vault；公开站点固定为 `https://ppt-service.panghuer.top`。Cloudflare 配置见 [Cloudflare 说明](../../cloudflare-tunnel/PPT.md)，frpc/VPS Nginx 转发见 [VPS 说明](../../vps/PPT.md)、[frpc 路由](../../vps/k8s/routes/ppt-service.toml) 和 [Nginx 模板](../../vps/nginx/ppt-service.conf.template)。业务部署只引用这些配置与下表 Secret 的明确键，不从公共服务目录复制密钥，不用 `envFrom` 扩散凭据。模型路由属于 `llm-service/`；本次不添加模型别名或调用方。Casdoor 和 Cloudflare 由用户在后台配置。
+敏感值由 Vault 管理，映射集中在 [ppt-service-externalsecret.yaml](ppt-service-externalsecret.yaml)。非敏感 Casdoor issuer、client ID、回调域名、代理规则集中在 [OAuth 配置](../../oauth/k8s/ppt-proxy-configmap.yaml) 和 [配置说明](../../oauth/k8s/PPT.md)。允许访问的精确邮箱白名单单独放在 [ppt-owner-configmap.yaml](../../oauth/k8s/ppt-owner-configmap.yaml) 的 `ppt-owner.data.emails`，每行一个邮箱，不需配置 `sub`，也不放入 Vault；公开站点固定为 `https://ppt-service.panghuer.top`。当前按已确认方案接入 frpc/VPS Nginx，配置见 [VPS 说明](../../vps/PPT.md)、[frpc 路由](../../vps/k8s/routes/ppt-service.toml) 和 [Nginx 模板](../../vps/nginx/ppt-service.conf.template)。公网 DNS 使用 `A ppt-service → 62.234.50.20`、DNS only，不与同名 Tunnel CNAME 并存；实际切换需单独核对。[Cloudflare Tunnel 配置](../../cloudflare-tunnel/PPT.md) 保留为可选路线。业务部署只引用这些配置与下表 Secret 的明确键，不从公共服务目录复制密钥，不用 `envFrom` 扩散凭据。模型路由属于 `llm-service/`；本次不添加模型别名或调用方。Casdoor 和 Cloudflare 由用户在后台配置。
 
 ## 路径和消费者
 

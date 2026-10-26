@@ -1,8 +1,8 @@
 # PPT 站点入口
 
-本目录提供 `ppt-service.panghuer.top` 的**可选** VPS/nginx/frp 接入。
-用户本次选择自行配置 [Cloudflare Tunnel](../cloudflare-tunnel/PPT.md)，无需启用这条VPS链。
-选择该入口时，由部署者安装专用 nginx 站点并合并 frpc 路由。
+`ppt-service.panghuer.top` 按已确认方案接入 VPS/nginx/frp：安装专用 nginx 站点，
+合并 frpc 路由，并保留现有 OAuth 代理和 namespace `ppt-service`。
+[Cloudflare Tunnel](../cloudflare-tunnel/PPT.md) 配置保留为可选路线；公网 DNS 切换与入口部署分别核对。
 
 | 配置 | 文件 | 作用 |
 | --- | --- | --- |
@@ -11,7 +11,8 @@
 | 非敏感 frpc 路由片段 | [ppt-service.toml](k8s/routes/ppt-service.toml) | `ppt-service.panghuer.top` → `ppt-site.ppt-service.svc.cluster.local:4180` |
 | frpc 公共出口 | [frpc.yaml](k8s/frpc.yaml) | 旧 Web 广泛规则排除 PPT namespace，其他 namespace 保持原规则 |
 | PPT 精确出口 | [ppt-service-egress.yaml](k8s/ppt-service-egress.yaml) | 仅 `frpc/app=frpc` → `ppt-service/app.kubernetes.io/name=ppt-site` 的 TCP4180 |
-| 入口选择记录 | [Cloudflare PPT](../cloudflare-tunnel/PPT.md) | 本次使用Tunnel；仅选择VPS时配置A记录、DNS only |
+| 公网 DNS | Cloudflare DNS 后台 | `A ppt-service → 62.234.50.20`、DNS only；不得与同名 Tunnel CNAME 并存 |
+| 可选 Tunnel 路线 | [Cloudflare PPT](../cloudflare-tunnel/PPT.md) | 保留配置，切换时同步调整同主机名 DNS 和入口 |
 
 ## 为什么使用专用 nginx server
 
@@ -37,14 +38,14 @@ CSRF 头和 WebSocket/SSE；26 MiB入口请求上限配合应用的25 MiB文件�
    保留全部其他代理和 server/auth/TLS 设置；若同名/同域条目已存在，先核对再更新，禁止重复追加。
    使用 frpc 自带配置校验后，再按共享网关维护流程更新和重启。
    本片段没有token，不能单独替换 `frpc-config` Secret；不要把整个真实配置输出到终端或Git。
-4. 选择VPS方案时，运行 `sudo env PPT_VPS_ENABLED=1 bash vps/install.sh stage2`，
+4. 运行 `sudo env PPT_VPS_ENABLED=1 bash vps/install.sh stage2`，
    安装专用站点并在 `nginx -t` 通过后加载。默认不安装PPT站点，已有文件也不会自动删除。
    这是共享网关安装操作，会执行脚本既有系统/证书/frps步骤；若只发布这次模板更新，
    管理员也可按相同受限变量渲染，安装到 `/etc/nginx/sites-available/ppt-service.conf`，
    在 `sites-enabled` 建同名链接，校验后只reload nginx。不得直接把未渲染模板放入生效目录。
-5. 仅在选择本VPS方案时，确认独立站认证及以下检查通过后，将Cloudflare DNS设为
-   `A ppt-service → 62.234.50.20`、DNS only，并停用同主机名的Tunnel路由。
-   本次用户选择的Tunnel链不需要这些VPS启用步骤。
+5. 入口准备就绪后，核对 Cloudflare 中该主机名的实际记录，再将公网 DNS 切换为
+   `A ppt-service → 62.234.50.20`、DNS only，移除同名 Tunnel CNAME 并停用其公开路由。
+   同一主机名只使用一条公网入口链；nginx/frpc 已配置不代表 DNS 已切换。
 
 ## 入口验收
 
@@ -77,3 +78,5 @@ bash -n vps/install-frpc.sh
 PPT停止公开服务后可禁用专用nginx站点；不要只删专用server并继续保留域名/frpc路由，
 否则会落回有静态缓存的通配符server。策略回退须同步恢复两份frpc清单，避免规则并集放宽访问。
 此入口操作不删除PPT数据库、数据PVC或Vault记录。
+若切回 Tunnel，先确认其配置仍指向 `ppt-site.ppt-service.svc.cluster.local:4180`，
+再用该 Tunnel 的 CNAME 替换 VPS A 记录；不得给同一主机名同时保留两种记录。

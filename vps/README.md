@@ -15,9 +15,10 @@
 
 本目录是这台机器的**唯一事实来源** ✓：换机器时 `git clone` + `bash install.sh` 即可重建。
 
-PPT 测试站的精确域名、认证资产不缓存及 frpc 路由/网络规则见 [PPT 接入](PPT.md)。
-该可选站点由 `nginx/ppt-service.conf.template` 单独管理，显式设 `PPT_VPS_ENABLED=1`
-时由 `install.sh stage2` 安装；本次PPT入口由用户自行配置Cloudflare Tunnel。
+PPT 工作台 `ppt-service.panghuer.top` 的 VPS/nginx/frp 接入、认证资产不缓存及网络规则见 [PPT 接入](PPT.md)。
+该站点由 `nginx/ppt-service.conf.template` 单独管理，显式设 `PPT_VPS_ENABLED=1`
+时由 `install.sh stage2` 安装。公网入口使用 `A ppt-service → 62.234.50.20`、DNS only，
+不得与同名 Tunnel CNAME 并存；Cloudflare Tunnel 保留为可选路线，DNS 是否已切换需单独核对。
 
 ## 二、前置条件
 

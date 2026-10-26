@@ -1,11 +1,13 @@
 # PPT 的 Cloudflare Tunnel 接入
 
-PPT 站点域名为 `ppt-service.panghuer.top`，与正式 namespace `ppt-service` 保持一致。由管理员在 Cloudflare 后台配置域名/Tunnel，
-Casdoor 应用也由管理员在后台配置。
+PPT 站点域名为 `ppt-service.panghuer.top`，与正式 namespace `ppt-service` 保持一致。
+当前按已确认方案接入 [VPS/nginx/frp](../vps/PPT.md)，本文保留 Cloudflare Tunnel 的可选路线。
+VPS 公网 DNS 使用 `A ppt-service → 62.234.50.20`、DNS only，不与同名 Tunnel CNAME 并存。
+域名、Tunnel 和 Casdoor 应用由管理员在各自后台维护；实际 DNS 切换需单独核对。
 
 ## Public Hostname
 
-在能够访问集群 Service 的现有 Tunnel 中增加一条 Public Hostname：
+选择 Tunnel 作为公网入口时，在能够访问集群 Service 的现有 Tunnel 中配置一条 Public Hostname：
 
 | 字段 | 值 |
 | --- | --- |
@@ -23,7 +25,8 @@ Casdoor 应用也由管理员在后台配置。
 
 对应的非敏感配置片段见 [public-hostname.json](ppt-service/public-hostname.json)。
 这份片段不是整条Tunnel配置，不能覆盖现有Public Hostname列表。
-域名应按Cloudflare为该Tunnel生成的记录路由；不要同时给同一个主机名保留VPS的A记录。
+切换到 Tunnel 时，用 Cloudflare 为该 Tunnel 生成的 CNAME 替换 VPS A 记录；
+同一个主机名不同时保留 Tunnel CNAME 和 VPS A 记录。使用 VPS 时保留本文配置供以后切换，不发布同名 Tunnel 入口。
 仓库的 `TunnelRoute` 只是备份，不能代替后台配置，原因见 [路由权威来源](README.md#路由的权威来源重要)。
 
 ```text
@@ -91,8 +94,8 @@ OAuth配置见 [OAuth PPT](../oauth/k8s/PPT.md)，精确邮箱名单独立维护
 [Vault PPT](../vault/inventory/PPT-SERVICE.md)，业务配置见
 [PPT K8s部署说明](../panghu_agent/ppt_service/deploy/k8s/README.md)。
 
-## 可选的 VPS 入口
+## 当前 VPS 接入方案
 
-如以后选择国内VPS，使用 [VPS PPT配置](../vps/PPT.md)：
-`A ppt-service → 62.234.50.20`、DNS only，启用专用不缓存nginx站点及frpc路由。
-同一时刻为该主机名选择一条入口链；切换入口不会替代专用OAuth与Vault配置。
+按 [VPS PPT配置](../vps/PPT.md) 启用专用不缓存 nginx 站点及 frpc 路由。
+入口准备就绪后，核对并切换为 `A ppt-service → 62.234.50.20`、DNS only，移除同名 Tunnel CNAME 并停用其公开路由。
+公网 DNS 与服务器配置分别记录；同一时刻为该主机名选择一条入口链，切换入口不会替代专用 OAuth 与 Vault 配置。
