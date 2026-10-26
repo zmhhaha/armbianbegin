@@ -40,7 +40,12 @@ class PptEntryContracts(unittest.TestCase):
         body = re.sub(r'#[^\n]*', '', source)
         self.assertIn('server_name ppt-service.${BASE_DOMAIN};', body)
         self.assertNotIn('default_server', body)
-        self.assertIn('access_log off;', body)
+        self.assertIn('access_log /var/log/nginx/ppt-service-upload.log ppt_service_upload if=$ppt_service_log_upload;', body)
+        self.assertIn('~^POST:/api/v1/projects/[0-9a-f-]+/assets$ 1;', body)
+        self.assertIn('default 0;', body)
+        log_format = body.split('map ')[0]
+        for sensitive in ('$request_uri', '$args', '$http_cookie', '$http_authorization', '$remote_addr'):
+            self.assertNotIn(sensitive, log_format)
         self.assertEqual(re.findall(r'\blocation\s+([^\{]+)\{', body), ['/ '])
         for directive in ('proxy_cache off;', 'proxy_cache_bypass 1;',
                           'proxy_no_cache 1;', 'add_header Cache-Control "no-store" always;'):
