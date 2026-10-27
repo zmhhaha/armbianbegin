@@ -232,7 +232,7 @@ custom upstream 配置 `wire_api: "responses"`，网关向该基址的 `/respons
 
 Pi 的图片读取工具可回传 `function_call_output.output` 数组，包含 `input_text` 和内嵌 `data:image/png|jpeg|webp;base64,...` 的 `input_image`。原生上游保留完整数组及其所属 `call_id`；工具结果中的图片 URL、文件 ID、未知内容类型和没有前置调用的工具结果均拒绝。既有 user 消息的图片 URL 支持保持原契约，网关自身不抓取图片。Chat 上游无法等价表达图片工具结果，返回 400，不请求上游，也不丢弃图片或移到另一个消息中。具体范围及验证见 [Pi 原生历史修复](docs/PI_NATIVE_RESPONSES.md)。
 
-公共入口不接收 `messages`、`max_tokens`、`response_format`、`stop`、`seed`、`n`、penalties 等 Chat 字段，也不支持 `previous_response_id`、`conversation`、`background`、`include`、`reasoning`、`parallel_tool_calls`、内置 web/file/MCP 工具、音频或上游文件 ID。未知字段通常返回 422，已知字段中的不支持结构或 `store: true` 返回 400。历史中不能带 reasoning 项或非空输出 annotations；这些限制也适用于原生上游。Pi 图片工具结果需要原生 Responses 上游；切到 Chat 上游时会明确拒绝这类请求。
+公共入口不接收 `messages`、`max_tokens`、`response_format`、`stop`、`seed`、`n`、penalties 等 Chat 字段，也不支持 `previous_response_id`、`conversation`、`background`、顶层 `include` / `reasoning` / `parallel_tool_calls`、内置 web/file/MCP 工具、音频或上游文件 ID。未知字段通常返回 422，已知字段中的不支持结构或 `store: true` 返回 400。原生 Responses 历史允许自包含 reasoning 项，仅保留受限的 `id` / `status`、`summary_text` 摘要、`reasoning_text` 内容及不透明 `encrypted_content`；仅含 ID 的引用和非空输出 annotations 继续拒绝。Pi 图片工具结果与 reasoning 历史都需要原生 Responses 上游；切到 Chat 上游时会明确拒绝这类请求。
 
 SDK `model_dump()` 生成的可重放输出项可直接放回历史，包括 `namespace: null`、`phase: null`、`logprobs: null` 等可空字段。消息 phase 接受 `commentary` 和 `final_answer`；非空工具 namespace 无法映射到 Chat，明确拒绝。
 

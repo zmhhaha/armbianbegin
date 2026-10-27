@@ -176,7 +176,7 @@ class NativePiHistoryTests(unittest.TestCase):
         history = pi_history()
         history[1]['role'] = 'user'
         invalid.append(history)
-        invalid += [[{'type': 'reasoning', 'id': 'rs_external', 'summary': []}],
+        invalid += [[{'type': 'reasoning', 'id': 'rs_external'}],
                     [{'role': 'user', 'content': 'fixture'}] * 201, []]
         with self.transport(lambda _: self.fail('invalid protocol history reached upstream')):
             for history in invalid:
@@ -268,6 +268,96 @@ class NativePiHistoryTests(unittest.TestCase):
                 self.assertNotIn('CANARY_PI_TEST', result.text)
                 if stream:
                     self.assertNotIn('response.completed', result.text)
+        self.assertEqual(self.module._usage['responses-api-test']['requests'], 0)
+
+    def test_native_pi_reasoning_replay_retains_only_supplied_fields_and_bytes(self):
+        items = [
+            {'type': 'reasoning', 'id': 'rs_fixture', 'status': 'completed',
+             'summary': [{'type': 'summary_text', 'text': 'Synthetic summary only.'}],
+             'content': [{'type': 'reasoning_text', 'text': 'Synthetic reasoning fixture only.'}],
+             'encrypted_content': 'opaque-synthetic-signature'},
+            {'type': 'reasoning', 'id': 'rs_nullable', 'status': None,
+             'summary': [], 'content': None, 'encrypted_content': None},
+            {'type': 'reasoning', 'summary': [], 'content': []},
+        ]
+        for item in items:
+            for stream in (False, True):
+                history = pi_history()
+                history.insert(1, item)
+                pristine = copy.deepcopy(history)
+                final = native_response()
+                upstream_result = (httpx.Response(200, content=native_sse(
+                    {'type': 'response.completed', 'response': final}),
+                    headers={'content-type': 'text/event-stream'}) if stream
+                    else httpx.Response(200, json=final))
+                with self.subTest(stream=stream, keys=tuple(item)), self.transport(lambda _: upstream_result):
+                    result = self.post(input=history, stream=stream)
+                self.assertEqual(result.status_code, 200, result.text)
+                self.assertEqual(self.requests[-1][1]['input'], pristine)
+                self.assertEqual(history, pristine)
+
+    def test_reasoning_history_has_a_strict_bounded_self_contained_schema(self):
+        invalid = [
+            {'type': 'reasoning', 'id': 'rs_external'},
+            {'type': 'reasoning', 'id': 'rs_external', 'content': None, 'encrypted_content': None},
+            {'type': 'reasoning', 'summary': None},
+            {'type': 'reasoning', 'summary': [], 'external_url': 'https://untrusted.example'},
+            {'type': 'reasoning', 'summary': [], 'previous_response_id': 'resp_external'},
+            {'type': 'reasoning', 'summary': [], 'encrypted_content': {'url': 'https://untrusted.example'}},
+            {'type': 'reasoning', 'summary': [], 'encrypted_content': ''},
+            {'type': 'reasoning', 'summary': [], 'content': 'private-text'},
+            {'type': 'reasoning', 'summary': [{'type': 'summary_text', 'text': []}]},
+            {'type': 'reasoning', 'summary': [{'type': 'input_text', 'text': 'wrong type'}]},
+            {'type': 'reasoning', 'summary': [], 'content': [{'type': 'input_image', 'image_url': IMAGE}]},
+            {'type': 'reasoning', 'summary': [], 'content': [{'type': 'reasoning_text', 'text': 'x', 'url': 'remote'}]},
+            {'type': 'reasoning', 'summary': [], 'content': [{'type': []}]},
+            {'type': 'reasoning', 'summary': [{'type': 'summary_text', 'text': 'x'}] * 201},
+            {'type': 'reasoning', 'summary': [], 'content': [{'type': 'reasoning_text', 'text': 'x'}] * 201},
+            {'type': 'reasoning', 'summary': [], 'status': 'in_progress'},
+        ]
+        with self.transport(lambda _: self.fail('invalid reasoning history reached upstream')):
+            for item in invalid:
+                with self.subTest(item=item):
+                    result = self.post(input=[{'role': 'user', 'content': 'fixture'}, item])
+                    self.assertEqual(result.status_code, 400, result.text)
+        self.assertFalse(self.requests)
+
+    def test_chat_rejects_reasoning_replay_and_spotlight_preserves_native_reasoning(self):
+        item = {'type': 'reasoning', 'id': 'rs_fixture', 'summary': [],
+                'content': [{'type': 'reasoning_text', 'text': 'Synthetic fixture.'}],
+                'encrypted_content': 'opaque-synthetic-signature'}
+        history = pi_history()
+        history.insert(1, item)
+        with self.transport(lambda _: self.fail('reasoning replay reached Chat upstream')):
+            result = self.post('deepseek-trusted', input=history)
+        self.assertEqual(result.status_code, 400, result.text)
+        with self.transport(lambda _: httpx.Response(200, json=native_response())):
+            result = self.post('llm-guarded', input=history)
+        self.assertEqual(result.status_code, 200, result.text)
+        self.assertEqual(self.requests[0][1]['input'][1], item)
+        self.assertIn(USER_OPEN, self.requests[0][1]['input'][0]['content'][0]['text'])
+        # Reasoning items count toward the same guarded tier history limit.
+        with self.transport(lambda _: self.fail('reasoning history bypassed tier item limit')):
+            result = self.post('llm-guarded', input=[{'role': 'user', 'content': 'fixture'}, *([item] * 60)])
+        self.assertEqual(result.status_code, 400, result.text)
+
+    def test_canary_rejection_covers_returned_reasoning_summary(self):
+        with patch.dict('os.environ', {'LLM_GUARD': json.dumps({'canary_action': 'reject'})}):
+            guard = load_guard_config()
+        final = native_response()
+        final['output'].insert(0, {'type': 'reasoning', 'id': 'rs_leak',
+            'summary': [{'type': 'summary_text', 'text': 'CANARY_PI_REASONING'}]})
+        for stream in (False, True):
+            upstream_result = (httpx.Response(200, content=native_sse(
+                {'type': 'response.completed', 'response': final}), headers={'content-type': 'text/event-stream'})
+                if stream else httpx.Response(200, json=final))
+            with self.subTest(stream=stream), patch.object(self.module, 'GUARD', guard), patch.object(
+                    self.module, 'new_canary', return_value='CANARY_PI_REASONING'), self.transport(lambda _: upstream_result):
+                result = self.post('llm-guarded', stream=stream)
+            self.assertEqual(result.status_code, 200 if stream else 502, result.text)
+            self.assertNotIn('CANARY_PI_REASONING', result.text)
+            if stream:
+                self.assertNotIn('response.completed', result.text)
         self.assertEqual(self.module._usage['responses-api-test']['requests'], 0)
 
 

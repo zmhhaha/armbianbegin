@@ -65,6 +65,28 @@ def _parts(parts, role, *, tool_output=False):
             raise ResponsesRequestError('unsupported native content part type')
 
 
+def _reasoning(item):
+    """Validate a complete replay item, not an external reasoning reference."""
+    _object(item, {'type', 'id', 'status', 'summary', 'encrypted_content', 'content'}, 'reasoning item')
+    _identity(item)
+    for field, kind in (('summary', 'summary_text'), ('content', 'reasoning_text')):
+        if field not in item or (field == 'content' and item[field] is None):
+            continue
+        parts = item[field]
+        if not isinstance(parts, list) or len(parts) > 200:
+            raise ResponsesRequestError('native reasoning requires bounded text parts')
+        for part in parts:
+            _object(part, {'type', 'text'}, 'reasoning text part')
+            if part.get('type') != kind:
+                raise ResponsesRequestError('unsupported native reasoning text type')
+            _string(part.get('text'), 'reasoning text', empty=True)
+    if item.get('encrypted_content') is not None:
+        _string(item['encrypted_content'], 'encrypted reasoning')
+    if not (isinstance(item.get('summary'), list) or isinstance(item.get('content'), list)
+            or isinstance(item.get('encrypted_content'), str)):
+        raise ResponsesRequestError('native reasoning requires self-contained data')
+
+
 def prepare(body):
     """Validate native history; return its separate tier/guard view and params.
 
@@ -122,6 +144,11 @@ def prepare(body):
                 if not isinstance(output, str):
                     _parts(output, 'tool', tool_output=True)
                 view.append({'role': 'tool', 'content': ''})
+            elif kind == 'reasoning':
+                _reasoning(item)
+                # Count the native item for tier limits without turning private
+                # reasoning into user/assistant answer text or guard input.
+                view.append({'role': 'assistant', 'content': ''})
             else:
                 raise ResponsesRequestError('unsupported native input item type')
     else:
