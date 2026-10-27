@@ -13,13 +13,14 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+import copy
 import json
 
 import httpx
 
 from config import Alias, thaw
 from responses_adapter import (
-    ResponsesProtocolError, build_request, translate_response, translate_stream, _events,
+    ResponsesProtocolError, ResponsesRequestError, build_request, translate_response, translate_stream, _events,
     sanitize_response, sanitize_event,
 )
 from chat_adapter import from_chat_response, from_chat_stream
@@ -36,7 +37,17 @@ class UpstreamError(RuntimeError):
         self.message = message
 
 
-def _payload(alias: Alias, messages: list, params: dict, *, stream: bool = False) -> dict:
+def _payload(alias: Alias, messages: list, params: dict, *, stream: bool = False,
+             native_body: dict | None = None) -> dict:
+    if native_body is not None:
+        if alias.wire_api != 'responses':
+            raise ResponsesRequestError('native history requires a Responses upstream')
+        # Only the fixed alias supplies the wire model and credentials. Defaults
+        # are converted once; the validated caller history is never flattened.
+        body = build_request(alias.model, [], thaw(alias.defaults), stream=stream)
+        body.update(copy.deepcopy(native_body))
+        body.update(model=alias.model, store=False, stream=stream)
+        return body
     body = thaw(alias.defaults)
     body.update({key: value for key, value in params.items() if value is not None})
     if alias.wire_api == "responses":
@@ -50,10 +61,10 @@ def _payload(alias: Alias, messages: list, params: dict, *, stream: bool = False
 
 
 async def forward(aliases: dict[str, Alias], alias_name: str, messages: list, params: dict,
-                  *, output_api: str = "chat_completions") -> httpx.Response:
+                  *, output_api: str = "chat_completions", native_body: dict | None = None) -> httpx.Response:
     """在请求的别名上重试 max_retries+1 次，返回上游响应；全部失败抛 UpstreamError。"""
     alias = aliases[alias_name]
-    payload = _payload(alias, messages, params)
+    payload = _payload(alias, messages, params, native_body=native_body)
     credential = alias.api_key()
     if not credential:
         # 配置问题，不是上游故障：直接报错，不重试也不换别名
@@ -186,11 +197,11 @@ class UpstreamStream:
 
 async def open_stream(
     aliases: dict[str, Alias], alias_name: str, messages: list, params: dict,
-    *, output_api: str = "chat_completions",
+    *, output_api: str = "chat_completions", native_body: dict | None = None,
 ) -> UpstreamStream:
     """建立流式上游连接。失败抛 UpstreamError —— 此时还没有任何字节发给调用方。"""
     alias = aliases[alias_name]
-    payload = _payload(alias, messages, params, stream=True)
+    payload = _payload(alias, messages, params, stream=True, native_body=native_body)
     credential = alias.api_key()
     if not credential:
         raise UpstreamError(503, f"别名 {alias_name} 缺少凭据（{alias.api_key_env} 未注入）")

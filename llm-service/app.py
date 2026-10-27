@@ -26,6 +26,7 @@ from guard import detect, harden, leaked, new_canary, user_texts
 from upstream import UpstreamError, UpstreamStream, forward, open_stream
 from responses_adapter import ResponsesRequestError
 from chat_adapter import to_chat_request
+from native_responses import prepare as prepare_native, harden as harden_native
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger("llm-service")
@@ -316,7 +317,8 @@ async def _complete(
     request: ChatRequest,
     response: Response,
     authorization: str | None,
-    *, output_api: str = "chat_completions",
+    *, output_api: str = "chat_completions", native_body: dict | None = None,
+    resolved_alias=None,
 ):
     caller = authorize(authorization)
     if CONFIG_ERROR:
@@ -324,7 +326,7 @@ async def _complete(
     if request.model not in ALIASES:
         raise HTTPException(400, f"unknown model alias: {request.model}")
     # 按别名的「类别」施加策略：trusted 透传标准字段；guarded 收窄能力面，防提示词劫持
-    alias = ALIASES[request.model]
+    alias = resolved_alias if resolved_alias is not None else ALIASES[request.model]
     snapshot = {request.model: alias}
     response.headers["X-LLM-Route-Revision"] = alias.revision
     params = thaw(alias.defaults)
@@ -363,6 +365,10 @@ async def _complete(
     # --- 防护：按档位改写发给上游的 messages（包标记 / 埋 canary）---
     canary = new_canary() if GUARD.canary_for(alias.tier) else None
     messages = harden(request.messages, spotlight=GUARD.spotlight_for(alias.tier), canary=canary)
+    upstream_options = {'output_api': output_api} if output_api == 'responses' else {}
+    if native_body is not None:
+        upstream_options['native_body'] = harden_native(native_body,
+            spotlight=GUARD.spotlight_for(alias.tier), canary=canary)
 
     started = time.time()
     log.info(json.dumps({"event": "route_selected", "caller": caller, **alias.metadata()}, ensure_ascii=False))
@@ -370,10 +376,7 @@ async def _complete(
     # --- 流式分支：连接与读取分开，让「上游不可用」在还没写任何字节前变成正常的 5xx ---
     if request.stream:
         try:
-            if output_api == "responses":
-                stream = await open_stream(snapshot, request.model, messages, params, output_api=output_api)
-            else:
-                stream = await open_stream(snapshot, request.model, messages, params)
+            stream = await open_stream(snapshot, request.model, messages, params, **upstream_options)
         except ResponsesRequestError as error:
             raise HTTPException(400, str(error)) from error
         except UpstreamError as error:
@@ -396,10 +399,7 @@ async def _complete(
         )
 
     try:
-        if output_api == "responses":
-            response = await forward(snapshot, request.model, messages, params, output_api=output_api)
-        else:
-            response = await forward(snapshot, request.model, messages, params)
+        response = await forward(snapshot, request.model, messages, params, **upstream_options)
     except ResponsesRequestError as error:
         raise HTTPException(400, str(error)) from error
     except UpstreamError as error:
@@ -429,9 +429,9 @@ async def _complete(
     # --- 防护：响应里出现 canary，说明模型被套话把 system 复述出来了 ---
     if canary:
         if output_api == "responses":
-            content = "".join(part.get("text", "") for item in data.get("output", [])
-                              if item.get("type") == "message" for part in item.get("content", [])
-                              if part.get("type") == "output_text")
+            # Tool arguments/refusals are caller-visible too. Match the stream
+            # guard's whole-output scan rather than inspecting only answer text.
+            content = json.dumps(data.get('output', []), ensure_ascii=False)
         else:
             message = data["choices"][0].get("message") or {}
             content = message.get("content")
@@ -461,12 +461,24 @@ async def responses(request: ResponsesRequest, response: Response,
     # Authenticate before processing user-supplied histories. Both protocols share
     # the same tier policy, prompt guard, caller rate limit and route snapshot.
     authorize(authorization)
+    if CONFIG_ERROR:
+        raise HTTPException(503, f"config error: {CONFIG_ERROR}")
+    if request.model not in ALIASES:
+        raise HTTPException(400, f"unknown model alias: {request.model}")
+    alias = ALIASES[request.model]
+    native_body = None
     try:
-        messages, params = to_chat_request(request.model_dump(exclude_none=True))
+        body = request.model_dump(exclude_none=True)
+        if alias.wire_api == 'responses':
+            messages, params = prepare_native(body)
+            native_body = body
+        else:
+            messages, params = to_chat_request(body)
         internal = ChatRequest(model=request.model, messages=messages, stream=request.stream, **params)
     except (ResponsesRequestError, ValidationError) as error:
         raise HTTPException(400, str(error)) from error
-    return await _complete(internal, response, authorization, output_api="responses")
+    return await _complete(internal, response, authorization, output_api="responses",
+        native_body=native_body, resolved_alias=alias)
 
 
 @app.post("/v1/chat/completions", deprecated=True)

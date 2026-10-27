@@ -228,9 +228,11 @@ custom upstream 配置 `wire_api: "responses"`，网关向该基址的 `/respons
 | Chat finish reason `length` / `content_filter` | `status: "incomplete"` 与对应 incomplete_details |
 | Chat 输入、输出、缓存及推理 token 数 | Responses usage；兼容 DeepSeek 的 `prompt_cache_hit_tokens` 缓存计数 |
 
-请求采用无状态模式：显式发送 `store: false`，由调用方管理完整消息历史。仅支持函数工具，工具仍由业务服务执行，网关转换调用与结果。
+请求采用无状态模式：显式发送 `store: false`，由调用方管理完整消息历史。仅支持函数工具，工具仍由业务服务执行。`wire_api: responses` 的上游直接接收经过校验的原生请求，保留独立 `instructions`、assistant `phase`、调用 ID 和工具结果；不再把其历史先转换为 Chat 再转回 Responses。认证、tier、限流、防护和用量统计仍共用原路径。
 
-公共入口不接收 `messages`、`max_tokens`、`response_format`、`stop`、`seed`、`n`、penalties 等 Chat 字段，也不支持 `previous_response_id`、`conversation`、`background`、`include`、`reasoning`、内置 web/file/MCP 工具、音频或上游文件 ID。未知字段通常返回 422，已知字段中的不支持结构或 `store: true` 返回 400。历史中不能带无法转换的 reasoning 项或非空输出 annotations；这些限制也适用于 custom，以保持可切换的业务契约。
+Pi 的图片读取工具可回传 `function_call_output.output` 数组，包含 `input_text` 和内嵌 `data:image/png|jpeg|webp;base64,...` 的 `input_image`。原生上游保留完整数组及其所属 `call_id`；工具结果中的图片 URL、文件 ID、未知内容类型和没有前置调用的工具结果均拒绝。既有 user 消息的图片 URL 支持保持原契约，网关自身不抓取图片。Chat 上游无法等价表达图片工具结果，返回 400，不请求上游，也不丢弃图片或移到另一个消息中。具体范围及验证见 [Pi 原生历史修复](docs/PI_NATIVE_RESPONSES.md)。
+
+公共入口不接收 `messages`、`max_tokens`、`response_format`、`stop`、`seed`、`n`、penalties 等 Chat 字段，也不支持 `previous_response_id`、`conversation`、`background`、`include`、`reasoning`、`parallel_tool_calls`、内置 web/file/MCP 工具、音频或上游文件 ID。未知字段通常返回 422，已知字段中的不支持结构或 `store: true` 返回 400。历史中不能带 reasoning 项或非空输出 annotations；这些限制也适用于原生上游。Pi 图片工具结果需要原生 Responses 上游；切到 Chat 上游时会明确拒绝这类请求。
 
 SDK `model_dump()` 生成的可重放输出项可直接放回历史，包括 `namespace: null`、`phase: null`、`logprobs: null` 等可空字段。消息 phase 接受 `commentary` 和 `final_answer`；非空工具 namespace 无法映射到 Chat，明确拒绝。
 
@@ -238,7 +240,7 @@ custom 输出中仅清理代理额外附加的 item 字段 `metadata`、`interna
 
 custom 使用原生 Responses 输出和 typed SSE；DeepSeek 转换为相同的外部格式。模型仍可能拒绝温度、强制工具选择或某些 JSON Schema 组合，网关不会静默更改参数或换供应商。
 
-路由 `defaults` 当前使用内部生成参数名（如 `max_tokens`），会与公共请求映射后的参数合并，并接受对应上游的协议校验。旧 Chat 入口的转换实现见 `responses_adapter.py`；公共 Responses 到 Chat 的桥接见 `chat_adapter.py`。
+路由 `defaults` 当前使用内部生成参数名（如 `max_tokens`），会与公共请求映射后的参数合并，并接受对应上游的协议校验。旧 Chat 入口的转换实现见 `responses_adapter.py`；公共 Responses 到 Chat 的桥接见 `chat_adapter.py`；受限原生历史校验和防护适配见 `native_responses.py`。
 
 官方参考链接：[Responses 迁移指南](https://developers.openai.com/api/docs/guides/migrate-to-responses)、[Responses API](https://platform.openai.com/docs/api-reference/responses)。
 

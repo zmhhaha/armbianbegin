@@ -123,7 +123,8 @@ class PublicResponsesApiTests(unittest.TestCase):
         self.assertEqual(body["max_output_tokens"], 128)
         self.assertFalse(body["store"])
         self.assertNotIn("messages", body)
-        self.assertEqual([message["role"] for message in body["input"]], ["system", "user"])
+        self.assertEqual(body["instructions"], "answer in Chinese")
+        self.assertEqual(body["input"], "你好")
         self.assertEqual(self.module._usage["responses-api-test"]["prompt_tokens"], 11)
         self.assertTrue(result.headers.get("x-llm-route-revision"))
 
