@@ -125,6 +125,8 @@ bash openspec_service/scripts/deploy.sh --wait
 
 `build.sh` 默认构建并推送 `linux/arm64` 镜像；只构建不推送时使用 `bash openspec_service/scripts/build.sh --no-push`。`deploy.sh` 会先应用 OpenSpec 核心资源，然后创建数据库用户、同步 Vault、等待 ExternalSecret 并滚动重启服务，最后应用 Cloudflare TunnelRoute。需要分阶段部署时可使用 `--core-only`、`--skip-vault` 或 `--skip-cloudflare`。
 
+镜像构建、推送和部署统一使用 `latest`，不自动创建提交号或版本号标签；发布版本记录在镜像 label、Deployment annotation 和镜像 digest 中。更新已有的 `latest` 镜像后，执行 `rollout restart` 以触发重新拉取，`deploy.sh` 已包含此步骤。
+
 默认 PostgreSQL 管理账号为 `appuser`，管理数据库为 `appdb`；可通过 `POSTGRES_ADMIN_USER`、`POSTGRES_ADMIN_DB` 覆盖。`--skip-vault` 会跳过数据库和 Vault 初始化，仅适合已有 Secret 的场景。
 
 集群现有 Registry 使用 HTTPS；在执行 build/push 和节点拉取前，先按集群 CA 配置 Docker/containerd 信任，不能把 `5000` 当作明文 HTTP Registry。
