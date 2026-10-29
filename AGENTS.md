@@ -10,3 +10,7 @@ For specification, proposal, design, task, validation, apply, or archive work in
 4. Do not use `openspec-service/project-a-specs` for this repository unless the user explicitly requests that shared project.
 
 The application source may remain in GitHub. The OpenSpec project is the separate Gitea private store for this repository's `openspec/` specifications and changes.
+
+## Container image tags
+
+Build, push, and deploy application images using the `latest` tag. Record release identity in image labels, deployment annotations, and image digests; do not automatically create commit or version image tags.
