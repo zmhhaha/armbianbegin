@@ -135,6 +135,10 @@ bash openspec_service/scripts/deploy.sh --wait
 
 REST 和 MCP 共用项目授权。MCP 地址为 `https://openspec.panghuer.top/mcp`，客户端使用 Casdoor Bearer JWT。业务路径必须带 `projectId`：
 
+MCP 会话在每个服务进程内保存，上限为 1024，所有用户和项目共用；空闲 1 小时过期，有效的会话请求（包括 `ping`）会续期。服务每分钟回收过期记录，并在创建新会话前再次回收，避免历史记录占满额度。
+
+客户端结束使用时可发送 `DELETE /mcp`，携带原来的 `Authorization: Bearer ...` 和 `Mcp-Session-Id`；属于当前身份的有效会话会被删除，返回 `204` 空响应。缺少会话 ID 返回 `400`，未知、过期、已关闭或属于其他身份的 ID 返回 `404`。收到 `404` 后应不带旧 ID 重新 `initialize`。普通 HTTP/SSE 连接结束时会话仍保留，供后续请求复用。
+
 ```text
 GET  /v1/projects
 GET  /v1/projects/{projectId}/specs
