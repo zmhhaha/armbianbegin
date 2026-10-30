@@ -1,26 +1,31 @@
 # PPT 工作台：登录配置与部署
 
-PPT 部署到 `ppt-service`，公开地址为 **https://ppt-service.panghuer.top**。在 Casdoor 后台创建独立应用、填写邮箱名单并准备 Vault 凭据后，用服务器部署脚本发布网站；公网入口按已确认方案接入 VPS/nginx/frp，Cloudflare Tunnel 配置保留为可选路线。
+PPT 部署在 `ppt-service`，公开地址为 **https://ppt-service.panghuer.top**。
+2026-10-30 起，所有者授权向其他用户开放反馈使用：用户通过 Casdoor 登录即可访问，
+无需管理员把邮箱加入 PPT 名单。网站、API、资料、预览和下载仍需认证，项目按已验证的
+`iss/sub` 分别归属。原有 `ppt-owner` 不再是准入配置，不应重新接入或挂载。
 
-## 配置放在哪里
+## 配置来源
 
 | 内容 | 唯一配置来源 |
 | --- | --- |
-| Casdoor issuer、client ID、回调和代理/API 认证参数 | [ppt-proxy-configmap.yaml](ppt-proxy-configmap.yaml) |
-| 允许访问的精确邮箱白名单 | [ppt-owner-configmap.yaml](ppt-owner-configmap.yaml) |
+| Casdoor issuer、client ID、回调、代理/API 认证参数 | [ppt-proxy-configmap.yaml](ppt-proxy-configmap.yaml) |
 | 生成填写后的公开配置 | [configure-ppt.py](configure-ppt.py) |
-| 网站/代理到集群内 Casdoor HTTPS 的网络许可 | [ppt-oidc-egress.yaml](ppt-oidc-egress.yaml) |
-| 密钥与数据库凭据的 Vault/ESO 映射 | [Vault 配置](../../vault/inventory/PPT-SERVICE.md) |
-| 当前 VPS Nginx/frpc 入口与公网 DNS | [VPS 配置](../../vps/PPT.md) |
-| 可选的 Cloudflare Tunnel 入口与两端网络策略 | [Cloudflare 配置](../../cloudflare-tunnel/PPT.md) |
-| 站点镜像、数据库、PVC、显式迁移、回滚 | [业务部署说明](../../panghu_agent/ppt_service/deploy/k8s/README.md) |
-| 后续任务模型代理与 llm-service 的边界 | [模型接入合同](../../llm-service/design/ppt-service-integration.md) |
+| 到集群内 Casdoor HTTPS 的网络许可 | [ppt-oidc-egress.yaml](ppt-oidc-egress.yaml) |
+| 登录与数据库凭据的 Vault/ESO 映射 | [Vault 配置](../../vault/inventory/PPT-SERVICE.md) |
+| VPS Nginx/frpc 入口与公网 DNS | [VPS 配置](../../vps/PPT.md) |
+| 可选 Cloudflare Tunnel 入口 | [Cloudflare 配置](../../cloudflare-tunnel/PPT.md) |
+| 网站构建、数据库、PVC 和回滚 | [业务部署说明](../../panghu_agent/ppt_service/deploy/k8s/README.md) |
+| Agent 执行后端 | [Agent 部署说明](../../panghu_agent/ppt_service/deploy/agent/README.md) |
 
-`ppt-auth`、`ppt-oidc` 和 `ppt-owner` 三个 ConfigMap 都部署在 `ppt-service`。`ppt-auth` 通过 `envFrom` 仅给网站，并设置 `INVITATION_EMAILS_FILE=/owner/emails`；`ppt-oidc` 仅挂载给同 Pod 的 oauth2-proxy。`ppt-owner` 在网站和代理两个容器内都以完整只读目录挂载到 `/owner`，两者读取同一份 `/owner/emails`；不使用 `subPath`，以便 Kubernetes 更新文件。业务 `base/config.yaml` 只保留数据路径、执行开关等应用参数，不再存第二份 OAuth 配置。密钥不放 ConfigMap。
+`ppt-auth` 和 `ppt-oidc` 位于 `ppt-service`。`ppt-auth` 通过 `envFrom` 给网站，
+`ppt-oidc` 挂载给同 Pod 的 oauth2-proxy。代理设置 `email_domains = ["*"]`，
+接受任意邮箱域名的已认证用户；不设置 `authenticated_emails_file`，API 不读取邀请文件。
+密钥仍只由 Vault/ESO 提供。业务 base 不保存第二份 OAuth 配置。
 
-## 1. 在 Casdoor 后台新建独立应用
+## Casdoor 应用
 
-使用支持 OAuth/OIDC authorization-code 流程的独立 PPT Web 应用；服务端代理使用 client ID 与 client secret 交换 code。配置如下：
+继续使用独立 PPT Web 应用，支持 authorization-code 流程和服务端 code 交换：
 
 | 配置 | 值 |
 | --- | --- |
@@ -28,27 +33,14 @@ PPT 部署到 `ppt-service`，公开地址为 **https://ppt-service.panghuer.top
 | 精确 Redirect URI | `https://ppt-service.panghuer.top/oauth2/callback` |
 | Scopes | `openid email profile` |
 | Issuer | `https://auth.panghuer.top` |
-| ID token 算法 | `RS256`；签名公钥由该 issuer 的 JWKS 提供 |
+| ID token 算法 | `RS256` |
 | API 必要 claims | `iss`、`aud`、`exp`、`iat`、稳定 `sub` 和有效 `email` |
 
-保存应用后取得公开 **client ID**，client secret 存入下节 Vault。client ID 同时用于代理登录和 API 的 `aud` 校验；回调不使用通配符。确认实际 ID token 的 audience 与此 client ID 匹配，保留 issuer、TLS 和签名校验。
+client ID 同时用于代理登录和 API audience 校验；不使用通配符回调。邮箱验证由 Casdoor
+注册/登录策略负责，API 不额外要求 `email_verified`。移除 PPT 名单不改变 Casdoor 的
+账号注册或应用登录策略，也不允许浏览器伪造身份头。
 
-邮箱验证由 Casdoor 的注册和登录策略负责，PPT API 不再额外要求或判断 `email_verified` 声明，无需为 PPT 添加该 Token attribute；本次不修改代理的 OIDC 安全参数或共享 Casdoor 应用。准入只需维护每个人在 Casdoor 中的精确邮箱，不需要查找或填写 `sub`。代理按邮箱白名单允许登录，API 每次认证请求都从已验签 JWT 读取有效 `email`，再读取同一名单判断准入；不信任浏览器自行传入的身份头。项目归属仍绑定已验证的 `iss` 与稳定 `sub`，邮箱不是项目 owner 标识。
-
-## 2. 配置 client ID 与邮箱白名单
-
-编辑 [ppt-owner-configmap.yaml](ppt-owner-configmap.yaml) 中的 `ppt-owner.data.emails`，每行一个精确邮箱。与 DSH、Hermes、Pi 一样，PPT 有自己的名单：
-
-```yaml
-data:
-  emails: |
-    user1@example.com
-    user2@example.com
-```
-
-填入实际已验证邮箱并保留仍需授权的用户；空名单拒绝所有用户。名单文件无法读取或格式无效时，API 返回 503，不沿用旧名单。无需创建 `ppt-invites.json` 或配置 subject 名单。
-
-从本仓库根目录生成 client ID 配置（需要 Python 3.11+ 和 PyYAML）：
+生成公开配置：
 
 ```sh
 python oauth/k8s/configure-ppt.py \
@@ -56,91 +48,54 @@ python oauth/k8s/configure-ppt.py \
   --output /secure/ppt-auth.rendered.yaml
 ```
 
-工具只接收 `--client-id` 和 `--output`，同时填入代理 `client_id` 和 API `OIDC_AUDIENCE`；不生成名单、不改源模板、不写密钥、不访问集群。输出必须是尚不存在的新文件。名单单独应用 `ppt-owner-configmap.yaml`，保留你已维护的实际邮箱。认证模板中的 client placeholder 必须替换为实际值，空名单拒绝全部用户。
+工具只生成匹配的代理 client ID 与 API audience，不写密钥、不访问集群，输出必须为新文件。
+不需要邮箱名单、subject 名单或 `PPT_OWNER_CONFIG`。渲染与部署校验会拒绝重新加入旧邀请设置。
 
-名单增删后应用该文件，等待 Kubernetes 将完整 ConfigMap 目录更新到两个容器；网站每次认证请求重新读取名单。无需重建镜像或配置 `sub`。当前版本首次部署必须重建并推送包含这次认证改造的站点镜像，旧 P1 镜像不具备这套名单逻辑；已经建立的连接不因修改名单立即断开。
+## 凭据与入口
 
-首次由第5节的部署流程创建名单；后续维护优先修改上述源文件，再执行：
+保留独立 `secret/ppt-service/oidc` 的 client/cookie secret，以及 runtime/migrator 数据库凭据。
+已有服务升级不重建账号、不轮换 cookie secret、不迁移用户数据；数据库沿用 `data` 中的共享
+PostgreSQL。首次配置按 [Vault 说明](../../vault/inventory/PPT-SERVICE.md) 准备。
 
-```sh
-kubectl apply -f oauth/k8s/ppt-owner-configmap.yaml
-```
+现有入口是 VPS/nginx/frp，Cloudflare `A ppt-service → 62.234.50.20`、DNS only。
+VPS 必须继续通过 OAuth 代理端口 4180 转发；8000 仅供同 Pod 内回环 API 使用。
+PPT 全站认证内容和 API 均 `no-store`，不可使用共享缓存。选择 Tunnel 时，按上述配置来源
+准备实际 Connector 的网络策略并切换 DNS，避免同名入口冲突。
 
-也可用 `kubectl -n ppt-service edit configmap ppt-owner` 临时增删 `data.emails`，随后把变更同步回上述源文件并保留其他用户。不要重新应用仍为空的模板，否则会清空线上授权名单。
+Casdoor 仍访问 `https://auth.panghuer.top`，沿用集群内 TLS ingress 与精确网络许可。
+本次开放账号不需要修改 Casdoor 数据库或共享应用配置。
 
-## 3. 在 Vault 准备凭据
+## 服务器发布
 
-按 [Vault 配置](../../vault/inventory/PPT-SERVICE.md) 准备四条独立路径：
-
-- `secret/ppt-service/oidc`：专用 `CLIENT_SECRET`、独立 `COOKIE_SECRET`。
-- `secret/ppt-service/database-runtime`：网站最小权限 `DATABASE_URL`。
-- `secret/ppt-service/database-migrator`：迁移角色 `DATABASE_URL`。
-- `secret/ppt-service/postgres-bootstrap`：新 PostgreSQL 的 `POSTGRES_PASSWORD`。
-
-在已登录 Vault 的 Bash 终端执行 [Vault 凭据准备中的四条直接写入命令](../../vault/inventory/PPT-SERVICE.md#凭据准备)，无需创建 JSON 文件；只替换 PPT 应用 Client Secret，其余密钥自动生成。首次写入一次即可，后续部署无需重复生成。数据库 URL 使用 `postgresql+psycopg://`，两个应用 URL 指向新 `ppt_service` 数据库、使用不同角色。ESO 负责同步凭据；`deploy.sh` 使用专用凭据完成数据库初建或升级及角色授权检查。
-
-## 4. 配置公网入口
-
-### VPS/nginx/frp
-
-按 [VPS 配置](../../vps/PPT.md) 安装专用 nginx 禁缓存站点，合并 `ppt-service` 的 frpc 路由，并保留到 OAuth 代理 4180 的精确网络许可。VPS 入口仍使用同一 Casdoor 应用、HTTPS 回调和 `ALLOWED_ORIGINS`。
-
-入口准备就绪后，核对 Cloudflare 中实际 DNS，将 `ppt-service.panghuer.top` 切换为 `A ppt-service → 62.234.50.20`、DNS only，移除同名 Tunnel CNAME 并停用其公开路由。服务器配置与公网 DNS 切换分别核对，同一主机名不同时使用两条公网入口。
-
-### 可选的 Cloudflare Tunnel
-
-若选择 Tunnel 作为公网入口，在能解析、访问集群 Service 的 cloudflared 上配置 Public Hostname：
-
-| 字段 | 值 |
-| --- | --- |
-| Hostname | `ppt-service.panghuer.top` |
-| Service type | `HTTP` |
-| Service URL | `ppt-site.ppt-service.svc.cluster.local:4180` |
-
-若界面合并协议字段，填写 `http://ppt-site.ppt-service.svc.cluster.local:4180`。8000 是同 Pod 内的 loopback API，不作为 Tunnel 目标。外部访问保持 HTTPS，转发保留 Host 与 HTTPS 来源信息。仅有 DNS 记录不能使部署在集群外的 cloudflared 访问 `.svc.cluster.local`；必须先选择具备实际连通性的 Tunnel 实例。
-
-使用 Tunnel 时按 [Cloudflare 说明](../../cloudflare-tunnel/PPT.md) 用实际 cloudflared namespace/Pod 标签填写并应用**两端**网络策略。不要把管理 Tunnel 的 operator 标签当作流量来源。Cloudflare Cache Rule 应对该主机全部 Bypass；PPT 的页面、资产与 API 均需认证并返回 `no-store`。不要增加 Cache Everything。切回 Tunnel 时用对应 CNAME 替换 VPS A 记录，先准备好上述配置，再调整公网入口。
-
-## 5. 在服务器仓库构建和部署
-
-服务器使用 Linux ARM64，需有 Docker、kubectl、Python 3.11+ 与 PyYAML，并能访问镜像仓库 `arm-cluster-master:5000`。先同步主仓库及 `panghu_agent` 子仓库的当前代码和公共配置，然后执行：
+应用源码先 Git 提交和推送，再由 Linux ARM64 服务器获取准确提交。构建、推送使用 `latest`，
+发布绑定 `latest@sha256`，在镜像标签和部署注解中记录 Git revision。
 
 ```sh
 cd <仓库目录>/panghu_agent/ppt_service
 export PPT_CLIENT_ID='<Casdoor 实际 PPT client ID>'
-bash deploy.sh
-```
-
-同一命令用于首次安装和后续发布：默认构建、验证并推送站点镜像，同步四条 Vault 凭据，启动 PostgreSQL，处理数据库初建或 schema 升级，检查存储与运行权限，再发布网站。无需在 Windows 打包网页或手工上传镜像上下文。
-
-也可先构建，再发布已有镜像：
-
-```sh
 bash build.sh
-bash deploy.sh --skip-build
 ```
 
-`rendered/image.txt` 保存成功推送后的 registry digest，`--skip-build` 复用该摘要。用 `PPT_SITE_IMAGE` 可显式指定完整镜像摘要。`PPT_AUTH_CONFIG` 可指定由 `configure-ppt.py` 生成的公开配置，替代 `PPT_CLIENT_ID`；后续两者均未提供时，可复用线上已有的有效公开配置。
+首次部署或常规部署入口及前置条件见 [服务器部署说明](../../panghu_agent/ppt_service/deploy/k8s/README.md)。
+已接入 Agent/schema4 的线上服务做认证专项升级时，应基于实时配置只更新网站镜像、公开 OAuth
+配置及不再使用的 owner 挂载，保留执行后端、Controller、数据库/PVC 和凭据引用。
+不要使用旧配置重放覆盖已完成的 Agent 切换。
 
-域名统一为 `ppt-service.panghuer.top` 后，已有部署需同步更新 `ppt-auth` 的 `ALLOWED_ORIGINS` 和 `ppt-oidc` 的 `redirect_url`。使用实际 `PPT_CLIENT_ID` 从当前模板重新生成配置，或指定已经更新域名的 `PPT_AUTH_CONFIG`，避免复用旧域名的线上配置。Casdoor 应用回调与所选入口的 DNS 由管理员在后台同步更新；选择 Tunnel 时还须更新 Public Hostname。namespace、数据库、Vault 路径及现有用户项目继续沿用。
+已有 `ppt-owner` ConfigMap 可暂留作为历史配置；新镜像不会读取，新清单也不挂载。
+修改 OAuth ConfigMap 后需滚动网站 Pod，使代理重读文件；API 的旧邀请环境变量应一并移除。
 
-普通部署保留已有 `ppt-owner` 名单，首次才从源文件创建；明确要替换时使用 `PPT_OWNER_CONFIG`，或按第 2 节单独应用名单。修改公开认证参数或环境变量中的 Secret 后需重启对应消费者；仅增删邮箱则等待两个容器的目录投影更新即可。
+## 部署后验证
 
-Casdoor 继续访问 `https://auth.panghuer.top`，通过现有 CoreDNS split horizon 与集群内 TLS ingress 连接；`ppt-oidc-egress.yaml` 只允许指定 `ingress-nginx` controller Pod 的 TCP443。DNS 使用业务基线许可，实际部署后核查 discovery/token/JWKS 路径及 CNI 允许和拒绝行为。
+- 未登录访问 `/` 进入登录，`/api/v1/me` 返回 401，匿名预览/下载不能获得内容。
+- 使用从未加入旧名单的账号登录，应可访问身份 API、创建自己的项目。
+- 无签名、错误 issuer/audience、过期令牌或无效邮箱仍拒绝。不同 `iss/sub` 不能访问彼此项目、事件或下载。
+- 写操作要求精确 Origin `https://ppt-service.panghuer.top` 和匹配 CSRF cookie/header。
+- `__Host-ppt` cookie 保持 Secure、HttpOnly、Path=/、SameSite=Lax，无 Domain。
+- `/oauth2/sign_out` 清除本地代理会话；Casdoor 全局 SSO 会话和旧无状态 cookie 的撤销不由本次改动承诺。
+- 验证代理不再设置邮箱文件、网站不读取邀请配置，且旧名单的空值或读取故障不影响正常认证。
 
-网站就绪后按第 4 节接通 VPS/nginx/frp 并核对公网 DNS；Tunnel 为可选路线。完整部署前置、数据库与存储处理及故障排查见 [服务器部署说明](../../panghu_agent/ppt_service/deploy/k8s/README.md#服务器标准入口)。Pi 模型生成尚未接通，`PPT_EXECUTION_ENABLED=false` 保持关闭，生成请求仍返回 `503 execution_not_connected`。
+真实代理的合成协议验证工具见 [tests/oidc](../../panghu_agent/ppt_service/tests/oidc/README.md)。
+它使用独立 issuer、身份、凭据和 SQLite，不修改生产用户项目，不调用模型。
 
-## 6. 部署后验收
-
-- 未登录访问 `/` 应进入登录；`/api/v1/me` 应返回 401，避免后台 API 跳登录页。
-- 白名单用户完成独立 PPT 登录；Casdoor 负责执行邮箱验证策略。缺失或格式无效的签名邮箱、名单外邮箱均被 PPT API 拒绝；API 不因 `email_verified` 缺失或其值而拒绝。JWT 仍须包含稳定 `sub`，但无需把它配置进名单。确认真实 `aud`、RS256 和 JWKS 可用，不记录 token 内容。
-- 修改 `ppt-owner.data.emails` 后等待两个容器的文件更新，验证移除用户后下一次认证请求被拒绝，空名单拒绝所有用户；名单读取或格式错误时 API 返回 503。确认原有项目仍按 `iss/sub` 隔离，不随邮箱名单变更转移归属。
-- `/api/v1/me` 能返回身份与 CSRF 状态；修改请求必须带精确 Origin `https://ppt-service.panghuer.top` 和匹配 CSRF cookie/header，缺失或错误均被拒绝。
-- `__Host-ppt` cookie 具有 Secure、HttpOnly、Path=/、SameSite=Lax，无 Domain。用实际 Casdoor claims 核查 cookie 大小。代理 cookie 最长8小时且不配置自动 refresh；API还独立检查 ID token 的 `exp`，不能把8小时当作 token 保证有效期。
-- `/oauth2/sign_out` 清除本地代理会话，随后 API 401。它不会自动注销 Casdoor 的全局 SSO 会话，也不会吊销已复制的无状态 cookie；若需要全局登出，单独验证提供方登出合同。
-- 带会话访问某个 `/assets/…` 成功后，使用全新未登录浏览器访问同一 URL 应被拒绝。确认 Cloudflare/VPS 不从共享缓存返回此前认证资产。
-- 生成请求当前应返回 `503 execution_not_connected`；网站登录和项目管理可正常使用，Pi 模型生成接入后再单独验收。
-
-固定 v7.8.0 的隔离协议验收工具见 [tests/oidc](../../panghu_agent/ppt_service/tests/oidc/README.md)，当前交付脚本和静态检查，尚未跑完真实代理回合。脚本使用合成 HTTPS issuer/CA、身份和 SQLite，不借用业务密钥；部署者可先运行它，再做上述真实浏览器验收。已知 JWKS 缓存允许已知 kid 暂存，不能声称删除公钥会立即撤销所有旧凭证。
-
-2026-10-24：当前配置和部署以本文为准。[P2 结果记录](../../panghu_agent/ppt_service/deploy/oidc/RESULTS.md) 保留历史验证，其中旧 namespace 和旧脚本步骤属于当时的记录；实际登录、网络和会话结果按以上项目记录。
+开放反馈使用不代表完整制稿质量已验收。当前 Agent 后端已启用；之前的完整流程受上游模型
+`response.failed` 阻塞，制稿/修改/下载及 PowerPoint 完整验收仍须按实际结果记录。

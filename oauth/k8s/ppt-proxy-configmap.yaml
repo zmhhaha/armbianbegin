@@ -1,5 +1,5 @@
 # Canonical public authentication configuration. Credentials belong in Vault.
-# Register the dedicated client and maintain the separate ppt-owner list.
+# Register the dedicated client. All Casdoor-authenticated users may sign in.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -10,8 +10,6 @@ data:
   OIDC_JWKS_URL: https://auth.panghuer.top/.well-known/jwks
   OIDC_AUDIENCE: REQUIRED_DEDICATED_PPT_CLIENT_ID
   ALLOWED_ORIGINS: https://ppt-service.panghuer.top
-  # Both site and OAuth proxy read the same independently managed email file.
-  INVITATION_EMAILS_FILE: /owner/emails
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -32,7 +30,7 @@ data:
     proxy_websockets = true
     pass_authorization_header = true
     pass_access_token = false
-    authenticated_emails_file = "/owner/emails"
+    email_domains = ["*"]
     api_routes = ["^/api/"]
     cookie_name = "__Host-ppt"
     cookie_path = "/"
