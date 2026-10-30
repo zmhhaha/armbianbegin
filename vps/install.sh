@@ -12,6 +12,7 @@
 #   BASE_DOMAIN        可选，默认 panghuer.top
 #   FRP_VER            可选，默认 0.71.0
 #   PPT_VPS_ENABLED    可选，默认 0；设为 1 才安装 PPT 的可选 VPS 专用站点
+#   VIDEO_VPS_ENABLED  可选，默认 0；设为 1 才安装视频工作台的 VPS 专用站点
 #
 # 设计文档：../docs/vps-ingress-design.md
 set -Eeuo pipefail
@@ -237,6 +238,18 @@ install_nginx_and_cert() {
     install -m 0644 "$ppt" /etc/nginx/sites-available/ppt-service.conf
     rm -f "$ppt"
     ln -sf /etc/nginx/sites-available/ppt-service.conf /etc/nginx/sites-enabled/ppt-service.conf
+  fi
+
+  # The video workbench keeps authenticated previews/exports out of the
+  # wildcard site's cache and HTML rewriting. Keep existing sites when off.
+  if [[ "${VIDEO_VPS_ENABLED:-0}" == 1 ]]; then
+    log "安装视频工作台专用站点配置（所有路径不缓存）"
+    local video; video="$(mktemp)"
+    BASE_DOMAIN="$BASE_DOMAIN" HTTPS_PORT="$HTTPS_PORT" envsubst '${BASE_DOMAIN} ${HTTPS_PORT}' \
+      < "${SCRIPT_DIR}/nginx/video-service.conf.template" | tr -d '\357\273\277\r' > "$video"
+    install -m 0644 "$video" /etc/nginx/sites-available/video-service.conf
+    rm -f "$video"
+    ln -sf /etc/nginx/sites-available/video-service.conf /etc/nginx/sites-enabled/video-service.conf
   fi
   mkdir -p /var/www/certbot
 
