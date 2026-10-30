@@ -121,6 +121,7 @@ class UpstreamStream:
         self.wire_api = wire_api
         self.output_api = output_api
         self.failed = False
+        self.failure_diagnostics: dict[str, str] = {}
         self.usage = None
         self.sequence_number = -1
         # 上游给什么 content-type 就照传（SSE 是 text/event-stream）
@@ -155,6 +156,9 @@ class UpstreamStream:
                         yield chunk
                 except (ResponsesProtocolError, httpx.HTTPError) as error:
                     self.failed = True
+                    self.failure_diagnostics = (error.failure_diagnostics
+                        if isinstance(error, ResponsesProtocolError)
+                        else {"failure_category": "transport_error"})
                     data = {"error": {"type": "upstream_error", "message": str(error)}}
                     prefix = ""
                     if self.output_api == "responses":
@@ -175,7 +179,7 @@ class UpstreamStream:
                 continue
             kind = event["type"]
             if kind in ("error", "response.failed", "response.cancelled"):
-                raise ResponsesProtocolError("Responses stream reported a failure")
+                raise ResponsesProtocolError("Responses stream reported a failure", failure_event=event)
             terminal = kind in ("response.completed", "response.incomplete")
             if terminal:
                 response = event.get("response")

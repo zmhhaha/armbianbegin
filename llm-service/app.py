@@ -299,7 +299,9 @@ async def _relay(stream: UpstreamStream, canary: str | None, caller: str, alias,
 
     if getattr(stream, "failed", False):
         log.info(json.dumps({"event": "upstream_stream_error", "caller": caller,
-                             "alias": alias_name, **alias.metadata()}, ensure_ascii=False))
+                             "alias": alias_name, **alias.metadata(),
+                             "upstream_http_status": getattr(stream, "status_code", None),
+                             **getattr(stream, "failure_diagnostics", {})}, ensure_ascii=False))
         return
     tokens = (_chat_usage(stream.usage) if getattr(stream, "usage", None) is not None
               else _stream_usage(tail))

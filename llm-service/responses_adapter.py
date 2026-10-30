@@ -21,6 +21,59 @@ class ResponsesRequestError(ValueError):
 class ResponsesProtocolError(RuntimeError):
     """The provider returned an invalid or unsupported Responses response."""
 
+    def __init__(self, message: str, *, failure_event: dict | None = None):
+        super().__init__(message)
+        # Never retain the provider event or put its message in the exception.
+        self.failure_diagnostics = _stream_failure_diagnostics(failure_event)
+
+
+# Explicit vocabulary, rather than a string/length check: arbitrary provider
+# fields can contain prompts, paths, credentials or user content.
+_PROVIDER_ERROR_CODES = frozenset({
+    "server_error", "rate_limit_exceeded", "context_length_exceeded",
+    "insufficient_quota", "invalid_api_key", "model_not_found",
+    "invalid_request_error", "invalid_prompt", "content_policy_violation",
+    "invalid_image", "invalid_image_format", "invalid_base64_image",
+    "invalid_image_url", "image_too_large", "image_too_small", "image_parse_error",
+    "image_content_policy_violation", "unsupported_image", "empty_image_file",
+    "failed_to_download_image", "image_file_not_found",
+})
+_PROVIDER_ERROR_TYPES = frozenset({
+    "server_error", "invalid_request_error", "rate_limit_error", "api_error",
+    "authentication_error", "permission_error", "not_found_error",
+})
+
+
+def _stream_failure_diagnostics(event: dict | None) -> dict[str, str]:
+    result = {"failure_category": "protocol_error", "upstream_event": "unknown",
+              "provider_error_code": "unknown", "provider_error_type": "unknown"}
+    if not isinstance(event, dict):
+        return result
+    kind = event.get("type")
+    if type(kind) is not str or kind not in {"error", "response.failed", "response.cancelled"}:
+        return result
+    result.update(failure_category="provider_error", upstream_event=kind)
+    if kind == "error":
+        detail = event
+    else:
+        response = event.get("response")
+        detail = response.get("error") if isinstance(response, dict) else None
+        if not isinstance(response, dict) or (detail is not None and not isinstance(detail, dict)):
+            result["failure_category"] = "provider_error_malformed"
+        elif detail is None:
+            result["failure_category"] = "provider_error_missing"
+    if kind == "response.cancelled":
+        result["failure_category"] = "provider_cancelled"
+    if isinstance(detail, dict):
+        code = detail.get("code")
+        # The top-level type is the SSE discriminator, not a provider error type.
+        error_type = detail.get("type") if kind != "error" else None
+        if type(code) is str and code in _PROVIDER_ERROR_CODES:
+            result["provider_error_code"] = code
+        if type(error_type) is str and error_type in _PROVIDER_ERROR_TYPES:
+            result["provider_error_type"] = error_type
+    return result
+
 
 _PROXY_ITEM_METADATA = {"metadata", "internal_chat_message_metadata_passthrough"}
 
@@ -665,7 +718,7 @@ async def translate_stream(lines: AsyncIterator[str]) -> AsyncIterator[bytes]:
         if kind == "response.metadata":
             continue  # Relay control metadata carries no assistant output.
         if kind in ("error", "response.failed", "response.cancelled"):
-            raise ResponsesProtocolError("Responses stream reported a failure")
+            raise ResponsesProtocolError("Responses stream reported a failure", failure_event=event)
         if kind in ("response.completed", "response.incomplete"):
             for chunk in stream.terminal(event):
                 yield chunk
