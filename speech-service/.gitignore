@@ -1,0 +1,10 @@
+.venv/
+.cache/
+.state/
+models/
+vendor/
+lib/
+experiments/
+evidence/
+__pycache__/
+*.pyc
