@@ -18,6 +18,75 @@ def segment(start, end, text):
 
 
 class BindingTests(unittest.TestCase):
+    def test_installed_npu_subclass_finishes_lossless_plan_before_rendering(self):
+        from speech_service.npu_planner import NpuPlanningError
+
+        text = '甲甲，乙乙，丙丙，丁丁，'
+        prepared_calls, rendered, cancellations = [], [], []
+
+        class TooLong(ValueError):
+            pass
+
+        class Upstream:
+            def __init__(self, config):
+                self.config = SimpleNamespace(platform='rk3588')
+                self.frontend = SimpleNamespace(_official_g2p=lambda route: lambda value: value)
+
+            def preload(self):
+                pass
+
+            def is_ready(self):
+                return True
+
+            @staticmethod
+            def _cancel(events, stage):
+                cancellations.append((events, stage))
+
+            def _prepare_candidate(self, fragment, language, speed, cancel):
+                prepared_calls.append((fragment, language, speed, cancel))
+                if fragment == text:
+                    raise TooLong()
+                durations = {text[:6]: 181, text[:3]: 160, text[3:]: 300}
+                duration = durations[fragment]
+                target = min((160, 200, 240, 280, 320), key=lambda value: (abs(value - duration), value))
+                ratio = abs(target / duration - 1)
+                return SimpleNamespace(natural_D=duration), {'fallback': ratio > .10, 'snap_ratio': ratio}
+
+            def _render_segment(self, prepared, profile, *args, **kwargs):
+                rendered.append(profile)
+
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'upstream.py'
+            source.write_bytes(b'reviewed fixture source')
+            module = SimpleNamespace(__file__=str(source), KokoroConvOnlyBackend=Upstream,
+                KokoroConvOnlyConfig=lambda *args, **kwargs: args, PhonemeLengthError=TooLong,
+                PLATFORM_TS={'rk3588': (320, 400, 480, 560, 640)}, MAX_SEGMENTS=256)
+            with patch('speech_service.rkvoice_backend.BACKEND_SHA256', hashlib.sha256(source.read_bytes()).hexdigest()), \
+                    patch('speech_service.rkvoice_backend.importlib.import_module', return_value=module):
+                backend = RkvoiceKokoroBackend(Path(directory))
+                backend.preload()
+            cancel = (object(),)
+            iterator = backend._backend._iter_planned_segments(text, 'zh', .9, cancel)
+            first = next(iterator)
+            # Obtaining the first result has already checked the complete
+            # right-hand source range; none of the rejected plan was rendered.
+            self.assertEqual([value[0] for value in prepared_calls], [text, text[:6], text[:3], text[3:]])
+            self.assertEqual(rendered, [])
+            plan = [first, *iterator]
+            self.assertEqual(''.join(text[start:end] for start, end, _, _ in plan), text)
+            self.assertTrue(all(value[1:] == ('zh', .9, cancel) for value in prepared_calls))
+            self.assertTrue(cancellations and all(value[0] is cancel for value in cancellations))
+            for _, _, candidate, profile in plan:
+                backend._backend._render_segment(candidate, profile)
+            self.assertEqual(len(rendered), 2)
+            # If no alternative can complete, even the first next() fails.
+            with patch.object(backend._backend, '_prepare_candidate',
+                              return_value=(SimpleNamespace(natural_D=181), {'fallback': True, 'snap_ratio': .105})):
+                failed = backend._backend._iter_planned_segments(text, 'zh', .9, cancel)
+                with self.assertRaises(NpuPlanningError):
+                    next(failed)
+            self.assertEqual(len(rendered), 2)
+
     def test_failed_male_voice_preload_cannot_render_default_female_style(self):
         events = []
 

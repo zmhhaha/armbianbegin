@@ -80,6 +80,23 @@ class RkvoiceKokoroBackend:
         voice_id = self._voice
 
         class NpuOnlyBackend(module.KokoroConvOnlyBackend):
+            def _iter_planned_segments(self, text, language, speed, cancel):
+                from .npu_planner import PlanLimits, plan_npu_segments
+                # Complete the batch request's CPU plan before yielding its
+                # first segment to the inherited renderer. A rejected short
+                # segment can then move a parent boundary without NPU work.
+                plan = plan_npu_segments(
+                    text,
+                    lambda fragment: self._prepare_candidate(fragment, language, speed, cancel),
+                    length_error=module.PhonemeLengthError,
+                    cancel_check=lambda: self._cancel(cancel, 'planning'),
+                    max_natural_d=max(module.PLATFORM_TS[self.config.platform]) // 2,
+                    limits=PlanLimits(max_segments=module.MAX_SEGMENTS),
+                )
+                for segment in plan:
+                    self._cancel(cancel, 'planning')
+                    yield segment
+
             @staticmethod
             def _request(text, speaker_id, speed, pitch_shift, kwargs):
                 if kwargs.get("voice") != voice_id or kwargs.get("speaker") not in (None, voice_id):
