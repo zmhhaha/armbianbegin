@@ -1,6 +1,6 @@
 # 2026-10-31 阶段验证
 
-本阶段仅验证独立语音服务的实验路径，未交付 HTTP API 或视频配音功能。源码分支为 `codex/speech-service-rk3588`，未合主线。
+当前已实现独立语音服务 HTTP API 原型，云健男声经视频原版 SpeechClient 完成完整技术文稿联调；完整文稿听感尚未获采用，线上视频配音功能仍待接入。Windows及ARM最终均79项测试通过。源码分支为 `codex/speech-service-rk3588`，未合主线。下文按阶段保留原始失败和后续修复证据。
 
 ## 真实执行
 
@@ -37,3 +37,61 @@ Kokoro源包共500,370,817B、161文件（160资产+manifest），manifest SHA25
 ## 离线检查
 
 23项通过：15项媒体与执行证据判据，8项源码/模型完整性及显式恢复。覆盖真实PCM帧数、截断/静音、CPU与NPU区分、预加载不冒充合成、意外回退、缺失/损坏文件、legacy receipt迁移、429部分文件恢复。修复后的完整性脚本尚未在worker重新运行，后续使用前先统一更新脚本再核验。
+
+## 2026-10-31 继续验证
+
+已将完整性修复同步到worker，重新校验固定源码、官方运行库和Matcha解包闭包，升级为逐文件receipt；installed Matcha/Kokoro源码与固定vendor逐字节相同。
+
+Lite2二进制确认只查询`/usr/lib/librknnrt.so`。新脚本通过`unshare --mount --propagation private`与临时overlay提供该路径；库仍来自私有`lib/`。探针与真实合成前后均确认宿主库路径仍不存在，没有写入宿主库、升级驱动或改系统Python。
+
+| 候选/原始文稿 | 预加载 | 合成/音频时长 | RTF | 峰值自身RSS | 实际NPU调用 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Matcha CPU声学+NPU Vocos r2 | 2.620秒 | 13.455/44.24秒 | 0.3041 | 344,236,032B | 段落19次成功；另有短句1次、预加载1次 |
+| Kokoro r1原前端 | 4.870秒 | 短句7.855/4秒；原段落拒绝 | 短句1.9637 | 2,413,740,032B | 短句70次成功；段落未生成 |
+| Kokoro r2显式英文策略 | 4.816秒 | 34.349/52秒 | 0.6606 | 3,061,694,464B（约2.85GiB） | 段落788次成功；另有短句70次 |
+
+统一2核CPU配额；比较候选使用3GiB内存上限和300秒墙钟上限，每个候选新进程，未自动重试。所有RTF包含本次实际文字前端、声学/生成、声码器及WAV输出，不能当作纯NPU耗时或同算法加速比。Kokoro使用CPU前端及混合算术，`engine=npu`不代表整个模型都在NPU。
+
+Kokoro剩余81个文件通过单线程/每请求2秒间隔下载完毕，全部160个资产的SHA256通过。r1失败经Misaki0.9.4源码定位：`ZHG2P(version=None)`走legacy路径，绕过en_callable，把部分大写字母直接留下；官方`_ids`拒绝未知音素。新增独立`pronunciation.py`，保留整句中文数字规范化，英文词单独转音素，多字母大写缩写按字母读。未改vendor或过滤未知音素，r1失败证据保留。
+
+r2原段落SHA256仍为`7ef052b21689a04e0c6b25ec3d56c2146bcc3aa86f8e460b93ceb4d1978eb69b`；8个分段覆盖0..201字符，六个术语及日期/数字未被删掉。生成WAV为PCM16/24kHz/mono、52秒，SHA256 `1039f981217c883ee880001470a3305f855e1046666a97a389b926944b1cb1b2`。所有分段声明NPU且无CPU生成器回退；成功调用同时被Python RKNN和原生C API观测。**这证明执行与覆盖，不能代替实际听感**。用户已试听并反馈声音机械、不自然，明确希望男声；小贝女声未获采用。
+
+Matcha独立无模型审计：源码/词典/tokens校验通过、espeak C API可用、无未知覆盖，审计token序列与真实前端一致。但`8`、日期和`1.0`逐位走英文；ACP读作`ˈækp`、PTY读作`tˈaɪ`。覆盖成功不代表术语读音正确，当前配置仍不能直接作为技术解说默认。
+
+### HTTP原型与客户端实联
+
+新增ASGI API与固定Kokoro试验适配。管理员配置model/voice和TOKEN_FILE；输入/音频有界，PCM16容器完整、无全零假成功。原生任务保持单并发，客户端超时/断连不会提前释放，cleanup在同一executor排队到推理结束后。CPU生成器profile在父类渲染前即拒绝，另有mock计数验证父实现0次调用。
+
+在worker回环18092端口短暂启动，使用视频应用原版SpeechClient（源码SHA256`4ce02745006f5109d5975716b451718dc07a7465c18c496791152e66cb499ccd`）实际POST。成功取得192,044B/24kHz/mono/4秒完整WAV，6.802秒返回；无凭据401，错误model被拒绝且不合成。临时unit停止、TOKEN_FILE删除、宿主库仍不存在。该实联使用小贝女声配置，仅证明接口兼容，不作为用户音色采用；男声配置需要单独实测。
+
+Windows与ARM均通过67项（52项完整性/前端/API/适配，15项测量）；含真实socket客户端超时后仍429、原生结束才下一请求200、静音拒绝、ASGI取消和shutdown次序。Windows Uvicorn0.49.0，ARM已安装Uvicorn0.54.0，运行要求固定0.54.0；仅在隔离venv新增httpx0.28.1/httpcore1.0.9用于真实客户端验证。
+
+本轮原始证据已取回`evidence/resume-20261031/`；归档`resume-20261031.tar.gz`大小3,305,777B，SHA256`6c4f3b7580e656b6d1506282bde5fe66956a7aa287829933746b0351988c1b0d`，解包5,074,956B。它记录上述女声及Matcha阶段，不包含之后的男声试验。线上视频配音/字幕/MP4仍未接通。
+
+## 用户要求中文男声后的验证
+
+用户反馈小贝机械、不自然，明确要求男声。官方`hexgrad/Kokoro-82M@f3ff3571791e39611d31c381e3a41a3af07b4987`列出4个中文男声。本轮固定下载两个约0.5MiB候选：
+
+| 音色 | 官方.pt SHA256 | 导出522,240B音色表SHA256 |
+| --- | --- | --- |
+| 云希zm_yunxi | dbe6e1ce7c3dbaf2f5667432947b638b1c6831ccbe154c4610dbcc44f431e27b | 7243892fb4e560d47014090ddf010f8b8b790f3c6b029ff82b2ac06aa4e27c8b |
+| 云健zm_yunjian | 76cbf8bad35901d011d9628a2fdceb7b4f1f127e7a3269cb393b3941eb7fc417 | de48a00bdbf3649f07162269a2b6e0513604389bfac8a2e6c75cb34b323ad6fa |
+
+真实ZIP中的165B tensor descriptor完全相同，固定SHA256`645dea33b46e50fdda6c8a43b39ec4b7adcf28e4643408c02d74fef10ff9d712`，已用pickletools仅查看指令，确认float32/CPU/offset0/shape(510,1,256)/stride(256,256,1)。正式转换只校验该descriptor hash、固定5成员及little-endian有限float，不执行pickle、不导入Torch。启动时由固定.pt重解，再比较.bin与receipt，测试覆盖同时篡改bin+receipt。
+
+男声资产位于`models/voices`，原bundle的161文件闭包与所有hash再次通过。适配层保留原manifest验证，以实例级style选择在自然时长/stem推理前注入男声；请求验证及metadata同步实际voice，不重命名小贝文件、不改全局VOICES、不关闭完整性检查。CPU生成器profile仍在渲染前拒绝。
+
+同一45字左右中文短样句、速度1.0、每款新进程串行、2核CPU/4GiB内存/150秒候选上限：
+
+| 音色 | 合成/音频时长 | 成功NPU调用 | 实际metadata |
+| --- | ---: | ---: | --- |
+| 云希 | 9.229/8秒 | 108 | 单段zm_yunxi，无回退 |
+| 云健 | 11.401/11秒 | 159 | 两段zm_yunjian，无回退 |
+
+用户试听两条同稿后，明确选云健`zm_yunjian`继续调整。云希真实API短稿也通过（9.308/8秒）。随后以云健配置，原版视频SpeechClient经worker回环API对原201字符技术文稿只生成一次：31.434秒返回42秒、24kHz/mono/PCM16、2,016,044B WAV，SHA256`be70d486fc685436d6bc27f7671ffe3712ceffc11f461884ba23872899987997`。输入摘要`c479980ee04ccfa4bbec60d12ec8c3ed0fbb7ec1b4618726c27ac15bfabd153b`；API适配层核验全部分段来源与实际voice，拒绝CPU生成器回退。该HTTP运行未另外插入逐调用观测，因此不把短样的NPU调用数当作这次长文的调用数。
+
+云健API另验证无凭据401、错误model拒绝，临时unit与凭据均清理。API执行成功与用户选择音色，不等于完整技术文稿听感已经获采用。当前没有常驻部署或线上视频路由。
+
+最终Windows及ARM均78项通过（63项完整性/前端/API/音色，15项测量），编译和空白检查通过。收尾确认无运行中的speech-lab unit、无临时token、宿主库路径不存在。男声阶段归档2,262,947B，SHA256`de5acb58b94e491796d20991297f3e6cd27aa2f0df3f9a3935c5b72caad108d5`，已取回`evidence/male-stage-20261031/`，解包3,435,648B；包括两条男声样音、云希/云健API WAV、report、官方metadata、音色receipts和测试日志，不含模型权重。
+
+最终独立审查补充：若原模型ready后男声资产加载失败，直接调用适配器也必须禁止合成。新增初始化成功gate和失败清理，覆盖“错误男声文件不能退回默认女声”的测试。追加后Windows/ARM均为79项通过（64+15），并在ARM重新验证云健正常预加载与style表形状，无额外音频生成。新增日志在worker及本地 `evidence/final-review-tests.log`、`final-review-preload.log`；额外日志归档`final-review-20261031.tar.gz`为1,112B，SHA256`beb71c5a8a7e74b1363800acb576eff7510f89641e2450fdd5bef326a9f478b7`。上述男声阶段归档保留修复前78项的阶段快照。

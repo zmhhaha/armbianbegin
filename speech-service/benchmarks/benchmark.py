@@ -88,13 +88,16 @@ def validate_wav(payload: bytes) -> dict:
 def load_candidate(path: Path) -> dict:
     candidate = json.loads(path.read_text(encoding="utf-8"))
     allowed = {"name", "backend", "env", "source_revision", "speaker_id", "speed",
-               "synthesis_kwargs", "expected_matcha_backend", "artifact_receipt", "cpu_config"}
+               "synthesis_kwargs", "expected_matcha_backend", "artifact_receipt", "cpu_config", "frontend_policy"}
     if not isinstance(candidate, dict) or set(candidate) - allowed:
         raise ValueError("Unexpected candidate fields")
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", candidate.get("name", "")):
         raise ValueError("Candidate name must be a short lowercase identifier")
     if candidate.get("backend") not in BACKENDS:
         raise ValueError("Unsupported TTS backend")
+    if "frontend_policy" in candidate and (candidate["backend"] != "kokoro_convonly"
+            or not isinstance(candidate["frontend_policy"], str) or not candidate["frontend_policy"]):
+        raise ValueError("An explicit frontend policy is supported only for Kokoro")
     env = candidate.get("env", {})
     if not isinstance(env, dict) or any(not ENV_NAME.fullmatch(k) or not isinstance(v, str)
                                         or "\x00" in v for k, v in env.items()):
@@ -414,6 +417,15 @@ def worker(candidate_path: Path, folder: Path, smoke: Path, paragraph: Path) -> 
         phase("preload")
         begin = time.perf_counter()
         backend.preload()
+        if candidate.get("frontend_policy"):
+            sys.path.insert(0, str(HERE.parent))
+            from speech_service import pronunciation
+            if candidate["frontend_policy"] != pronunciation.POLICY_ID:
+                raise ValueError("Unsupported pronunciation policy")
+            backend.frontend.g2p_factory = pronunciation.make_mixed_chinese_g2p_factory(
+                backend.frontend._official_g2p)
+            report["frontend_policy"] = {"id": pronunciation.POLICY_ID,
+                                          "source": source_info(pronunciation)}
         report["preload_s"] = time.perf_counter() - begin
         report["cold_startup_s"] = time.perf_counter() - started
         report["preload_runtime_calls"] = trace.snapshot()
