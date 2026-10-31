@@ -1,8 +1,33 @@
 # 2026-10-31 阶段验证
 
-当前云健语音 API 已部署于自有 K8s，原版视频 SpeechClient 经集群内部 Service 完成完整技术文稿真实合成。完整文稿听感尚未获采用，工作台业务配音、字幕和MP4仍待开发。源码分支为 `codex/speech-service-rk3588`，未合主线；线上工作台、DNS和Casdoor未改。此前Windows/ARM的79项测试已通过，本轮未重跑该套测试，实际新增验证见下。后文保留原始失败及修复记录。
+云健语音 API 已部署于自有 K8s，分段修复版已完成工作台八镜头真实合成与采用，206 秒 MP4 独立技术检查和工作台重启后持久化均通过。完整文稿听感尚未获用户认可。源码分支为 `codex/speech-service-rk3588`，未合主线；DNS 和 Casdoor 保持不变。最新修复与此前镜像的检查分开记录，后文保留原始失败及修复记录。
 
-## K8s 内部服务验证
+## 最新：分段修复已部署与八镜头真实联调
+
+| 检查 | 当前证据与边界 |
+| --- | --- |
+| 工作台真实语音 | 验收副本全部 8 镜已真实合成并明确采用，修复后第 6–8 镜真实通过；两个旧失败不覆盖 |
+| 第三镜根因 | 原 CLI 文本 `--patch` 的 U+002D 不在 Kokoro 词表；不是空标点片段误拒。工作台显式读音修正第 3／5／6 镜的 CLI、路径和文件名，原旁白不改，历史失败保留 |
+| 第六镜历史失败 | operation `03d700c9-e71d-4dd7-bbff-fa608acc82c1` 保留 failed；隔离 CPU 前端 probe 显示首段 D=181→target 200，snap 约 10.497%，超过原 10% 阈值；新 intent 已在修复版成功 |
+| 修复实现 | 源码 `c506bb3c105c81200bc3b86577b65fb96f3361e8` 在任何 NPU 渲染前规划完整连续分段，有限搜索相邻文本边界；保留原文、语速、profile 与 10% 限制，不启用 CPU waveform fallback |
+| 修复版隔离 probe | 首段改边界后 D=172→160，完整 5 段均满足现有 NPU profile 条件；仅 CPU 前端／规划检查，没有 NPU 波形生成 |
+| 单元测试 | **82 项通过**；不与此前 79 项历史结果相加，也不把 CPU probe 记作 NPU 合成通过 |
+| 发布状态 | 源码 `c506bb3c105c81200bc3b86577b65fb96f3361e8`，latest digest `sha256:adb9d87b15b461db56a2f4aca5fd6999221fe4c715ee3751250b3a4b21423634`；Pod `speech-service-758cbd54f9-bfczb` Ready，PID1 五组 capabilities 全 0、NoNewPrivs=1 |
+| 工作台上传／播放 | 视频 VPS 上限已改为 34m；第二镜真实 WAV（1,248,044B、26 秒）上传 A2、明确采用、恢复 A1，A2 历史保留；真实 audio clock 驱动第 1→2 镜通过 |
+| 完整 MP4 | render `5641dc62-01d7-4540-8e79-501ec801cced`，206 秒、H.264／AAC、1280×720@24fps、4944 帧完整解码通过；SHA-256 `75ab83eba053d20b0d8beee8687709ee5aadd10eabef8549dfc4b55122358c31` |
+| 独立音画／字幕检查 | 8 镜音频首尾匹配，全片相关系数 0.9999445、NRMSE 0.010601；8 参考 PNG 画面与顺序通过，第 03／06 镜中心帧目视中文正常；44 条字幕时间／文本与 timeline 一致，仍为 estimated |
+| 工作台回归 | render 冻结 revision 67、编辑恢复 revision 69 局部失效通过；ZIP 19 文件含 8 source、其他 owner 404、损坏 WAV 422 且项目不变通过 |
+| 工作台重启持久化 | rollout restart 后新 Pod `video-workbench-6454f4845f-bj52n` Ready、工作台镜像仍为 `sha256:ccd2509379ad55029760cf5229d09dd33b0577213172a20e791d9818ad06c6fe`、异常重启 0；8 录音逐一 SHA 匹配、A2 历史保留、MP4 SHA 匹配、SQLite integrity ok、原 DSH revision 27 保留 |
+| 重启后运行状态 | 工作台 PID1 五组 capabilities 全 0／NNP=1；PVC 当时可用 988,618,752B；speech Pod `speech-service-758cbd54f9-bfczb` 仍 Running、异常重启 0 |
+| 归档／人工边界 | 最终证据已下载校验并安全解包；完整稿自然度、术语听感和字幕人工校对尚未获认可 |
+
+修复未通过删词、补词、改速、放宽 snap 限制或静默 CPU 生成器回退取得成功。第三镜原 operation `0f99c230-d5b4-414c-8c4e-8175e464ea67` 与第六镜原 failed 均保留；后续显式读音修正、发布和新 intent 成功分别记录，不反写历史失败。
+
+重启通过回执为 master `/root/video-audio-release-20261031/postflight.json`。最终证据归档 19,122,821B，SHA-256 `64cbe74652f62513504df98d4fa2ea483d5400fdfecd69fe02d2409b7269bec0`，已下载校验并安全解包至 `D:\github\armbianbegin\.runtime\video-audio-production\evidence-final\`；成片为其中 `live-audio/dsh-narrated.mp4`。
+
+OpenSpec 变更 `add-video-workbench-audio-production` 已同步至 revision `49692535c5004b27a6fc4132900185422bb75f3d`，验证 `valid=true`、无 issues。19 项完成 14 项，剩余 1.1 整稿听感、4.2 术语人工试听和 5.1–5.3 BGM；未执行 apply／archive。
+
+## 此前 K8s 内部服务验证
 
 namespace为`speech-service`，固定节点`orangepi5-max-server1`；内部 base URL为`http://speech-service.speech-service.svc.cluster.local/v1`，模型别名`kokoro-rk3588`，云健音色`zm_yunjian`。部署步骤、引导权限及镜像核验见 [DEPLOYMENT.md](DEPLOYMENT.md)。本次发布身份：
 

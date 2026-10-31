@@ -1,6 +1,20 @@
 # RK3588 内部语音服务
 
-目标节点为 `orangepi5-max-server1`（192.168.137.211），固定中文男声云健 `zm_yunjian`，模型别名 `kokoro-rk3588`。接口为集群内部 `http://speech-service.speech-service.svc.cluster.local/v1`；工作台的音频候选、试听采用、字幕和 MP4 仍需后续接入。
+目标节点为 `orangepi5-max-server1`（192.168.137.211），固定中文男声云健 `zm_yunjian`，模型别名 `kokoro-rk3588`。接口为集群内部 `http://speech-service.speech-service.svc.cluster.local/v1`；工作台已接入音频候选、上传、试听采用、字幕和 MP4 功能，八镜头真实配音、206 秒 MP4 独立技术检查及工作台重启后持久化均已通过。完整稿听感尚未获用户认可。
+
+## 2026-10-31 分段修复已部署与八镜联调
+
+真实验收副本已完成并采用全部 8 镜语音。第三镜此前 operation `0f99c230-d5b4-414c-8c4e-8175e464ea67` 失败已定位为 CLI 文本 `--patch` 中的 U+002D 不在 Kokoro 词表；通过工作台显式读音修正处理第 3／5／6 镜的 CLI、路径和文件名，原旁白文稿不改。第六镜原 operation `03d700c9-e71d-4dd7-bbff-fa608acc82c1` 随后因分段 profile 失败；两次旧 failed 均保留，没有自动重试，以新 intent 完成后续真实合成。
+
+第六镜的隔离 CPU 前端 probe 证实：原首段自然时长 D=181 选择 target D=200 时，snap 比例约 10.497%，超过原有 10% 限制，因禁止 CPU generator 回退而拒绝。修复源码 `c506bb3c105c81200bc3b86577b65fb96f3361e8` 在任何 NPU 波形渲染前规划完整分段，只有限尝试相邻文本边界，不改文稿、语速或 10% 限制，不开启 CPU 波形回退。隔离 CPU probe 中改选首段边界后 D=172→160，完整 5 段均满足原 NPU profile 条件；单元测试 **82 项通过**。
+
+修复已构建并部署 `arm-cluster-master:5000/speech-service:latest@sha256:adb9d87b15b461db56a2f4aca5fd6999221fe4c715ee3751250b3a4b21423634`，源码 `c506bb3c105c81200bc3b86577b65fb96f3361e8`。Pod `speech-service-758cbd54f9-bfczb` Ready；实际 PID1 的 CapInh／Prm／Eff／Bnd／Amb 全部为 0、NoNewPrivs=1。修复版真实完成第 6–8 镜，工作台全 8 镜录音已采用；此前仅 CPU 规划 probe 与之后真实波形验证分别记录，不混为同一次检查。
+
+206 秒 MP4 render `5641dc62-01d7-4540-8e79-501ec801cced` 已完成并独立验证 H.264／AAC、1280×720@24fps、4944 帧完整解码。8 镜音频首尾匹配通过，全片相关系数 0.9999445、NRMSE 0.010601；8 张参考 PNG 的画面与顺序通过，44 条字幕时间／文本与 timeline 一致但仍为 estimated。MP4 SHA-256 `75ab83eba053d20b0d8beee8687709ee5aadd10eabef8549dfc4b55122358c31`。这些技术检查不代替完整稿自然度、发音和人工字幕校对。
+
+工作台 rollout restart 后新 Pod `video-workbench-6454f4845f-bj52n` Ready，工作台镜像仍为 `sha256:ccd2509379ad55029760cf5229d09dd33b0577213172a20e791d9818ad06c6fe`、异常重启 0。8 条采用录音逐一 SHA 匹配、上传 A2 历史保留、MP4 SHA 匹配、SQLite integrity ok、原 DSH revision 27 保留，PID1 五组 capabilities 全 0／NNP=1；PVC 当时可用 988,618,752B。speech Pod `speech-service-758cbd54f9-bfczb` 仍 Running、异常重启 0。回执位于 master `/root/video-audio-release-20261031/postflight.json`。分支保持 `codex/speech-service-rk3588`，未合主线。
+
+最终证据归档 19,122,821B，SHA-256 `64cbe74652f62513504df98d4fa2ea483d5400fdfecd69fe02d2409b7269bec0`，已下载校验并安全解包至 `D:\github\armbianbegin\.runtime\video-audio-production\evidence-final\`，成片为 `live-audio/dsh-narrated.mp4`；第 03／06 镜中心帧已目视检查，中文正常。OpenSpec 变更 `add-video-workbench-audio-production` 已同步并验证 `valid=true`、无 issues，19 项完成 14 项；剩余 5 项为整稿听感、术语人工试听与 BGM 的 3 项任务，不将技术验收冒充人工认可。
 
 ## 资源与设备
 
@@ -34,7 +48,7 @@ PLUGIN_IMAGE_DIGEST=sha256:<插件镜像摘要> \
 PYTHON=<带PyYAML的Python> bash deploy.sh
 ```
 
-脚本仅在 Secret 不存在时生成随机凭据，不打印凭据。先等待插件及 NPU 注册，再启动推理容器；rollout 后用 Pod 实际 imageID 核验摘要。调用方同时需要客户端标签和 Bearer 凭据文件；现有视频客户端配置 `VIDEO_TTS_URL`、`VIDEO_TTS_MODEL`、`VIDEO_TTS_VOICE` 与 `VIDEO_TTS_TOKEN_FILE` 即可使用适配器，业务制作入口另行实现。
+脚本仅在 Secret 不存在时生成随机凭据，不打印凭据。先等待插件及 NPU 注册，再启动推理容器；rollout 后用 Pod 实际 imageID 核验摘要。调用方同时需要客户端标签和 Bearer 凭据文件；视频工作台通过 `VIDEO_TTS_URL`、`VIDEO_TTS_MODEL`、`VIDEO_TTS_VOICE` 与 `VIDEO_TTS_TOKEN_FILE` 使用适配器。
 
 ## 验收与回退
 
@@ -42,7 +56,7 @@ PYTHON=<带PyYAML的Python> bash deploy.sh
 
 回退时先将 `speech-service` Deployment 缩容为 0，等待 Pod 退出后可删除同命名空间的 `rknpu-device-plugin` DaemonSet。模型、男声资产和 Secret 均保留，不影响既有视频工作台。
 
-## 2026-10-31 实际发布
+## 历史：2026-10-31 首次实际发布
 
 - 语音镜像：`arm-cluster-master:5000/speech-service:latest`，ARM64，682,834,788B。源码 `615c92bad88c21ad4b0cde30f8adab343dfa330f`；实际摘要 `sha256:c34944342aea009482b71443fb26cb9736b99f8a101166a76eb0fe7e746e102e`。
 - 设备插件：`arm-cluster-master:5000/rknpu-device-plugin:latest`，scratch ARM64，13,774,080B。固定上游 `squat/generic-device-plugin@7626d567413ce3831e5ec99471dcdd3a9250cf81`；实际摘要 `sha256:72210a0df7998b715088bdadde7f325a7d81d01e3450b1f0aa3b4bb20473ae96`。
@@ -60,4 +74,4 @@ PYTHON=<带PyYAML的Python> bash deploy.sh
 
 原始 WAV、JSON、运行日志、镜像和编译收据均已取回 Git 忽略目录 `speech-service/evidence/20261031-k8s/`。master 归档 1,369,767B，SHA256 `2e1f65bfef5a65925a83572e37a7be57c30b57d6ca5d3e5ad5de3984826da0cb`；worker 归档 468,748B，SHA256 `100972959edfb5abe87aad53720b0b1bf6dcdf6240f9535e8992eb5c147d4946`。归档仅包含明确列出的证据，不包含 Secret 或 token。
 
-内部部署及客户端互通已通过；完整文稿听感仍需试听。工作台业务的配音候选、上传/采用、字幕与 MP4 未因此自动完成。代码保留在 `codex/speech-service-rk3588`，未合主线。
+上述首次内部部署及客户端互通已通过；它不代替后续工作台业务验收，最新进度见本文顶部。完整文稿听感仍需试听认可。代码保留在 `codex/speech-service-rk3588`，未合主线。
