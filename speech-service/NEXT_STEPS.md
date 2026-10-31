@@ -1,5 +1,7 @@
 # 下一阶段
 
+2026-10-31 最新用户反馈：完整云健成片仍有明显机械感，声音质量未通过认可。用户已选定无字幕图解，先用短口语稿、把技术标识留画面来改善表达，再分别判断音色与节奏。现 API 没有情绪、局部重音或 SSML；尚无同 Kokoro/云健/文本/前端的 CPU 与 NPU 人工听感 A/B，不能把机械感原因直接定为模型上限，或宣称调速已解决。八镜技术验收保留，完整稿听感继续待办。
+
 代码位于独立分支`codex/speech-service-rk3588`，目录`speech-service`与`llm-service`同级。worker目录`/root/armbianbegin/speech-service`；复用已有模型、vendor和venv，不升级驱动、不覆盖宿主库。
 
 K8s 内部服务已部署于 namespace `speech-service`、节点 `orangepi5-max-server1`；接入地址 `http://speech-service.speech-service.svc.cluster.local/v1`。分段修复 `c506bb3c105c81200bc3b86577b65fb96f3361e8` 已部署为 latest digest `sha256:adb9d87b15b461db56a2f4aca5fd6999221fe4c715ee3751250b3a4b21423634`，Pod `speech-service-758cbd54f9-bfczb` Ready／Running、异常重启 0，实际 PID1 capabilities 全 0、NNP=1。工作台 8 镜真实语音均已采用，206 秒 MP4 独立技术检查与工作台重启后持久化均通过；**完整稿听感未获用户认可**。部署身份与权限边界见 [DEPLOYMENT.md](DEPLOYMENT.md)，具体证据见 [VALIDATION.md](VALIDATION.md)。
