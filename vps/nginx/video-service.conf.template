@@ -15,6 +15,8 @@ server {
 
     client_header_buffer_size 16k;
     large_client_header_buffers 8 32k;
+    # Allow the application limit of 32 MiB PCM WAV plus request headroom.
+    client_max_body_size 34m;
 
     location / {
         # frps routes the original Host to the existing OAuth proxy on 4180.
