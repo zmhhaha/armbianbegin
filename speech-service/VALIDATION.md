@@ -1,16 +1,38 @@
-# 2026-10-31 阶段验证
+# 语音服务阶段验证
 
-## 2026-11-01：多男声实现，待部署验收
+## 2026-11-01：四男声已部署，三条同稿候选真实联调通过
 
 - 官方 `hexgrad/Kokoro-82M@f3ff3571791e39611d31c381e3a41a3af07b4987` 的中文男声为 `zm_yunjian`、`zm_yunxi`、`zm_yunxia`、`zm_yunyang`。本机直连官方站 TLS 失败后，从既有 `hf-mirror.com` 获取同一固定 revision 的元数据和新增两份文件，实际字节／SHA 与该元数据一致；未将镜像传输描述为直连官方下载成功。
 - 新增云夏 `.pt` 为 523,430B，SHA-256 `bb2b03b08e84d64e1214440ce3b624987fac177f2eeb5bab8571799a3d980acd`；云扬 523,435B，SHA-256 `5238ac22e0c7f8b6cdd2eddd6e444b8a700b73c4674d9a047d59a94ff96379a2`。两者均通过原严格 5 成员 ZIP 闭包、165B descriptor SHA、little-endian／finite float32 `(510,1,256)` 检查；以实际新增注册表执行 `stage_voice` 与 `load_verified_voice` 再次通过，没有执行 pickle 或导入 Torch。
 - 代码加入显式 `SPEECH_VOICES`、带鉴权的 `/v1/voices` 与 per-request voice；省略 voice 用默认，未知／未启用 ID 拒绝。所有启用资产必须先通过启动校验才公开 catalog，任一缺损导致初始化失败。一个模型与一个 NPU 槽位服务所有声线，适配器锁及线程绑定覆盖 style 选择到全请求完成；metadata 逐段核对请求声线，失败后清除 active voice，不换声线或 CPU 回退。
 - Windows Python 3.13 完整 **91 项通过**，包含真实本地 socket HTTP、超时后另一声线仍拒绝、并发声线隔离／cleanup 等待、错误声线 metadata 拒绝、部分资产初始化失败及既有完整性测试；`git diff --check` 通过。测试使用模拟后端，不能记作新增声线的真实 NPU 合成通过。
-- 本地新增资产与审计在 `D:\github\armbianbegin\.runtime\video-audio-production\multi-voice-assets`；发布负责人已将新增 6 个文件传至 worker，并用新版独立资产模块重验全部 4 声线通过，回执为 `/root/armbianbegin/speech-service/evidence/20261101-male-voices/asset-receipt.json`，没有推理。尚未部署多音色版，也未新增任何真实合成。后续由统一发布／合成预算验收，默认云健和自然度待确认状态保持。
+- 本地新增资产与审计在 `D:\github\armbianbegin\.runtime\video-audio-production\multi-voice-assets`；发布负责人已将新增 6 个文件传至 worker，并用新版独立资产模块重验全部 4 声线通过，回执为 `/root/armbianbegin/speech-service/evidence/20261101-male-voices/asset-receipt.json`。此资产核验本身没有推理；随后部署与真实合成分别记录如下。
+
+| 当前部署 | 实际结果 |
+| --- | --- |
+| 语音源码 | `a0f43e04eab5b77a88ddfcf4e08fa1287f2b47e0`，分支 `codex/speech-service-rk3588`，未合主线 |
+| 语音镜像 | `arm-cluster-master:5000/speech-service:latest@sha256:96b4bc880e18c9b3570b263da3b34d67574a0a1a700f252deadba658870287b7` |
+| 语音运行状态 | Pod `speech-service-d97d54fb6-8vbb2` Ready，节点 `orangepi5-max-server1`，异常重启 0；实际 PID1 五组 capabilities 全 0、NoNewPrivs=1 |
+| 实际启用音色 | 鉴权 catalog 返回云健、云希、云夏、云扬；默认仍 `zm_yunjian`，一个模型与一个 NPU 槽位 |
+| 工作台联调版本 | 源码 `cbca8323458dda3f00fe9143cb38f26460c31f77`，digest `sha256:e5e5aff8c1d94ad237bf035268dfd192db79bd8c39c216998dfb4df7eea5bb77`，Pod `video-workbench-5fff98c4d8-wlv86` |
+
+通过工作台新建项目 `9d025676-7138-4a45-83fb-7987b6d15872`（“男声音色对比（项目统一音色验收）”），同一短稿、speed=1.0，对云希、云夏、云扬各提交一次真实生成，共三个 completed operation，无自动重试。三个 WAV 均为 24kHz／mono／PCM16，实际 SHA、时长和完整 PCM 帧核验通过；候选 metadata 与不可变提交请求的 voice 绑定一致。
+
+| 音色 | 时长 | 字节 | WAV SHA-256 |
+| --- | ---: | ---: | --- |
+| 云希 `zm_yunxi` | 6 秒 | 288,044 | `0965268d2f5a6f24dfe0c6c720ab44d9e99e5fa52054b312598178859c3b3da9` |
+| 云夏 `zm_yunxia` | 6 秒 | 288,044 | `98c8d41bb2c7aaaa72b0b040f0e1f99341dfef8413f8b42e3c95587f1f4c21f0` |
+| 云扬 `zm_yunyang` | 5 秒 | 240,044 | `6308539dd72a68e380bfb5f87fe7e96588a342d0b8cd7c0fbaf468fd19080dd2` |
+
+工作台按项目统一音色，不是逐镜头选择。新项目最终 revision 11、音色云扬，三个候选均未采用，`head_audio_version_id=null`。云希／云夏候选因当前项目音色已变而标 stale，仍可试听；云扬候选非 stale。原项目 `cdad4be8-3e51-44ff-98df-3d7500d147d3` 保持 revision 27，八镜验收项目 `1e2a822d-c4c1-45de-a8b9-b72a82f714bc` 保持 revision 69、八条已采用音频指针均保留且非 stale。
+
+本轮证据在 `D:\github\armbianbegin\.runtime\video-audio-production\multi-male-voices\`，部署回执 `speech-deployed.json`，候选核验与取回回执在 `browser-comparison-evidence/`。归档 `browser-male-comparison.tar.gz` 为 539,630B，SHA-256 `9ffe8d26ed2ca2d63aab0eba0c68e3b9cd2c61ad5dea0211403cb1ba88942ba7`，采集及下载校验均通过。采集脚本只读数据库、未再合成或采用；其中 `synthesis_requests=0` 仅指采集阶段，不代表此前浏览器没有生成三次。
+
+服务代码内部强制验证 top-level／每段 NPU 来源与请求音色，但本轮未另外持久化采集逐段 NPU metadata 或逐调用插桩。候选绑定、不同 SHA 与可播放均不代替人耳自然度验收，`human_listening_approved=false`；默认云健和完整稿听感待确认状态保持，API 仍无情绪／SSML 控制。
 
 云健语音 API 已部署于自有 K8s，分段修复版已完成工作台八镜头真实合成与采用，206 秒 MP4 独立技术检查和工作台重启后持久化均通过。完整文稿听感尚未获用户认可。源码分支为 `codex/speech-service-rk3588`，未合主线；DNS 和 Casdoor 保持不变。最新修复与此前镜像的检查分开记录，后文保留原始失败及修复记录。
 
-## 最新：分段修复已部署与八镜头真实联调
+## 2026-10-31：分段修复已部署与八镜头真实联调
 
 | 检查 | 当前证据与边界 |
 | --- | --- |
