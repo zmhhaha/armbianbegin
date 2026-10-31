@@ -23,6 +23,7 @@ from .settings import SpeechSettings
 
 class SpeechBackend(Protocol):
     def preload(self) -> None: ...
+    def voice_catalog(self) -> list[dict]: ...
     def synthesize(self, text: str, *, voice: str, speed: float) -> bytes: ...
     def cleanup(self) -> None: ...
 
@@ -131,10 +132,31 @@ class SpeechApplication:
         self._closing = False
         self._busy = False
         self._active = None
+        self._voice_ids = frozenset({settings.voice})
+        self._catalog = ()
 
     def _preload(self):
         try:
             self._backend.preload()
+            catalog = self._backend.voice_catalog()
+            if type(catalog) is not list or not 1 <= len(catalog) <= 32:
+                raise ValueError("invalid backend voice catalog")
+            ids = []
+            for item in catalog:
+                if (type(item) is not dict or set(item) != {"id", "name", "language", "gender", "default"}
+                        or any(type(item.get(key)) is not str or not 1 <= len(item[key]) <= 200
+                               or item[key] != item[key].strip()
+                               or any(ord(c) < 32 or ord(c) == 127 or 0xD800 <= ord(c) <= 0xDFFF for c in item[key])
+                               for key in ("id", "name", "language", "gender"))
+                        or item["gender"] not in {"male", "female"}
+                        or type(item.get("default")) is not bool
+                        or item["default"] != (item["id"] == self.settings.voice)):
+                    raise ValueError("invalid backend voice catalog")
+                ids.append(item["id"])
+            if len(set(ids)) != len(ids) or self.settings.voice not in ids:
+                raise ValueError("backend default voice is unavailable")
+            self._catalog = tuple(dict(item) for item in catalog)
+            self._voice_ids = frozenset(ids)
         except Exception:
             try:
                 self._backend.cleanup()
@@ -184,7 +206,8 @@ class SpeechApplication:
             if error.status == 401:
                 headers.append((b"www-authenticate", b"Bearer"))
             if error.status == 405:
-                allowed = b"GET" if scope.get("path", "").startswith("/health/") else b"POST"
+                path = scope.get("path", "")
+                allowed = b"GET" if path.startswith("/health/") or path == "/v1/voices" else b"POST"
                 headers.append((b"allow", allowed))
             await self._json(send, error.status, {"error": {"code": error.code, "message": _MESSAGES[error.code]}}, headers)
         except OSError:
@@ -260,11 +283,12 @@ class SpeechApplication:
         except (ValueError, UnicodeError, RecursionError):
             raise _RequestFailed(400, "speech_invalid_request") from None
         if (type(value) is not dict or set(value) - {"model", "input", "voice", "speed", "response_format"}
-                or value.get("model") != self.settings.model or value.get("voice") != self.settings.voice
+                or value.get("model") != self.settings.model
                 or value.get("response_format", "wav") != "wav"):
             raise _RequestFailed(422, "speech_invalid_input")
-        text, speed = value.get("input"), value.get("speed", 1.0)
+        text, speed, voice = value.get("input"), value.get("speed", 1.0), value.get("voice", self.settings.voice)
         if (type(text) is not str or not 1 <= len(text) <= self.settings.max_text_characters or not text.strip()
+                or type(voice) is not str or voice not in self._voice_ids
                 or any((ord(c) < 32 and c not in "\t\r\n") or ord(c) == 127
                        or 0xD800 <= ord(c) <= 0xDFFF for c in text)
                 or len(text.encode("utf-8")) > self.settings.max_text_bytes
@@ -272,12 +296,12 @@ class SpeechApplication:
                 or not self.settings.min_speed <= speed <= self.settings.max_speed
                 or not math.isfinite(speed)):
             raise _RequestFailed(422, "speech_invalid_input")
-        return text, float(speed)
+        return text, float(speed), voice
 
-    def _synthesize(self, text, speed):
+    def _synthesize(self, text, speed, voice):
         try:
             try:
-                data = self._backend.synthesize(text, voice=self.settings.voice, speed=speed)
+                data = self._backend.synthesize(text, voice=voice, speed=speed)
             except Exception:
                 raise _BackendFailed() from None
             return _complete_pcm16(data, self.settings)
@@ -285,7 +309,7 @@ class SpeechApplication:
             with self._state_lock:
                 self._busy = False
 
-    def _admit(self, text, speed):
+    def _admit(self, text, speed, voice):
         with self._state_lock:
             if not self._ready or self._closing:
                 raise _RequestFailed(503, "speech_unavailable")
@@ -293,7 +317,7 @@ class SpeechApplication:
                 raise _RequestFailed(429, "speech_busy")
             self._busy = True
             try:
-                self._active = self._executor.submit(self._synthesize, text, speed)
+                self._active = self._executor.submit(self._synthesize, text, speed, voice)
             except RuntimeError:
                 self._busy = False
                 raise _RequestFailed(503, "speech_unavailable") from None
@@ -315,6 +339,18 @@ class SpeechApplication:
             ok = path == "/health/live" or ready
             await self._json(send, 200 if ok else 503, {"status": "ok" if ok else "unavailable"})
             return
+        if path == "/v1/voices":
+            if method != "GET":
+                raise _RequestFailed(405, "method_not_allowed")
+            if not self._authorized(scope.get("headers", [])):
+                raise _RequestFailed(401, "speech_unauthorized")
+            with self._state_lock:
+                ready = self._ready and not self._closing
+            if not ready:
+                raise _RequestFailed(503, "speech_unavailable")
+            await self._json(send, 200, dict(object="list", model=self.settings.model,
+                                           default_voice=self.settings.voice, data=list(self._catalog)))
+            return
         if path != "/v1/audio/speech":
             raise _RequestFailed(404, "not_found")
         if method != "POST":
@@ -325,8 +361,8 @@ class SpeechApplication:
         raw = await self._body(headers, receive)
         if raw is None:
             return
-        text, speed = self._payload(raw)
-        native = asyncio.wrap_future(self._admit(text, speed))
+        text, speed, voice = self._payload(raw)
+        native = asyncio.wrap_future(self._admit(text, speed, voice))
         # Retrieve detached failures so a timed-out HTTP task cannot generate an
         # unhandled future traceback containing backend details in server logs.
         native.add_done_callback(lambda completed: None if completed.cancelled() else completed.exception())

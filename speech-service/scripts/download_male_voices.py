@@ -1,4 +1,4 @@
-"""Download two pinned official Kokoro voices without importing PyTorch.
+"""Download four pinned official Kokoro voices without importing PyTorch.
 
 Neither inspection nor conversion executes pickle. Conversion accepts only
 the exact reviewed descriptor; the original strict RKNN bundle is unchanged.

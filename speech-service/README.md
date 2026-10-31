@@ -44,7 +44,7 @@ Pod 使用 root 且未启用 `privileged`。引导阶段临时持有 `SYS_ADMIN`
 - `speech_service/container_bootstrap.py`：隔离 Python 引导、容器内兼容信息挂载与能力清除；应用启动前复核实际能力和只读挂载。
 - `k8s.yaml`、`k8s-device-plugin.yaml`、`deploy.sh`：集群内部服务、设备插件及发布校验，操作说明见部署文档。
 - `scripts/audit_matcha_frontend.py`：只加载文字前端，逐项核验词典/音素覆盖、缩写与数字风险，不调用模型或NPU。
-- `scripts/download_male_voices.py`：两个官方中文男声固定工件及无Torch转换，资产在原bundle之外单独校验。
+- `scripts/download_male_voices.py`：四个官方中文男声固定工件及无Torch转换，资产在原bundle之外单独校验。
 - `scripts/sample_male_voice.py`：男声短样音、真实voice绑定和NPU调用证据；不自动重试。
 - `benchmarks/benchmark.py`：单并发、新进程、相同短句与技术文稿，保存真实媒体属性、CPU/RSS、NPU负载及实际推理调用证据。
 - `scripts/matcha_cpu_baseline.py`：独立 CPU 参考脚本；统一比较优先使用 benchmark 控制器。

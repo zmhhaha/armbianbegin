@@ -1,6 +1,6 @@
 """Pinned Kokoro male voice tensors, decoded without executing any pickle.
 
-The two reviewed files share one exact 165-byte descriptor. Its digest binds
+The reviewed files share one exact 165-byte descriptor. Its digest binds
 FloatStorage/CPU/key0, offset0, shape(510,1,256), stride(256,256,1), no grad and
 empty hooks. Only the corresponding little-endian storage bytes are copied.
 """
@@ -20,6 +20,8 @@ REPOSITORY = "hexgrad/Kokoro-82M"
 ASSETS = {
     "zm_yunxi": {"bytes": 523425, "sha256": "dbe6e1ce7c3dbaf2f5667432947b638b1c6831ccbe154c4610dbcc44f431e27b"},
     "zm_yunjian": {"bytes": 523435, "sha256": "76cbf8bad35901d011d9628a2fdceb7b4f1f127e7a3269cb393b3941eb7fc417"},
+    "zm_yunxia": {"bytes": 523430, "sha256": "bb2b03b08e84d64e1214440ce3b624987fac177f2eeb5bab8571799a3d980acd"},
+    "zm_yunyang": {"bytes": 523435, "sha256": "5238ac22e0c7f8b6cdd2eddd6e444b8a700b73c4674d9a047d59a94ff96379a2"},
 }
 DESCRIPTOR_SHA256 = "645dea33b46e50fdda6c8a43b39ec4b7adcf28e4643408c02d74fef10ff9d712"
 SHAPE = (510, 1, 256)

@@ -1,5 +1,13 @@
 # 2026-10-31 阶段验证
 
+## 2026-11-01：多男声实现，待部署验收
+
+- 官方 `hexgrad/Kokoro-82M@f3ff3571791e39611d31c381e3a41a3af07b4987` 的中文男声为 `zm_yunjian`、`zm_yunxi`、`zm_yunxia`、`zm_yunyang`。本机直连官方站 TLS 失败后，从既有 `hf-mirror.com` 获取同一固定 revision 的元数据和新增两份文件，实际字节／SHA 与该元数据一致；未将镜像传输描述为直连官方下载成功。
+- 新增云夏 `.pt` 为 523,430B，SHA-256 `bb2b03b08e84d64e1214440ce3b624987fac177f2eeb5bab8571799a3d980acd`；云扬 523,435B，SHA-256 `5238ac22e0c7f8b6cdd2eddd6e444b8a700b73c4674d9a047d59a94ff96379a2`。两者均通过原严格 5 成员 ZIP 闭包、165B descriptor SHA、little-endian／finite float32 `(510,1,256)` 检查；以实际新增注册表执行 `stage_voice` 与 `load_verified_voice` 再次通过，没有执行 pickle 或导入 Torch。
+- 代码加入显式 `SPEECH_VOICES`、带鉴权的 `/v1/voices` 与 per-request voice；省略 voice 用默认，未知／未启用 ID 拒绝。所有启用资产必须先通过启动校验才公开 catalog，任一缺损导致初始化失败。一个模型与一个 NPU 槽位服务所有声线，适配器锁及线程绑定覆盖 style 选择到全请求完成；metadata 逐段核对请求声线，失败后清除 active voice，不换声线或 CPU 回退。
+- Windows Python 3.13 完整 **91 项通过**，包含真实本地 socket HTTP、超时后另一声线仍拒绝、并发声线隔离／cleanup 等待、错误声线 metadata 拒绝、部分资产初始化失败及既有完整性测试；`git diff --check` 通过。测试使用模拟后端，不能记作新增声线的真实 NPU 合成通过。
+- 本地新增资产与审计在 `D:\github\armbianbegin\.runtime\video-audio-production\multi-voice-assets`；发布负责人已将新增 6 个文件传至 worker，并用新版独立资产模块重验全部 4 声线通过，回执为 `/root/armbianbegin/speech-service/evidence/20261101-male-voices/asset-receipt.json`，没有推理。尚未部署多音色版，也未新增任何真实合成。后续由统一发布／合成预算验收，默认云健和自然度待确认状态保持。
+
 云健语音 API 已部署于自有 K8s，分段修复版已完成工作台八镜头真实合成与采用，206 秒 MP4 独立技术检查和工作台重启后持久化均通过。完整文稿听感尚未获用户认可。源码分支为 `codex/speech-service-rk3588`，未合主线；DNS 和 Casdoor 保持不变。最新修复与此前镜像的检查分开记录，后文保留原始失败及修复记录。
 
 ## 最新：分段修复已部署与八镜头真实联调

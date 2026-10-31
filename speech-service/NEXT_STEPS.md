@@ -1,5 +1,7 @@
 # 下一阶段
 
+2026-11-01 多男声代码已完成，**尚未部署或真实合成验收**。官方固定 revision 的云夏、云扬约 1MiB 新增资产已下载并核对元数据／实际 SHA、5 成员闭包和只读 float32 style；云健、云希原身份保持不变。服务支持同一模型按请求选择 4 男声，默认仍云健；上层工作台按项目统一音色。完整离线／HTTP 测试 91 项通过。发布前需将新增 `.pt/.bin/.receipt.json` 放入既有 worker `models/voices`，明确设置 `SPEECH_VOICES=zm_yunjian,zm_yunxi,zm_yunxia,zm_yunyang`；启动逐项校验后通过带鉴权的 `/v1/voices` 核对实际可用列表，再按统一预算做真实短句与工作台联调。单元测试和资产校验不能代替自然度或新增声线 NPU 验收。
+
 2026-10-31 最新用户反馈：完整云健成片仍有明显机械感，声音质量未通过认可。用户已选定无字幕图解，先用短口语稿、把技术标识留画面来改善表达，再分别判断音色与节奏。现 API 没有情绪、局部重音或 SSML；尚无同 Kokoro/云健/文本/前端的 CPU 与 NPU 人工听感 A/B，不能把机械感原因直接定为模型上限，或宣称调速已解决。八镜技术验收保留，完整稿听感继续待办。
 
 代码位于独立分支`codex/speech-service-rk3588`，目录`speech-service`与`llm-service`同级。worker目录`/root/armbianbegin/speech-service`；复用已有模型、vendor和venv，不升级驱动、不覆盖宿主库。

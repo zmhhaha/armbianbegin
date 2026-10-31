@@ -34,6 +34,7 @@ spec:
             - {name: SPEECH_BACKEND, value: kokoro_convonly}
             - {name: SPEECH_MODEL, value: kokoro-rk3588}
             - {name: SPEECH_VOICE, value: zm_yunjian}
+            - {name: SPEECH_VOICES, value: "zm_yunjian,zm_yunxi,zm_yunxia,zm_yunyang"}
             - {name: KOKORO_CONVONLY_ROOT, value: /models/kokoro-convonly-rk3588}
             - {name: SPEECH_VOICE_ROOT, value: /models/voices}
             - {name: TOKEN_FILE, value: /run/secrets/speech/token}

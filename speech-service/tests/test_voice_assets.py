@@ -15,7 +15,7 @@ assets = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(assets)
 from speech_service import voice_assets as tensors
 
-# Exact 165-byte descriptor observed in BOTH fixed official voice archives.
+# Exact 165-byte descriptor observed in all four fixed official voice archives.
 # This is test input, never loaded by pickle or torch.
 DESCRIPTOR = (
     b"\x80\x02ctorch._utils\n_rebuild_tensor_v2\nq\x00((X\x07\x00\x00\x00storageq\x01"
@@ -81,6 +81,10 @@ class ArchiveInspection(unittest.TestCase):
 
 
 class FixedTensorConversion(unittest.TestCase):
+    def test_advertisable_male_voices_have_pinned_assets(self):
+        from speech_service.rkvoice_backend import MALE_VOICES
+        self.assertEqual(set(tensors.ASSETS),set(MALE_VOICES))
+
     def test_observed_descriptor_and_storage_are_copied_without_pickle_execution(self):
         self.assertEqual(len(DESCRIPTOR), 165)
         self.assertEqual(hashlib.sha256(DESCRIPTOR).hexdigest(), tensors.DESCRIPTOR_SHA256)

@@ -45,7 +45,8 @@ def settings(**changes):
 
 
 class Backend:
-    def __init__(self, *, block=False, result=None, failure=None, preload_failure=False):
+    def __init__(self, *, block=False, result=None, failure=None, preload_failure=False,
+                 voices=("fixture-voice",)):
         self.started = threading.Event()
         self.release = threading.Event()
         if not block:
@@ -56,10 +57,15 @@ class Backend:
         self.running, self.peak = 0, 0
         self.cleaned = False
         self._lock = threading.Lock()
+        self.catalog = [dict(id=voice, name=voice, language="zh-CN", gender="male",
+                             default=voice == "fixture-voice") for voice in voices]
 
     def preload(self):
         if self.preload_failure:
             raise RuntimeError("private initialization path and fixture-secret")
+
+    def voice_catalog(self):
+        return self.catalog
 
     def synthesize(self, text, *, voice, speed):
         with self._lock:
@@ -272,7 +278,7 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
 
 class InflightTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.backend = Backend(block=True)
+        self.backend = Backend(block=True, voices=("fixture-voice", "second-voice"))
         self.app = SpeechApplication(self.backend, settings(synthesis_timeout=0.1))
         self.harness = AsgiHarness(self.app)
         await self.harness.start()
@@ -345,6 +351,73 @@ class InflightTests(unittest.IsolatedAsyncioTestCase):
         await self.finish_native()
         await close
         self.assertTrue(self.backend.cleaned)
+
+    async def test_other_voice_cannot_replace_timed_out_native_work(self):
+        first = asyncio.create_task(self.harness.request())
+        await self.wait_started()
+        self.assertEqual((await first)[0], 504)
+        self.assertEqual((await self.harness.request(payload(voice="second-voice")))[0], 429)
+        status, _, data = await self.harness.request(path="/v1/voices", method="GET")
+        self.assertEqual(status, 200)
+        self.assertEqual([item["id"] for item in json.loads(data)["data"]], ["fixture-voice", "second-voice"])
+        self.assertEqual(self.backend.calls, [("测试旁白。", "fixture-voice", 1.0)])
+        await self.finish_native()
+        self.assertEqual((await self.harness.request(payload(voice="second-voice")))[0], 200)
+        self.assertEqual(self.backend.calls[-1], ("测试旁白。", "second-voice", 1.0))
+        self.assertEqual(self.backend.peak, 1)
+
+
+class VoiceCatalogTests(unittest.IsolatedAsyncioTestCase):
+    async def test_authenticated_catalog_and_exact_per_request_selection(self):
+        voices=("fixture-voice", "zm_yunxi", "zm_yunxia", "zm_yunyang")
+        backend=Backend(voices=voices)
+        harness=AsgiHarness(SpeechApplication(backend, settings()))
+        try:
+            self.assertEqual((await harness.request(path="/v1/voices", method="GET"))[0], 503)
+            await harness.start()
+            self.assertEqual((await harness.request(path="/v1/voices", method="GET", headers=[]))[0], 401)
+            status, headers, data=await harness.request(path="/v1/voices", method="GET")
+            self.assertEqual(status, 200)
+            self.assertEqual(headers[b"cache-control"], b"no-store")
+            self.assertEqual(json.loads(data), dict(object="list", model="fixture-model",
+                default_voice="fixture-voice", data=backend.catalog))
+            self.assertEqual(backend.calls, [])
+            status, headers, _=await harness.request(path="/v1/voices", method="POST")
+            self.assertEqual(status, 405)
+            self.assertEqual(headers[b"allow"], b"GET")
+            for voice in voices:
+                self.assertEqual((await harness.request(payload(voice=voice)))[0], 200)
+            default=json.loads(payload());default.pop("voice")
+            self.assertEqual((await harness.request(json.dumps(default).encode()))[0], 200)
+            self.assertEqual([call[1] for call in backend.calls], [*voices, "fixture-voice"])
+            count=len(backend.calls)
+            for voice in ("unavailable-voice", None, [], {}, True, "../zm_yunxi"):
+                self.assertEqual((await harness.request(payload(voice=voice)))[0], 422)
+            self.assertEqual(len(backend.calls), count)
+            # Changes in the backend's mutable return object cannot expand the
+            # initialized public catalog or admission allowlist.
+            backend.catalog[0]["id"]="changed-after-startup"
+            self.assertEqual(json.loads((await harness.request(path="/v1/voices",method="GET"))[2])["data"][0]["id"], "fixture-voice")
+            self.assertEqual((await harness.request(payload(voice="changed-after-startup")))[0], 422)
+        finally:
+            await harness.close()
+
+    async def test_invalid_or_partial_catalog_fails_startup_without_advertising_voices(self):
+        cases=[[], [dict(id="other",name="other",language="zh-CN",gender="male",default=True)],
+               [dict(id="fixture-voice",name="fixture",language="zh-CN",gender="male",default=False)],
+               [dict(id="fixture-voice",name="fixture",language="zh-CN",gender="male",default=True,
+                     private_path="must-not-be-public")]]
+        for catalog in cases:
+            with self.subTest(catalog=catalog):
+                backend=Backend();backend.catalog=catalog
+                harness=AsgiHarness(SpeechApplication(backend,settings()))
+                self.assertEqual((await harness.start())["type"], "lifespan.startup.failed")
+                status, _, body=await harness.request(path="/v1/voices",method="GET")
+                self.assertEqual(status,503)
+                self.assertNotIn(b"must-not-be-public",body)
+                self.assertTrue(backend.cleaned)
+                self.assertEqual(backend.calls,[])
+                await harness.close()
 
 
 @unittest.skipUnless(importlib.util.find_spec("uvicorn"), "uvicorn is not installed")
