@@ -42,9 +42,12 @@ spec:
             limits: {cpu: "2", memory: 4Gi, panghuer.top/rknpu: "1"}
           securityContext:
             privileged: false
+            # The bootstrap binds a private read-only compatibility view, then
+            # drops the entire capability bounding set before starting TTS.
+            procMount: Default
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-            capabilities: {drop: [ALL]}
+            capabilities: {drop: [ALL], add: [SYS_ADMIN, SETPCAP]}
           startupProbe:
             httpGet: {path: /health/ready, port: http}
             periodSeconds: 5
@@ -63,6 +66,7 @@ spec:
           volumeMounts:
             - {name: bundle, mountPath: /models/kokoro-convonly-rk3588, readOnly: true}
             - {name: voices, mountPath: /models/voices, readOnly: true}
+            - {name: compatible, mountPath: /run/rknpu/compatible, readOnly: true}
             - {name: token, mountPath: /run/secrets/speech, readOnly: true}
             - {name: tmp, mountPath: /tmp}
       volumes:
@@ -77,6 +81,10 @@ spec:
             type: Directory
         - name: token
           secret: {secretName: speech-service-token, defaultMode: 0400}
+        - name: compatible
+          hostPath:
+            path: /sys/firmware/devicetree/base/compatible
+            type: File
         - name: tmp
           emptyDir: {sizeLimit: 128Mi}
 ---

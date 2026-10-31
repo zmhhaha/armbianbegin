@@ -27,6 +27,7 @@ COPY .image/frontend/en_core_web_sm-3.8.0-py3-none-any.whl /tmp/en_core_web_sm-3
 RUN python -m pip install --disable-pip-version-check --no-index --no-cache-dir --no-deps /tmp/en_core_web_sm-3.8.0-py3-none-any.whl \
     && python -m pip check \
     && python -c "import ctypes, numpy, spacy, onnxruntime, rknnlite; import rkvoice_stream.backends.tts.kokoro_convonly; ctypes.CDLL('/usr/lib/librknnrt.so')" \
+    && test -x /usr/bin/mount && test -x /usr/bin/setpriv \
     && rm /tmp/en_core_web_sm-3.8.0-py3-none-any.whl
 
 COPY .image/receipt.json /app/image-inputs.json
@@ -38,7 +39,9 @@ LABEL org.opencontainers.image.title="RK3588 internal speech service" \
       org.opencontainers.image.revision="${SOURCE_REVISION}" \
       org.opencontainers.image.created="${BUILD_CREATED}"
 # RK3588 dma_heap devices on this node are root:root 0600. The pod runs as
-# root with all Linux capabilities dropped; it does not require privileged mode.
+# root; bootstrap drops every capability before starting the TTS process.
+# The pod does not require privileged mode.
 USER 0:0
 EXPOSE 8092
+ENTRYPOINT ["python", "-I", "-S", "/app/speech_service/container_bootstrap.py"]
 CMD ["python", "-m", "speech_service", "--host", "0.0.0.0", "--port", "8092"]

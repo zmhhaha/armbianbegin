@@ -79,6 +79,13 @@ def _run(args) -> dict:
     if not 1 <= len(text) <= 2000:
         raise SmokeFailed("text_invalid")
 
+    # Claim the attempt before any HTTP request; rerunning an ambiguous smoke
+    # cannot issue another synthesis using an existing evidence directory.
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    with (args.output_dir / "attempt.json").open("x", encoding="utf-8") as stream:
+        json.dump({"text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                   "client_source_sha256": CLIENT_SHA256}, stream)
+
     import httpx
 
     payload = dict(model=settings.model, input=text, voice=settings.voice,
