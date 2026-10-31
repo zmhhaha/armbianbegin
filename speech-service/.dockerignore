@@ -1,0 +1,16 @@
+# Allow only reviewed application files and explicitly staged image inputs.
+**
+!Dockerfile
+!requirements-container.txt
+!speech_service/
+!speech_service/**
+speech_service/**/__pycache__/
+speech_service/**/*.pyc
+!.image/
+!.image/receipt.json
+!.image/source/
+!.image/source/**
+!.image/runtime/
+!.image/runtime/librknnrt.so
+!.image/frontend/
+!.image/frontend/en_core_web_sm-3.8.0-py3-none-any.whl

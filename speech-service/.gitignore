@@ -1,6 +1,7 @@
 .venv/
 .cache/
 .state/
+.image/
 models/
 vendor/
 lib/
