@@ -8,6 +8,9 @@ speech_service/**/__pycache__/
 speech_service/**/*.pyc
 !.image/
 !.image/receipt.json
+!.image/python-packages.json
+!.image/site-packages/
+!.image/site-packages/**
 !.image/source/
 !.image/source/**
 !.image/runtime/

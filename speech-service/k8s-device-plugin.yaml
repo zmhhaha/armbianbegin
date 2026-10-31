@@ -1,0 +1,78 @@
+# Mirror the reviewed ARM64 squat/generic-device-plugin image into this local
+# latest tag. Record its upstream digest/revision and mirror digest in DEPLOYMENT.md.
+# This plugin advertises one grouped allocation, not four independently shared
+# resources. Kubelet adds the allocated character devices to the runtime allowlist.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: speech-service
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: rknpu-device-plugin
+  namespace: speech-service
+spec:
+  selector:
+    matchLabels:
+      app: rknpu-device-plugin
+  template:
+    metadata:
+      labels:
+        app: rknpu-device-plugin
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: orangepi5-max-server1
+        kubernetes.io/arch: arm64
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: device-plugin
+          image: arm-cluster-master:5000/rknpu-device-plugin:latest
+          imagePullPolicy: Always
+          args:
+            - --domain=panghuer.top
+            - --device
+            - >-
+              {"name":"rknpu","groups":[{"count":1,"paths":[{"path":"/dev/dri/card1"},{"path":"/dev/dri/renderD129"},{"path":"/dev/dma_heap/system"},{"path":"/dev/dma_heap/system-uncached"},{"path":"/dev/dma_heap/cma"}]}]}
+          ports:
+            - name: health
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: kubelet-device-plugins
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: dri
+              mountPath: /dev/dri
+              readOnly: true
+            - name: dma-heap
+              mountPath: /dev/dma_heap
+              readOnly: true
+      volumes:
+        - name: kubelet-device-plugins
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+            type: Directory
+        - name: dri
+          hostPath:
+            path: /dev/dri
+            type: Directory
+        - name: dma-heap
+          hostPath:
+            path: /dev/dma_heap
+            type: Directory
