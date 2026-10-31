@@ -1,6 +1,10 @@
-# 内部语音 API 原型
+# 内部语音 API
 
 用户选定继续调整的中文男声为云健`zm_yunjian`；云希保留对比，小贝女声未获采用。视频业务的配音候选、字幕和MP4尚未接通。
+
+当前服务已部署在 K8s namespace `speech-service`、节点 `orangepi5-max-server1`。原版视频 SpeechClient 的 base URL 填 `http://speech-service.speech-service.svc.cluster.local/v1`，model 为 `kokoro-rk3588`，voice 为 `zm_yunjian`。客户端 Pod 需带 `speech-client=true` 标签，并以受管理方式挂载 Bearer 凭据；服务无出站网络。发布身份、设备插件及操作步骤见 [DEPLOYMENT.md](DEPLOYMENT.md)。
+
+一次201字符完整技术文稿实联已通过：34.912秒生成42秒、24kHz/mono/PCM16 WAV；无凭据401、错误模型422。未标记客户端4秒网络超时，标记后健康200。重建Pod后，自动预加载、Ready恢复、镜像身份和实际PID1能力复核均通过，客户端经集群DNS健康200，未额外合成。完整文稿听感仍待用户确认。
 
 ## 管理员固定配置
 
@@ -29,7 +33,9 @@ Linux实验启动方式（从本目录运行，预先注入上表环境变量）
   .venv/bin/python -m speech_service --host 127.0.0.1 --port 8092
 ```
 
-私有库脚本需要Linux/root，只改变子进程mount namespace。实验由有限时长的systemd unit管理整个进程组；未来容器可把库放在容器内，无需改宿主库。单进程、单HTTP worker、单原生合成；不能用多个Uvicorn worker扩大并发。男声实验限制2核CPU/4GiB内存；先前女声长文峰值约2.85GiB，常驻部署需保留余量。
+私有库脚本仅用于 Linux/root 实验，改变子进程 mount namespace，实验由有限时长的 systemd unit 管理。K8s 镜像已经把固定运行库放在容器内，模型只读挂载，宿主库保持原状。单进程、单HTTP worker、单原生合成；不能用多个Uvicorn worker扩大并发。当前请求1CPU/3GiB、限制2CPU/4GiB，本次 cgroup 峰值约2.89GiB，未发生 OOM。
+
+K8s Pod 未启用 `privileged`，但 root 引导阶段需要 `SYS_ADMIN` 和 `SETPCAP`，在私有挂载命名空间提供 SDK 所需的兼容信息。隔离 Python 引导完成后清空全部能力和 bounding 集合，再启动应用；真实应用 PID 1 已验证五组能力全0、`NoNewPrivs=1`、固件视图只读。不要用直接运行的调试命令绕过镜像 ENTRYPOINT；具体权限边界见部署文档。
 
 ## 协议与限制
 
@@ -39,10 +45,10 @@ Linux实验启动方式（从本目录运行，预先注入上表环境变量）
 {"model":"kokoro-rk3588","input":"欢迎来到视频工作台。","voice":"zm_yunjian","speed":1.0,"response_format":"wav"}
 ```
 
-模型与音色必须匹配管理员配置。输入限64KiB JSON、2000字符/16KiB文本、速度0.5–2.0；输出为完整、非全零PCM16 WAV，限32MiB/300秒，带准确Content-Length，不压缩、不重定向。视频原版SpeechClient的base URL填`http://<internal-service>:8092/v1`。
+模型与音色必须匹配管理员配置。输入限64KiB JSON、2000字符/16KiB文本、速度0.5–2.0；输出为完整、非全零PCM16 WAV，限32MiB/300秒，带准确Content-Length，不压缩、不重定向。K8s Service 对内使用80端口，Pod监听8092；实验时直接访问Pod或回环服务才使用`:8092/v1`。
 
 `GET /health/live`不调用模型；`GET /health/ready`在预加载完成后通过，均不暴露路径、文稿或凭据。错误为固定代码：401鉴权、413/422输入、429忙、502无效音频、503后端失败、504等待超时。body等待10秒、合成等待120秒；没有自动重试或换模型。
 
 超时、取消或断连只结束HTTP等待，槽位必须等原生任务结束后才释放；cleanup在同一执行线程排到推理之后。中文数字规则保留，英文词独立转音素，大写缩写按字母读，不删未知词冒充成功。男声style在时长预测前选择，metadata返回实际voice ID；不改vendor、全局VOICES或原manifest。
 
-CPU生成器profile在渲染前拒绝；一些短文本可能落在不支持的NPU时长范围，需后续改进。常驻部署、云健完整技术文稿试听及线上业务接入仍按验证结果推进。
+CPU生成器profile在渲染前拒绝；一些短文本可能落在不支持的NPU时长范围，需后续改进。K8s 内部部署、真实合成与Pod重建恢复已通过，后续继续验证长期运行、不同长度文稿、完整技术文稿听感及线上业务接入。

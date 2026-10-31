@@ -1,7 +1,9 @@
-# Mirror the reviewed ARM64 squat/generic-device-plugin image into this local
-# latest tag. Record its upstream digest/revision and mirror digest in DEPLOYMENT.md.
-# This plugin advertises one grouped allocation, not four independently shared
-# resources. Kubelet adds the allocated character devices to the runtime allowlist.
+# Build the ARM64 static plugin from squat/generic-device-plugin source revision
+# 7626d567413ce3831e5ec99471dcdd3a9250cf81 and package it in a scratch image.
+# Publish this local latest tag; record the source revision and resulting image
+# digest in DEPLOYMENT.md.
+# One grouped allocation contains both NPU DRM nodes and all three DMA heaps.
+# Kubelet adds those character devices to the runtime allowlist together.
 apiVersion: v1
 kind: Namespace
 metadata:

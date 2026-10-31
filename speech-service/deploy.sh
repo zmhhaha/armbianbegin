@@ -6,7 +6,7 @@ PYTHON="${PYTHON:-python3}"
 : "${SOURCE_REVISION:?Set the full application source revision}"
 : "${SPEECH_IMAGE_DIGEST:?Set the actual registry sha256 digest}"
 : "${PLUGIN_SOURCE_REVISION:?Set the reviewed device plugin source revision}"
-: "${PLUGIN_IMAGE_DIGEST:?Set the actual mirrored plugin sha256 digest}"
+: "${PLUGIN_IMAGE_DIGEST:?Set the actual built plugin sha256 digest}"
 STAGE="$(mktemp -d)"
 trap 'rm -rf -- "$STAGE"' EXIT
 

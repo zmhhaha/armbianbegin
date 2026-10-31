@@ -42,4 +42,22 @@ PYTHON=<带PyYAML的Python> bash deploy.sh
 
 回退时先将 `speech-service` Deployment 缩容为 0，等待 Pod 退出后可删除同命名空间的 `rknpu-device-plugin` DaemonSet。模型、男声资产和 Secret 均保留，不影响既有视频工作台。
 
-实际发布摘要与验收结果在任务结束时补入下文。
+## 2026-10-31 实际发布
+
+- 语音镜像：`arm-cluster-master:5000/speech-service:latest`，ARM64，682,834,788B。源码 `615c92bad88c21ad4b0cde30f8adab343dfa330f`；实际摘要 `sha256:c34944342aea009482b71443fb26cb9736b99f8a101166a76eb0fe7e746e102e`。
+- 设备插件：`arm-cluster-master:5000/rknpu-device-plugin:latest`，scratch ARM64，13,774,080B。固定上游 `squat/generic-device-plugin@7626d567413ce3831e5ec99471dcdd3a9250cf81`；实际摘要 `sha256:72210a0df7998b715088bdadde7f325a7d81d01e3450b1f0aa3b4bb20473ae96`。
+- 插件二进制 SHA256：`096af0b7e21e2801aa88ec1970e83354ba2de125a9b945b4f100d03d1493c044`。上游源码及官方 Go1.26.0 SDK 校验、受限编译和收据由 `scripts/build_device_plugin.py` 管理；SDK 只保存在服务专用缓存，不安装宿主 Go。
+- Python 离线快照：103 个分发包、9,538 文件、484,445,470B；收据 SHA256 `e5e245628ab935751ead4e1965654408426bef556d5a9394cdef0743494c5861`。
+
+### 验收结果
+
+1. 默认 OCI 遮罩下的独立 Docker 容器预加载成功，随后 K8s Pod Ready。实际 PID1 的 CapInh/Prm/Eff/Bnd/Amb 全部为 0，NoNewPrivs=1；板卡信息与只读输入一致，五个设备均为真实字符设备。
+2. 未带客户端标签的临时 Pod 请求健康接口，4.017 秒超时；添加 `speech-client=true` 后同一接口返回 200。服务端拒绝无凭据请求（401）及错误模型（422）。
+3. 挂载原版视频 SpeechClient（SHA256 `4ce02745006f5109d5975716b451718dc07a7465c18c496791152e66cb499ccd`），只进行一次完整技术稿合成，无自动重试。201 字符文稿用时 34.912 秒，生成 42 秒、24kHz/单声道/PCM16 WAV，2,016,044B；SHA256 `be70d486fc685436d6bc27f7671ffe3712ceffc11f461884ba23872899987997`。全部 PCM 帧及 RIFF 边界通过检查，音频非全零。本次 HTTP 运行未额外统计逐 NPU 调用数。
+4. 合成后 cgroup 内存峰值 3,103,371,264B（约 2.89GiB），4GiB 上限；OOM/OOM-kill/内存上限事件均为 0。节点当时 MemAvailable 4,086,452KiB（约 3.90GiB）；这是单次样本，不是全部长度的容量承诺。
+5. 执行一次 Deployment rollout restart，旧 Pod `speech-service-7f9f984b8-vxzt8` 替换为 `speech-service-6cd6865bd6-4sp9z`。新 Pod 离线预加载恢复，Ready、0 次异常重启；客户端经集群 DNS 请求健康接口仍为 200。实际镜像摘要、PID1 权限和只读挂载再次验证通过；未重复完整文稿合成。
+6. 最终仅语音服务与设备插件各一个 Ready Pod、均 0 次异常重启。临时客户端和 ConfigMap 已删除，Secret 保留。宿主 `/usr/lib/librknnrt.so` 仍不存在；无驱动、系统 Python、现有视频服务或域名配置变更。
+
+原始 WAV、JSON、运行日志、镜像和编译收据均已取回 Git 忽略目录 `speech-service/evidence/20261031-k8s/`。master 归档 1,369,767B，SHA256 `2e1f65bfef5a65925a83572e37a7be57c30b57d6ca5d3e5ad5de3984826da0cb`；worker 归档 468,748B，SHA256 `100972959edfb5abe87aad53720b0b1bf6dcdf6240f9535e8992eb5c147d4946`。归档仅包含明确列出的证据，不包含 Secret 或 token。
+
+内部部署及客户端互通已通过；完整文稿听感仍需试听。工作台业务的配音候选、上传/采用、字幕与 MP4 未因此自动完成。代码保留在 `codex/speech-service-rk3588`，未合主线。

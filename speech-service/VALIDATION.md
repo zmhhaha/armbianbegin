@@ -1,8 +1,38 @@
 # 2026-10-31 阶段验证
 
-当前已实现独立语音服务 HTTP API 原型，云健男声经视频原版 SpeechClient 完成完整技术文稿联调；完整文稿听感尚未获采用，线上视频配音功能仍待接入。Windows及ARM最终均79项测试通过。源码分支为 `codex/speech-service-rk3588`，未合主线。下文按阶段保留原始失败和后续修复证据。
+当前云健语音 API 已部署于自有 K8s，原版视频 SpeechClient 经集群内部 Service 完成完整技术文稿真实合成。完整文稿听感尚未获采用，工作台业务配音、字幕和MP4仍待开发。源码分支为 `codex/speech-service-rk3588`，未合主线；线上工作台、DNS和Casdoor未改。此前Windows/ARM的79项测试已通过，本轮未重跑该套测试，实际新增验证见下。后文保留原始失败及修复记录。
 
-## 真实执行
+## K8s 内部服务验证
+
+namespace为`speech-service`，固定节点`orangepi5-max-server1`；内部 base URL为`http://speech-service.speech-service.svc.cluster.local/v1`，模型别名`kokoro-rk3588`，云健音色`zm_yunjian`。部署步骤、引导权限及镜像核验见 [DEPLOYMENT.md](DEPLOYMENT.md)。本次发布身份：
+
+- 应用源码：`615c92bad88c21ad4b0cde30f8adab343dfa330f`。
+- 应用镜像：`arm-cluster-master:5000/speech-service:latest`，digest `sha256:c34944342aea009482b71443fb26cb9736b99f8a101166a76eb0fe7e746e102e`。
+- 设备插件：固定`squat/generic-device-plugin@7626d567413ce3831e5ec99471dcdd3a9250cf81`源码构建ARM64静态程序，scratch镜像`arm-cluster-master:5000/rknpu-device-plugin:latest`，digest `sha256:72210a0df7998b715088bdadde7f325a7d81d01e3450b1f0aa3b4bb20473ae96`。
+
+使用原版视频SpeechClient，对原201字符技术文稿只生成一次，未自动重试：
+
+| 项目 | 本次实际结果 |
+| --- | --- |
+| 合成请求耗时 / 音频时长 | 34.9121797059197秒 / 42秒 |
+| 媒体 | PCM16、24000Hz、mono、2,016,044B |
+| WAV SHA256 | `be70d486fc685436d6bc27f7671ffe3712ceffc11f461884ba23872899987997` |
+| 鉴权与配置错误 | 无鉴权401，错误模型422 |
+| 网络策略 | 未标记客户端4秒网络超时；加`speech-client=true`后健康200 |
+| 资源配置 | 请求1CPU/3GiB，限制2CPU/4GiB |
+| cgroup内存峰值 | 3,103,371,264B，约2.89GiB |
+| OOM | `oom=0`、`oom_kill=0` |
+| 宿主本次MemAvailable | 4,086,452kB，约3.90GiB |
+
+这些耗时和内存是本次单次请求及对应cgroup观测，不代表长期稳定性或所有文稿的上界。该HTTP运行没有额外逐调用插桩，不能把早期短样的NPU调用次数用于这次长文。媒体SHA与先前云健全文相同；这不代替用户对自然度、术语及日期数字读音的试听确认。
+
+真实应用PID 1的`CapInh/CapPrm/CapEff/CapBnd/CapAmb`均0、`NoNewPrivs=1`，固件视图只读。Pod为root且未启用`privileged`；**引导阶段临时具备SYS_ADMIN和SETPCAP**，通过隔离Python仅在容器私有挂载命名空间提供SDK要求的兼容信息，随后清除所有能力再执行应用。该例外需要如实保留，不能称作整个启动过程零能力。模型只读，服务无出站；宿主库和驱动未改。
+
+本轮编译、实际容器预加载及K8s真实客户端实联已通过。随后执行`rollout restart`替换为`speech-service-6cd6865bd6-4sp9z`，新Pod自动预加载并恢复Ready、容器异常重启计数为0；digest及实际PID1五组能力全0/NoNewPrivs1再次通过。客户端经集群DNS健康200，恢复验证没有进行第二次合成。临时验证Pod与ConfigMap均已删除。
+
+证据已取回本地`speech-service/evidence/20261031-k8s/`；发布与恢复详情见部署文档，原始媒体和日志保持Git忽略。
+
+## 历史：首次实验执行
 
 worker：192.168.137.211 / Orange Pi 5 Max / RK3588 / Python3.11.2 / RKNPU0.9.8。CPU与NPU小样分别串行启动；每次使用新进程，2核CPU配额、3GiB内存上限、300秒候选超时。未执行并行推理或自动生成重试。
 
@@ -21,7 +51,7 @@ CPU 控制器的 `passed` 仅表示媒体/执行证据判据通过。日志对�
 
 Matcha失败原因为 Lite2 的 `_get_rknn_api_lib_path` 未识别私有目录，仅设置 `LD_LIBRARY_PATH` 不足以通过其文件路径检查。官方运行库已经校验并放在 `speech-service/lib/librknnrt.so`；尚无证据要求升级驱动。官方2.3.2文档的一般建议为driver≥0.9.2，现有0.9.8符合一般要求，但这不代替目标模型实测。
 
-Kokoro源包共500,370,817B、161文件（160资产+manifest），manifest SHA256为 `83733c717e0ce5b76ac1295e4827cf3ad2e111955259e9d670897e100fabeb6e`。79个资产完成，余81个共87,460,503B；下载遭429后已停止。所有完成文件经过下载器的SHA256校验，未执行Kokoro推理。
+Kokoro源包共500,370,817B、161文件（160资产+manifest），manifest SHA256为 `83733c717e0ce5b76ac1295e4827cf3ad2e111955259e9d670897e100fabeb6e`。首次实验收尾时79个资产完成，余81个共87,460,503B；下载遭429后已停止。该阶段所有完成文件经过下载器的SHA256校验，尚未执行Kokoro推理。
 
 ## 工件与边界
 
@@ -32,7 +62,7 @@ Kokoro源包共500,370,817B、161文件（160资产+manifest），manifest SHA25
 - 本地也已取回该归档及解包文件，位于此目录下被Git忽略的 `evidence/`。归档1,038,289B，SHA256 `1f5a67cdb984a46758e579ddd0500c4d1c1329b3f6f336b7128c3739e66c9aa4`。
 - 包括CPU两条WAV、CPU/NPU控制器、逐请求JSON、负载采样、后端日志、实际依赖锁、源码/运行库receipt及worker检查点。
 
-收尾时查询没有运行中的 `speech-lab-*` unit，未创建常驻语音HTTP服务或自动恢复任务；不在无人值守时继续生成。系统驱动、系统Python、系统动态库、线上视频服务、DNS及Casdoor均未改。
+首次实验收尾时查询没有运行中的 `speech-lab-*` unit，该阶段尚未创建常驻语音HTTP服务或自动恢复任务；不在无人值守时继续生成。系统驱动、系统Python、系统动态库、线上视频服务、DNS及Casdoor均未改。
 
 ## 离线检查
 
@@ -90,7 +120,7 @@ Windows与ARM均通过67项（52项完整性/前端/API/适配，15项测量）�
 
 用户试听两条同稿后，明确选云健`zm_yunjian`继续调整。云希真实API短稿也通过（9.308/8秒）。随后以云健配置，原版视频SpeechClient经worker回环API对原201字符技术文稿只生成一次：31.434秒返回42秒、24kHz/mono/PCM16、2,016,044B WAV，SHA256`be70d486fc685436d6bc27f7671ffe3712ceffc11f461884ba23872899987997`。输入摘要`c479980ee04ccfa4bbec60d12ec8c3ed0fbb7ec1b4618726c27ac15bfabd153b`；API适配层核验全部分段来源与实际voice，拒绝CPU生成器回退。该HTTP运行未另外插入逐调用观测，因此不把短样的NPU调用数当作这次长文的调用数。
 
-云健API另验证无凭据401、错误model拒绝，临时unit与凭据均清理。API执行成功与用户选择音色，不等于完整技术文稿听感已经获采用。当前没有常驻部署或线上视频路由。
+该阶段云健API另验证无凭据401、错误model拒绝，临时unit与凭据均清理。API执行成功与用户选择音色，不等于完整技术文稿听感已经获采用。男声实验阶段尚未常驻部署或接入线上视频路由；后续K8s部署结果见本文顶部。
 
 最终Windows及ARM均78项通过（63项完整性/前端/API/音色，15项测量），编译和空白检查通过。收尾确认无运行中的speech-lab unit、无临时token、宿主库路径不存在。男声阶段归档2,262,947B，SHA256`de5acb58b94e491796d20991297f3e6cd27aa2f0df3f9a3935c5b72caad108d5`，已取回`evidence/male-stage-20261031/`，解包3,435,648B；包括两条男声样音、云希/云健API WAV、report、官方metadata、音色receipts和测试日志，不含模型权重。
 
