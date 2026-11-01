@@ -1,5 +1,7 @@
 # 下一阶段
 
+2026-11-01 最新：四女声晓贝、晓妮、晓晓、晓伊已加入，现有四男声保留，共八项，默认云健；一个项目统一一个音色。四次短句真实生成均成功且未采用，原项目不变。语音 Pod `speech-service-77fb679896-tmpsr`、工作台 Pod `video-workbench-5c69474df6-9l6rv` 均 Ready；工作台镜像不变。详细身份、测试和证据见 [VALIDATION.md](VALIDATION.md)。自然度仍需用户试听；以下更早部署身份保留为历史。
+
 2026-11-01 四男声已部署，新增对比项目的三声线真实联调通过。云夏、云扬新增资产已传至 worker，官方固定 revision 元数据／实际 SHA、5 成员闭包和只读 float32 style 均核验；全部 4 声线启动校验与鉴权 `/v1/voices` catalog 通过。服务支持同一模型按请求选择云健、云希、云夏、云扬，默认仍云健，上层工作台按项目统一音色。完整离线／HTTP 测试 91 项通过；浏览器同一短稿、speed=1.0，对云希／云夏／云扬各真实生成一次，三条完整 WAV、不同 SHA 及候选 metadata 对提交请求的 voice 绑定通过，无自动重试。服务代码强制检查逐段 NPU 来源与音色，本轮未额外持久化逐段 metadata 或调用插桩；执行结果不等于自然度获认可。
 
 对比项目为 `9d025676-7138-4a45-83fb-7987b6d15872`（“男声音色对比（项目统一音色验收）”），revision 11，当前项目音色云扬；三候选均未采用，留待用户试听。云希／云夏候选因项目切换音色标 stale，仍可试听；云扬非 stale。原 DSH 项目 revision 27 与八镜项目 revision 69 均保留，原八条采用音频指针和非 stale 状态不变。证据已取回 `D:\github\armbianbegin\.runtime\video-audio-production\multi-male-voices\browser-comparison-evidence\`，完整部署与媒体核验见 [VALIDATION.md](VALIDATION.md)。
