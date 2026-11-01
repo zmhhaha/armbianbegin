@@ -57,7 +57,8 @@ class Backend:
         self.running, self.peak = 0, 0
         self.cleaned = False
         self._lock = threading.Lock()
-        self.catalog = [dict(id=voice, name=voice, language="zh-CN", gender="male",
+        self.catalog = [dict(id=voice, name=voice, language="zh-CN",
+                             gender="female" if voice.startswith("zf_") else "male",
                              default=voice == "fixture-voice") for voice in voices]
 
     def preload(self):
@@ -369,7 +370,8 @@ class InflightTests(unittest.IsolatedAsyncioTestCase):
 
 class VoiceCatalogTests(unittest.IsolatedAsyncioTestCase):
     async def test_authenticated_catalog_and_exact_per_request_selection(self):
-        voices=("fixture-voice", "zm_yunxi", "zm_yunxia", "zm_yunyang")
+        voices=("fixture-voice", "zm_yunxi", "zm_yunxia", "zm_yunyang",
+                "zf_xiaobei", "zf_xiaoni", "zf_xiaoxiao", "zf_xiaoyi")
         backend=Backend(voices=voices)
         harness=AsgiHarness(SpeechApplication(backend, settings()))
         try:

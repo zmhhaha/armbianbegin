@@ -2,6 +2,8 @@
 
 独立语音服务目录，与 `llm-service` 同级。云健语音 API 已在自有 K8s 内部部署，运行于 `orangepi5-max-server1`，namespace 为 `speech-service`。集群内客户端地址：`http://speech-service.speech-service.svc.cluster.local/v1`。
 
+支持四个中文男声（云健、云希、云夏、云扬）和四个中文女声（晓贝、晓妮、晓晓、晓伊）；默认仍为云健。工作台按项目统一选择一个音色，镜头继承项目设置。可选项由管理员显式启用，只有全部资产启动校验通过才公开；接口、固定资产准备和限制见 [API.md](API.md)。上线身份、真实合成结果与用户听感分别记录在 [VALIDATION.md](VALIDATION.md)，增加音色不代表自然度已经改善。
+
 2026-10-31 已用视频原版 SpeechClient 经 K8s Service 完成一次 201 字符技术文稿合成：34.912秒生成42秒音频。随后重建Pod，自动预加载、Ready恢复及客户端经集群DNS健康200均通过，未重复合成。用户选定云健 `zm_yunjian` 继续调整，完整文稿听感尚待试听；工作台逐镜头配音采用、字幕和 MP4 仍待开发。部署配置与发布身份见 [DEPLOYMENT.md](DEPLOYMENT.md)。
 
 ## 当前结果
@@ -44,7 +46,7 @@ Pod 使用 root 且未启用 `privileged`。引导阶段临时持有 `SYS_ADMIN`
 - `speech_service/container_bootstrap.py`：隔离 Python 引导、容器内兼容信息挂载与能力清除；应用启动前复核实际能力和只读挂载。
 - `k8s.yaml`、`k8s-device-plugin.yaml`、`deploy.sh`：集群内部服务、设备插件及发布校验，操作说明见部署文档。
 - `scripts/audit_matcha_frontend.py`：只加载文字前端，逐项核验词典/音素覆盖、缩写与数字风险，不调用模型或NPU。
-- `scripts/download_male_voices.py`：四个官方中文男声固定工件及无Torch转换，资产在原bundle之外单独校验。
+- `scripts/download_male_voices.py`：八个官方中文音色（四男四女）固定工件及无Torch转换，保留历史脚本名；资产在原bundle之外单独校验。
 - `scripts/sample_male_voice.py`：男声短样音、真实voice绑定和NPU调用证据；不自动重试。
 - `benchmarks/benchmark.py`：单并发、新进程、相同短句与技术文稿，保存真实媒体属性、CPU/RSS、NPU负载及实际推理调用证据。
 - `scripts/matcha_cpu_baseline.py`：独立 CPU 参考脚本；统一比较优先使用 benchmark 控制器。

@@ -122,12 +122,13 @@ class BindingTests(unittest.TestCase):
             self.assertEqual(events, ["base_ready", "cleanup"])
             self.assertIsNone(backend._backend)
 
-    def test_operator_configuration_requires_a_supported_male_voice(self):
+    def test_operator_configuration_requires_a_supported_chinese_voice(self):
         with tempfile.TemporaryDirectory() as directory:
             env = {"SPEECH_BACKEND": "kokoro_convonly", "SPEECH_VOICE": "zm_yunxi",
                    "KOKORO_CONVONLY_ROOT": directory, "SPEECH_VOICE_ROOT": directory}
             self.assertEqual(RkvoiceKokoroBackend.from_env(env)._voice, "zm_yunxi")
-            for changes in ({"SPEECH_VOICE": "zf_xiaobei"}, {"SPEECH_VOICE": "unknown"},
+            self.assertEqual(RkvoiceKokoroBackend.from_env({**env,"SPEECH_VOICE":"zf_xiaobei"})._voice,"zf_xiaobei")
+            for changes in ({"SPEECH_VOICE": "zf_unknown"}, {"SPEECH_VOICE": "unknown"},
                             {"SPEECH_VOICE_ROOT": "relative"}):
                 with self.subTest(changes=changes), self.assertRaises(ValueError):
                     RkvoiceKokoroBackend.from_env({**env, **changes})

@@ -1,6 +1,6 @@
 # RK3588 内部语音服务
 
-目标节点为 `orangepi5-max-server1`（192.168.137.211），固定中文男声云健 `zm_yunjian`，模型别名 `kokoro-rk3588`。接口为集群内部 `http://speech-service.speech-service.svc.cluster.local/v1`；工作台已接入音频候选、上传、试听采用、字幕和 MP4 功能，八镜头真实配音、206 秒 MP4 独立技术检查及工作台重启后持久化均已通过。完整稿听感尚未获用户认可。
+目标节点为 `orangepi5-max-server1`（192.168.137.211），默认中文男声云健 `zm_yunjian`，模型别名 `kokoro-rk3588`。清单显式启用四男四女共八个中文音色，部署前须准备全部固定资产，任一缺损都会拒绝启动；目录与接口见 [API.md](API.md)，各次发布身份见 [VALIDATION.md](VALIDATION.md)。接口为集群内部 `http://speech-service.speech-service.svc.cluster.local/v1`；工作台已接入音频候选、上传、试听采用、字幕和 MP4 功能，八镜头真实配音、206 秒 MP4 独立技术检查及工作台重启后持久化均已通过。完整稿听感尚未获用户认可。
 
 ## 2026-10-31 分段修复已部署与八镜联调
 
@@ -20,7 +20,7 @@
 
 单副本、Recreate 更新、单原生合成槽位；申请 1 CPU / 3GiB，限制 2 CPU / 4GiB。设备插件把同一 NPU 的 `card1`、`renderD129` 与三个 `dma_heap` 字符设备作为一个 `panghuer.top/rknpu` 资源交给 kubelet，避免仅挂载目录却没有设备 cgroup 权限。
 
-原模型及官方男声音色分别从节点的专用目录只读挂载，模型不在镜像中；不能任意迁移到其他 ARM 节点。插件使用默认 proc 遮罩，挂载只读设备目录和可写 kubelet 插件 socket 目录。
+原模型及官方中文音色分别从节点的专用目录只读挂载，模型不在镜像中；不能任意迁移到其他 ARM 节点。插件使用默认 proc 遮罩，挂载只读设备目录和可写 kubelet 插件 socket 目录。
 
 推理进程按设备原权限使用 UID0，禁止提权、只读根文件系统、不挂载 ServiceAccount token。RKNN Lite2 还检查 `/proc/device-tree/compatible`；该链接指向默认 OCI 遮罩下的 `/sys/firmware`，显式挂载单文件仍被遮蔽。Docker 单独运行可用 Unmasked，但现有 K8s API 将未启用的该字段恢复成 Default，因此部署保留默认遮罩。
 
@@ -54,7 +54,7 @@ PYTHON=<带PyYAML的Python> bash deploy.sh
 
 临时客户端挂载原版视频 SpeechClient 和 contracts 的准确字节，先验证 NetworkPolicy、401 和错误模型拒绝，再只生成一次完整技术稿，保存真实 WAV 与 JSON。`scripts/smoke_k8s.py` 会在 HTTP 前声明尝试标记，禁止重复执行同一证据目录。原始源码通过 SHA256 验证，不使用替代客户端。
 
-回退时先将 `speech-service` Deployment 缩容为 0，等待 Pod 退出后可删除同命名空间的 `rknpu-device-plugin` DaemonSet。模型、男声资产和 Secret 均保留，不影响既有视频工作台。
+回退时先将 `speech-service` Deployment 缩容为 0，等待 Pod 退出后可删除同命名空间的 `rknpu-device-plugin` DaemonSet。模型、音色资产和 Secret 均保留，不影响既有视频工作台。
 
 ## 历史：2026-10-31 首次实际发布
 

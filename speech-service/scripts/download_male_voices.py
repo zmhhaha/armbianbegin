@@ -1,7 +1,8 @@
-"""Download four pinned official Kokoro voices without importing PyTorch.
+"""Download eight pinned official Chinese Kokoro voices without PyTorch.
 
 Neither inspection nor conversion executes pickle. Conversion accepts only
 the exact reviewed descriptor; the original strict RKNN bundle is unchanged.
+The historical script filename is retained for existing automation.
 """
 from __future__ import annotations
 

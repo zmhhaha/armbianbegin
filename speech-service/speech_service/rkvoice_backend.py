@@ -17,8 +17,11 @@ from typing import Mapping
 MANIFEST_SHA256 = "83733c717e0ce5b76ac1295e4827cf3ad2e111955259e9d670897e100fabeb6e"
 BACKEND_SHA256 = "5f9f0fa036ceb358b3ba793b6084c352d2a25f9f9f46db3f736a06007e712873"
 VOICE = "zf_xiaobei"
-VOICE_NAMES = {"zm_yunjian": "云健", "zm_yunxi": "云希", "zm_yunxia": "云夏", "zm_yunyang": "云扬"}
-MALE_VOICES = frozenset(VOICE_NAMES)
+VOICE_NAMES = {"zm_yunjian": "云健", "zm_yunxi": "云希", "zm_yunxia": "云夏", "zm_yunyang": "云扬",
+               "zf_xiaobei": "晓贝", "zf_xiaoni": "晓妮", "zf_xiaoxiao": "晓晓", "zf_xiaoyi": "晓伊"}
+CHINESE_VOICES = frozenset(VOICE_NAMES)
+MALE_VOICES = frozenset(voice for voice in CHINESE_VOICES if voice.startswith("zm_"))
+FEMALE_VOICES = CHINESE_VOICES - MALE_VOICES
 
 
 def require_npu_metadata(metadata: dict, text: str, voice: str | None = None) -> None:
@@ -53,11 +56,10 @@ class RkvoiceKokoroBackend:
         if type(frontend_threads) is not int or not 1 <= frontend_threads <= 4:
             raise ValueError("frontend threads must be between one and four")
         voices = (voice,) if voices is None else voices
-        if (type(voice) is not str or type(voices) is not tuple or not 1 <= len(voices) <= len(MALE_VOICES)
-                or any(type(item) is not str or item not in {VOICE, *MALE_VOICES} for item in voices)
+        if (type(voice) is not str or type(voices) is not tuple or not 1 <= len(voices) <= len(CHINESE_VOICES)
+                or any(type(item) is not str or item not in CHINESE_VOICES for item in voices)
                 or len(set(voices)) != len(voices) or voice not in voices
-                or VOICE in voices and voices != (VOICE,)
-                or any(item in MALE_VOICES for item in voices) and voice_directory is None):
+                or voice_directory is None and voices != (VOICE,)):
             raise ValueError("supported explicit voices and staged voice assets are required")
         self._bundle = bundle
         self._threads = frontend_threads
@@ -81,16 +83,16 @@ class RkvoiceKokoroBackend:
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None):
         env = os.environ if env is None else env
-        if env.get("SPEECH_BACKEND") != "kokoro_convonly" or env.get("SPEECH_VOICE") not in MALE_VOICES:
+        if env.get("SPEECH_BACKEND") != "kokoro_convonly" or env.get("SPEECH_VOICE") not in CHINESE_VOICES:
             raise ValueError("explicit supported speech backend and Chinese voice are required")
         voice_directory = Path(env.get("SPEECH_VOICE_ROOT", ""))
         if not voice_directory.is_absolute():
-            raise ValueError("a staged absolute male voice directory is required")
+            raise ValueError("a staged absolute Chinese voice directory is required")
         raw_voices = env.get("SPEECH_VOICES")
         voices = ((env["SPEECH_VOICE"],) if raw_voices is None
                   else tuple(part.strip() for part in raw_voices.split(",")))
-        if any(item not in MALE_VOICES for item in voices):
-            raise ValueError("only configured Chinese male voices may be enabled")
+        if any(item not in CHINESE_VOICES for item in voices):
+            raise ValueError("only configured Chinese voices may be enabled")
         return cls(Path(env.get("KOKORO_CONVONLY_ROOT", "")), voice=env["SPEECH_VOICE"],
                    voice_directory=voice_directory, voices=voices)
 
@@ -167,7 +169,10 @@ class RkvoiceKokoroBackend:
         from .pronunciation import make_mixed_chinese_g2p_factory
         self._backend.frontend.g2p_factory = make_mixed_chinese_g2p_factory(
             self._backend.frontend._official_g2p)
-        if self._voices != (VOICE,):
+        # The direct legacy constructor without a voice directory retains its
+        # reviewed bundle style. All configured API voices, including 晓贝,
+        # use the same independently pinned asset and immutable style path.
+        if self._voice_directory is not None:
             from .voice_assets import load_verified_voice
             import numpy as np
             tables, receipts = {}, {}
@@ -182,15 +187,15 @@ class RkvoiceKokoroBackend:
             self.voice_receipts = MappingProxyType(receipts)
             self.voice_receipt = receipts[self._voice]
 
-            def male_style(route, n):
+            def selected_style(route, n):
                 if (route != "z" or type(n) is not int or not 0 <= n < 510
                         or threading.get_ident() != self._active_thread
                         or self._active_voice not in self._voice_tables):
-                    raise ValueError("male voice route or style index is invalid")
+                    raise ValueError("voice route or style index is invalid")
                 return self._voice_tables[self._active_voice][n]
 
-            self._backend.frontend._voice = male_style
-        self._catalog = tuple(dict(id=voice_id, name=VOICE_NAMES.get(voice_id, "小贝"),
+            self._backend.frontend._voice = selected_style
+        self._catalog = tuple(dict(id=voice_id, name=VOICE_NAMES[voice_id],
                                    language="zh-CN", gender="male" if voice_id in MALE_VOICES else "female",
                                    default=voice_id == self._voice) for voice_id in self._voices)
 

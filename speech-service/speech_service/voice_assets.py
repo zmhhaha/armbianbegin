@@ -1,4 +1,4 @@
-"""Pinned Kokoro male voice tensors, decoded without executing any pickle.
+"""Pinned Kokoro Chinese voice tensors, decoded without executing any pickle.
 
 The reviewed files share one exact 165-byte descriptor. Its digest binds
 FloatStorage/CPU/key0, offset0, shape(510,1,256), stride(256,256,1), no grad and
@@ -22,6 +22,10 @@ ASSETS = {
     "zm_yunjian": {"bytes": 523435, "sha256": "76cbf8bad35901d011d9628a2fdceb7b4f1f127e7a3269cb393b3941eb7fc417"},
     "zm_yunxia": {"bytes": 523430, "sha256": "bb2b03b08e84d64e1214440ce3b624987fac177f2eeb5bab8571799a3d980acd"},
     "zm_yunyang": {"bytes": 523435, "sha256": "5238ac22e0c7f8b6cdd2eddd6e444b8a700b73c4674d9a047d59a94ff96379a2"},
+    "zf_xiaobei": {"bytes": 523435, "sha256": "9b76be63dab4f4f96962030acc0126a9aee9728608fbbe115e2b58a2bd504df6"},
+    "zf_xiaoni": {"bytes": 523430, "sha256": "95b49f169bf1640f4f43c25e13daa39f7b98d15d00823e83ef5c14b3ced59e49"},
+    "zf_xiaoxiao": {"bytes": 523440, "sha256": "cfaf6f2ded1ee56f1ff94fcd2b0e6cdf32e5b794bdc05b44e7439d44aef5887c"},
+    "zf_xiaoyi": {"bytes": 523430, "sha256": "b5235dbaeef85a4c613bf78af9a88ff63c25bac5f26ba77e36186d8b7ebf05e2"},
 }
 DESCRIPTOR_SHA256 = "645dea33b46e50fdda6c8a43b39ec4b7adcf28e4643408c02d74fef10ff9d712"
 SHAPE = (510, 1, 256)

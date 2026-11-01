@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from speech_service.rkvoice_backend import RkvoiceKokoroBackend,VOICE,VOICE_NAMES
+from speech_service.rkvoice_backend import RkvoiceKokoroBackend,VOICE,VOICE_NAMES,MALE_VOICES,FEMALE_VOICES
 from speech_service import voice_assets
 
 VOICES=tuple(VOICE_NAMES)
@@ -82,13 +82,13 @@ class Upstream:
 
 
 @contextmanager
-def adapter(*,loader=verified_fixture):
+def adapter(*,loader=verified_fixture,voices=VOICES,voice='zm_yunjian'):
     with tempfile.TemporaryDirectory() as temporary:
         directory=Path(temporary)
         source=directory/'reviewed.py';source.write_bytes(b'pinned multi-voice fixture')
         module=SimpleNamespace(__file__=str(source),KokoroConvOnlyBackend=Upstream,
                                KokoroConvOnlyConfig=lambda *args,**kwargs:args)
-        backend=RkvoiceKokoroBackend(directory,voice='zm_yunjian',voices=VOICES,voice_directory=directory)
+        backend=RkvoiceKokoroBackend(directory,voice=voice,voices=voices,voice_directory=directory)
         with patch('speech_service.rkvoice_backend.BACKEND_SHA256',hashlib.sha256(source.read_bytes()).hexdigest()), \
              patch('speech_service.rkvoice_backend.importlib.import_module',return_value=module), \
              patch.object(voice_assets,'load_verified_voice',side_effect=loader):
@@ -108,6 +108,9 @@ class MultiVoiceTests(unittest.TestCase):
             self.assertEqual(len(Upstream.instances)-before,1)
             self.assertEqual([item['id'] for item in backend.voice_catalog()],list(VOICES))
             self.assertEqual([item['id'] for item in backend.voice_catalog() if item['default']],['zm_yunjian'])
+            self.assertEqual({item['id'] for item in backend.voice_catalog() if item['gender']=='female'},FEMALE_VOICES)
+            self.assertEqual({item['id'] for item in backend.voice_catalog() if item['gender']=='male'},MALE_VOICES)
+            self.assertEqual({item['id']:item['name'] for item in backend.voice_catalog()},VOICE_NAMES)
             for voice in (*VOICES,'zm_yunjian'):
                 self.assertEqual(backend.synthesize('测试',voice=voice,speed=1.0),voice.encode())
                 self.assertEqual(upstream.calls[-1],(voice,1.0,LEVELS[voice]))
@@ -121,7 +124,16 @@ class MultiVoiceTests(unittest.TestCase):
                 upstream.frontend._voice('z',2)
             with self.assertRaises(RuntimeError):
                 backend.synthesize('测试',voice='not-enabled',speed=1.0)
-            self.assertEqual(len(upstream.calls),5)
+            self.assertEqual(len(upstream.calls),len(VOICES)+1)
+
+    def test_configured_xiaobei_singleton_uses_pinned_asset_instead_of_legacy_bundle_style(self):
+        with adapter(voices=('zf_xiaobei',),voice='zf_xiaobei') as backend:
+            backend.preload()
+            self.assertEqual(set(backend.voice_receipts),{'zf_xiaobei'})
+            self.assertEqual(backend.synthesize('测试',voice='zf_xiaobei',speed=1.0),b'zf_xiaobei')
+            self.assertEqual(backend._backend.calls,[('zf_xiaobei',1.0,LEVELS['zf_xiaobei'])])
+            self.assertEqual(backend.voice_catalog(),[dict(id='zf_xiaobei',name='晓贝',language='zh-CN',
+                                                         gender='female',default=True)])
 
     def test_native_failure_or_wrong_segment_voice_cannot_leave_a_selected_style(self):
         with adapter() as backend:
@@ -149,12 +161,12 @@ class MultiVoiceTests(unittest.TestCase):
             second_calling=threading.Event()
             def call(voice):
                 try:
-                    if voice=='zm_yunyang':second_calling.set()
+                    if voice=='zf_xiaoyi':second_calling.set()
                     results.append((voice,backend.synthesize('测试',voice=voice,speed=1.0)))
                 except BaseException as error:
                     errors.append(error)
             first=threading.Thread(target=call,args=('zm_yunxi',))
-            second=threading.Thread(target=call,args=('zm_yunyang',))
+            second=threading.Thread(target=call,args=('zf_xiaoyi',))
             first.start()
             self.assertTrue(upstream.started.wait(1))
             second.start();self.assertTrue(second_calling.wait(1))
@@ -171,7 +183,7 @@ class MultiVoiceTests(unittest.TestCase):
                 first.join(2);second.join(2)
             self.assertFalse(first.is_alive() or second.is_alive())
             self.assertEqual(errors,[])
-            self.assertEqual(dict(results),{'zm_yunxi':b'zm_yunxi','zm_yunyang':b'zm_yunyang'})
+            self.assertEqual(dict(results),{'zm_yunxi':b'zm_yunxi','zf_xiaoyi':b'zf_xiaoyi'})
             self.assertIsNone(backend._active_voice)
             self.assertEqual(upstream.preloads,1)
             # An independent cleanup caller also waits for the complete call.
@@ -191,7 +203,7 @@ class MultiVoiceTests(unittest.TestCase):
 
     def test_missing_any_enabled_voice_fails_the_entire_initialization(self):
         def broken(directory,voice):
-            if voice=='zm_yunxia':raise ValueError('missing pinned secondary voice')
+            if voice=='zf_xiaoni':raise ValueError('missing pinned secondary voice')
             return verified_fixture(directory,voice)
         with adapter(loader=broken) as backend:
             with self.assertRaises(ValueError):backend.preload()
@@ -207,8 +219,12 @@ class MultiVoiceTests(unittest.TestCase):
                      SPEECH_VOICE_ROOT=temporary,KOKORO_CONVONLY_ROOT=temporary)
             self.assertEqual(RkvoiceKokoroBackend.from_env(env)._voices,('zm_yunjian',))
             self.assertEqual(RkvoiceKokoroBackend.from_env({**env,'SPEECH_VOICES':','.join(VOICES)})._voices,VOICES)
+            for voice in FEMALE_VOICES:
+                selected=RkvoiceKokoroBackend.from_env({**env,'SPEECH_VOICE':voice})
+                self.assertEqual(selected._voices,(voice,))
+                self.assertEqual(selected._voice_directory,Path(temporary))
             for value in ('','zm_yunxi','zm_yunjian,zm_yunjian','zm_yunjian,',
-                          'zm_yunjian,zf_xiaobei','zm_yunjian,../unknown'):
+                          'zm_yunjian,zf_unknown','zm_yunjian,../unknown'):
                 with self.subTest(value=value),self.assertRaises(ValueError):
                     RkvoiceKokoroBackend.from_env({**env,'SPEECH_VOICES':value})
 
