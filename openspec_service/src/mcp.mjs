@@ -10,6 +10,8 @@ import {notFound,badRequest,ServiceError} from './errors.mjs';
 const sessions=new Map();
 const sessionTtlMs=60*60*1000;
 const maxSessions=1024;
+// 空闲时也回收过期记录；unref 避免定时器阻止进程退出。
+setInterval(activeSessionCount,60*1000).unref();
 // MCP schema 要求 structuredContent 是 **JSON 对象**（`{[key:string]:unknown}`），而
 // list_projects 的返回值是数组 —— 直接塞进去会被严格按 schema 校验的客户端当场拒掉
 // （DSH 的 MCP 客户端实测报 `expected record, received array`，该工具完全不可用）。
@@ -17,15 +19,17 @@ const maxSessions=1024;
 // 让按文本解析的老消费方不受影响。其它工具返回的本来就是对象，原样透传。
 export const toStructured=value=>Array.isArray(value)?{items:value}:value;
 function rememberSession(id,sub){
-  if(!sessions.has(id)&&sessions.size>=maxSessions)throw new ServiceError(503,'session_limit','MCP session limit reached');
+  // 定时清理尚未执行时，新会话也能立即使用已过期记录释放的名额。
+  if(!sessions.has(id)&&activeSessionCount()>=maxSessions)throw new ServiceError(503,'session_limit','MCP session limit reached');
   sessions.set(id,{sub,expiresAt:Date.now()+sessionTtlMs});
 }
 function sessionMatches(id,sub){
   const session=sessions.get(id);
   if(!session)return false;
   if(session.expiresAt<=Date.now()){sessions.delete(id);return false;}
+  if(session.sub!==sub)return false;
   session.expiresAt=Date.now()+sessionTtlMs;
-  return session.sub===sub;
+  return true;
 }
 const tools=[
   {name:'list_projects',description:'List projects visible to the authenticated user',inputSchema:{type:'object',properties:{},additionalProperties:false}},
@@ -96,11 +100,16 @@ export async function mcpHandler(req,res){
   try{
     const claims=await authenticate(req);
     const sub=subject(claims);
+    if(sessionId&&!sessionMatches(sessionId,sub)) throw new ServiceError(404,'invalid_session','MCP session expired or does not belong to this identity');
+    if(req.method==='DELETE'){
+      if(!sessionId) throw badRequest('mcp-session-id is required');
+      sessions.delete(sessionId);
+      res.writeHead(204,{'x-request-id':requestId});
+      return res.end();
+    }
     await bindClaims(claims);
     if(req.method==='GET'){
-      sessionId=sessionId||crypto.randomUUID();
-      if(sessions.has(sessionId)&&!sessionMatches(sessionId,sub)) throw new ServiceError(404,'invalid_session','MCP session expired or does not belong to this identity');
-      rememberSession(sessionId,sub);
+      if(!sessionId){sessionId=crypto.randomUUID();rememberSession(sessionId,sub);}
       res.writeHead(200,{'content-type':'text/event-stream','cache-control':'no-cache','connection':'keep-alive','mcp-session-id':sessionId,'x-request-id':requestId});
       res.write('event: endpoint\ndata: /mcp\n\n');
       return res.end();
@@ -112,17 +121,13 @@ export async function mcpHandler(req,res){
     id=body.id??null;
     if(body.jsonrpc!=='2.0'||typeof body.method!=='string') throw new ServiceError(400,'invalid_request','Invalid JSON-RPC request');
     if(body.method==='initialize'){
-      sessionId=sessionId||crypto.randomUUID();
-      if(sessions.has(sessionId)&&!sessionMatches(sessionId,sub)) throw new ServiceError(404,'invalid_session','MCP session expired or does not belong to this identity');
-      rememberSession(sessionId,sub);
+      if(!sessionId){sessionId=crypto.randomUUID();rememberSession(sessionId,sub);}
       return response(res,200,{jsonrpc:'2.0',id,result:{protocolVersion:'2025-06-18',capabilities:{tools:{}},serverInfo:{name:'openspec-service',version:'latest'}}},sessionId,requestId);
     }
     if(body.method==='notifications/initialized'||body.method==='notifications/cancelled'){
-      if(sessionId&&!sessionMatches(sessionId,sub)) throw new ServiceError(404,'invalid_session','MCP session expired or does not belong to this identity');
       res.writeHead(202,{'mcp-session-id':sessionId||crypto.randomUUID(),'x-request-id':requestId});return res.end();
     }
     if(body.method==='ping') return response(res,200,{jsonrpc:'2.0',id,result:{}},sessionId,requestId);
-    if(sessionId&&!sessionMatches(sessionId,sub)) throw new ServiceError(404,'invalid_session','MCP session expired or does not belong to this identity');
     if(body.method==='tools/list') return response(res,200,{jsonrpc:'2.0',id,result:{tools}},sessionId,requestId);
     if(body.method==='tools/call'){
       const name=body.params?.name; const args=body.params?.arguments||{};
@@ -150,7 +155,7 @@ export async function mcpHandler(req,res){
     // Codex/RMCP 会把 404 误判为 session 失效（见 openai/codex#13969）。
     return response(res,200,{jsonrpc:'2.0',id,error:{code:-32601,message:'Method not found: '+body.method}},sessionId,requestId);
   }catch(error){
-    const status=error.code==='invalid_session'?404:error.status===401?401:200;
+    const status=error.code==='invalid_session'?404:error.status===401?401:req.method==='DELETE'?(error.status||500):200;
     // RFC 9728：401 要带上发现入口。标准 MCP 客户端靠它找到授权服务器，再去取 PRM。
     // 只加响应头，状态码与 body 都不变 —— 手工贴 JWT 的路径不受影响。
     if(status===401) res.setHeader('www-authenticate',bearerChallenge());
@@ -158,4 +163,4 @@ export async function mcpHandler(req,res){
   }
 }
 
-export function activeSessionCount(){for(const [id,session] of sessions)if(session.expiresAt<=Date.now())sessions.delete(id);return sessions.size;}
+export function activeSessionCount(){const now=Date.now();for(const [id,session] of sessions)if(session.expiresAt<=now)sessions.delete(id);return sessions.size;}

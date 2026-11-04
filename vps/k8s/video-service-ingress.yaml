@@ -1,0 +1,23 @@
+# Allow the existing FRP connector to reach only the video OAuth proxy.
+# The workbench and its session Redis keep their current private policies.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frpc-video-service-ingress
+  namespace: oauth
+spec:
+  podSelector:
+    matchLabels:
+      app: oauth2-proxy-video-workbench
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: frpc
+          podSelector:
+            matchLabels:
+              app: frpc
+      ports:
+        - protocol: TCP
+          port: 4180

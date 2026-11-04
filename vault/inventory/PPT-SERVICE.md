@@ -1,6 +1,6 @@
 # PPT 工作台的 Vault 配置
 
-PPT 部署使用 `ppt-service` namespace，凭据由 Vault 管理并通过 ESO 同步。准备下表四条记录后，在服务器运行 `bash deploy.sh` 完成网站及数据库的首次安装或后续升级。完整流程见 [部署说明](../../panghu_agent/ppt_service/deploy/k8s/README.md) 与 [运行合同](../../panghu_agent/ppt_service/deploy/k8s/CONTRACT.md)。
+PPT 部署使用 `ppt-service` namespace，凭据由 Vault 管理并通过 ESO 同步。数据库使用已有 `data/postgres` 中的专用逻辑库 `ppt_service`。准备下表三条记录后，在服务器运行 `bash deploy.sh` 完成 PPT 数据库初始化、迁移与网站发布；不会新建 PostgreSQL 实例。完整流程见 [部署说明](../../panghu_agent/ppt_service/deploy/k8s/README.md) 与 [运行合同](../../panghu_agent/ppt_service/deploy/k8s/CONTRACT.md)。
 
 ## 配置归属
 
@@ -8,37 +8,36 @@ PPT 部署使用 `ppt-service` namespace，凭据由 Vault 管理并通过 ESO �
 
 ## 路径和消费者
 
-| Vault CLI 路径 | Vault 字段 | Kubernetes Secret / 键 | 唯一消费者 |
+| Vault CLI 路径 | Vault 字段 | Kubernetes Secret / 键 | 消费者 |
 | --- | --- | --- | --- |
 | `secret/ppt-service/oidc` | `CLIENT_SECRET`、`COOKIE_SECRET` | `ppt-oidc` / `client-secret`、`cookie-secret` | `ppt-site` Pod 的 `oauth2-proxy` 容器 |
-| `secret/ppt-service/database-runtime` | `DATABASE_URL` | `ppt-database-runtime` / `DATABASE_URL` | `ppt-site` Pod 的 `site` 容器 |
+| `secret/ppt-service/database-runtime` | `DATABASE_URL` | `ppt-database-runtime` / `DATABASE_URL` | `ppt-site` Pod 的 `site` 容器、可信 Hermes controller |
 | `secret/ppt-service/database-migrator` | `DATABASE_URL` | `ppt-database-migrator` / `DATABASE_URL` | 显式迁移 Job |
-| `secret/ppt-service/postgres-bootstrap` | `POSTGRES_PASSWORD` | `ppt-postgres-bootstrap` / `POSTGRES_PASSWORD` | 新建的独立 PostgreSQL 容器 |
 
-这四个 Secret 都位于 `ppt-service`，每个由同名 ExternalSecret 以 `creationPolicy: Owner` 管理。清单没有 Namespace、Secret 明文、`dataFrom.extract` 或模型供应商凭据。首次使用前检查同名 Secret 的 owner，避免接管其他部署的对象。尚未准备齐全的路径或空值不能当作已配置完成。
+这三个 Secret 都位于 `ppt-service`，每个由同名 ExternalSecret 以 `creationPolicy: Owner` 管理。清单没有 Namespace、Secret 明文、`dataFrom.extract` 或模型供应商凭据。首次使用前检查同名 Secret 的 owner，避免接管其他部署的对象。尚未准备齐全的路径或空值不能当作已配置完成。旧独立实例使用的 `secret/ppt-service/postgres-bootstrap` 和 `ppt-postgres-bootstrap` 保留用于迁移回退；当前默认清单不再创建或消费它们。
 
-Vault CLI 使用不含 `data/` 的路径；ExternalSecret 的 `remoteRef.key` 使用仓库约定的 `secret/data/...`。沿用现有 `ClusterSecretStore/vault-backend`，它的服务账号负责读 Vault，应用和迁移 Job 不需要 Vault token 或 Kubernetes API token。每个静态 `remoteRef` 只读取表中的字段；公共 ClusterSecretStore 的 ESO 管理身份本身不是 namespace 级凭据隔离，不能把容器之间的投射范围描述为 Vault ACL 的强隔离。若以后收窄 ESO policy，必须保留这四个数据路径所需的 read 权限并另行验证同步。
+Vault CLI 使用不含 `data/` 的路径；ExternalSecret 的 `remoteRef.key` 使用仓库约定的 `secret/data/...`。沿用现有 `ClusterSecretStore/vault-backend`，它的服务账号负责读 Vault，应用和迁移 Job 不需要 Vault token 或 Kubernetes API token。每个静态 `remoteRef` 只读取表中的字段；公共 ClusterSecretStore 的 ESO 管理身份本身不是 namespace 级凭据隔离，不能把容器之间的投射范围描述为 Vault ACL 的强隔离。若以后收窄 ESO policy，必须保留这三个数据路径所需的 read 权限并另行验证同步，同时保留已确认的旧库回退能力。
 
 ## 凭据准备
 
-先准备全部四条 Vault 记录。runtime/migrator URL 使用各自计划的角色密码，`bash deploy.sh` 通过 PostgreSQL 的管理连接创建全新的 `ppt_migrator`、`ppt_runtime` 和 `ppt_service`。角色密码在创建角色时一并设置，全部 bootstrap 授权成功后才写入数据库 comment 完成标记 `ppt-service-bootstrap-v1`。
+先准备全部三条 Vault 记录。首次空目标的 runtime/migrator URL 使用各自计划的角色密码，`bash deploy.sh` 通过 operator 在 `data/postgres-0` 内使用现有管理连接，创建 PPT 专用的 `ppt_migrator`、`ppt_runtime` 和 `ppt_service`。角色密码在创建角色时一并设置，全部 bootstrap 授权成功后才写入数据库 comment 完成标记 `ppt-service-bootstrap-v1`。共享实例的管理员 `appuser` 和管理凭据不投射给 PPT 容器或迁移 Job。
 
 重复部署只复用具有该完成标记、角色和归属均符合合同的数据库，再检查 schema 升级；不会无条件重置已有密码。缺少标记、初始化中断或状态冲突时停止并保留数据，由管理员核实，不通过手工补标记跳过检查。首次安装仍只运行普通 `bash deploy.sh`，无需额外步骤。
 
 ExternalSecret 只负责同步字符串；角色与数据库由部署脚本管理，Secret Ready 本身不证明数据库已初始化。正常部署使用同一入口，完整命令和存储处理见 [服务器部署说明](../../panghu_agent/ppt_service/deploy/k8s/README.md#服务器标准入口)。
 
-两份应用 URL 都必须使用已安装的 psycopg 驱动和独立数据库地址：
+两份应用 URL 都必须使用已安装的 psycopg 驱动、共享实例地址和 PPT 专用逻辑库：
 
 ```text
-postgresql+psycopg://ppt_runtime:<URL编码后的密码>@ppt-postgres.ppt-service.svc.cluster.local:5432/ppt_service
-postgresql+psycopg://ppt_migrator:<URL编码后的密码>@ppt-postgres.ppt-service.svc.cluster.local:5432/ppt_service
+postgresql+psycopg://ppt_runtime:<URL编码后的密码>@postgres.data.svc.cluster.local:5432/ppt_service
+postgresql+psycopg://ppt_migrator:<URL编码后的密码>@postgres.data.svc.cluster.local:5432/ppt_service
 ```
 
-密码中的保留字符需要 URL 编码。把完整 URL 存入各自 `DATABASE_URL`，不在 ESO 模板里直接拼接未编码密码。`POSTGRES_USER=ppt_bootstrap`、`POSTGRES_DB=postgres` 仅用于新 PostgreSQL 的初始化/维护；不得把 bootstrap 登录提供给站点、Worker 或迁移 Job，不复用现有 `data/postgres` 的 appuser 或凭据。数据库数据目录已有内容时，修改 `POSTGRES_PASSWORD` 环境变量不会自动改变库内角色密码。
+密码中的保留字符需要 URL 编码。把完整 URL 存入各自 `DATABASE_URL`，不在 ESO 模板里直接拼接未编码密码。站点与可信 controller 仅使用 `ppt_runtime`，迁移 Job 仅使用 `ppt_migrator`；不得使用共享实例 `appuser` 代替应用角色。旧独立实例的 bootstrap 凭据仅保留给旧库回退；修改其 Secret 或 `POSTGRES_PASSWORD` 环境变量不会自动改变库内角色密码。
 
 OIDC 使用专属 PPT Casdoor 应用。其公开 client ID 同时用于代理 client ID 和站点受众校验，由 OAuth 配置集中管理；这里仅保存该应用的 client secret。Cookie secret 由管理端生成独立随机密钥，使用 32 个随机字节的 URL-safe Base64 编码，满足 oauth2-proxy v7.8.0 的解码后密钥长度要求；不复用其他站点的 cookie secret。issuer、回调地址、允许邮箱不属于此 Secret。JWT 的稳定 `sub` 由应用读取，用于与 issuer 一起绑定项目归属，无需管理员录入名单。
 
-登录 Vault 后，在装有 OpenSSL 的 Bash 终端直接执行以下四条命令，无需创建 JSON 文件。只需把第一条的 `CLIENT_SECRET` 替换为专属 PPT Casdoor 应用的实际 Client Secret；Cookie 密钥和三个数据库密码自动生成。
+以下三条命令仅用于首次配置空目标数据库，在装有 OpenSSL 的 Bash 终端执行，无需创建 JSON 文件。只需把第一条的 `CLIENT_SECRET` 替换为专属 PPT Casdoor 应用的实际 Client Secret；Cookie 密钥和两个数据库角色密码自动生成。已有 PPT 数据库迁移到共享实例时，不执行这组首次写入命令：保留现有角色密码和 OIDC 字段，只更新两条 `DATABASE_URL` 的主机名，并协调停写、恢复、验证和 ESO 切换。
 
 ```bash
 kubectl -n vault exec -i vault-0 -- vault kv put secret/ppt-service/oidc \
@@ -46,13 +45,10 @@ kubectl -n vault exec -i vault-0 -- vault kv put secret/ppt-service/oidc \
   COOKIE_SECRET="$(openssl rand -base64 32 | tr '+/' '-_')"
 
 kubectl -n vault exec -i vault-0 -- vault kv put secret/ppt-service/database-runtime \
-  DATABASE_URL="postgresql+psycopg://ppt_runtime:$(openssl rand -hex 24)@ppt-postgres.ppt-service.svc.cluster.local:5432/ppt_service"
+  DATABASE_URL="postgresql+psycopg://ppt_runtime:$(openssl rand -hex 24)@postgres.data.svc.cluster.local:5432/ppt_service"
 
 kubectl -n vault exec -i vault-0 -- vault kv put secret/ppt-service/database-migrator \
-  DATABASE_URL="postgresql+psycopg://ppt_migrator:$(openssl rand -hex 24)@ppt-postgres.ppt-service.svc.cluster.local:5432/ppt_service"
-
-kubectl -n vault exec -i vault-0 -- vault kv put secret/ppt-service/postgres-bootstrap \
-  POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+  DATABASE_URL="postgresql+psycopg://ppt_migrator:$(openssl rand -hex 24)@postgres.data.svc.cluster.local:5432/ppt_service"
 ```
 
 这组命令用于首次配置，执行一次即可，后续部署无需重复写入。生成的数据库密码只含十六进制字符，可直接用于 URL，无需另外编码；部署脚本会读取这些密码并自动创建角色。写入完成后，在服务器的 `panghu_agent/ppt_service` 目录设置 `PPT_CLIENT_ID` 并运行 `bash deploy.sh`。
@@ -69,13 +65,13 @@ kubectl -n ppt-service get events \
   --field-selector type=Warning --sort-by=.lastTimestamp
 ```
 
-`SecretSyncedError` 配合事件中的 `Secret does not exist` 表示 ESO 找不到所引用的 Vault 记录。对照上表在 `secret` KV v2 引擎中创建四条记录，并核对字段名；Vault 页面中的相对路径为 `ppt-service/...`，CLI 使用 `secret/ppt-service/...`，不要把 ESO 的 `secret/data/...` 当作页面中的记录名。若记录已存在，检查实际保存路径、Vault 引擎和 ESO 的读取权限，不要改成其他服务的凭据。
+`SecretSyncedError` 配合事件中的 `Secret does not exist` 表示 ESO 找不到所引用的 Vault 记录。对照上表在 `secret` KV v2 引擎中创建三条记录，并核对字段名；Vault 页面中的相对路径为 `ppt-service/...`，CLI 使用 `secret/ppt-service/...`，不要把 ESO 的 `secret/data/...` 当作页面中的记录名。若记录已存在，检查实际保存路径、Vault 引擎和 ESO 的读取权限，不要改成其他服务的凭据。
 
-正常部署需要全部四条记录。凭据同步阶段失败时尚未运行应用数据库初始化，补齐路径和字段后重新执行 `bash deploy.sh`。若同步已成功而数据库初始化报错，应先检查已有或部分创建的角色/数据库，再根据错误处理，保留数据。
+正常部署需要全部三条记录。凭据同步阶段失败时尚未运行应用数据库初始化，补齐路径和字段后重新执行 `bash deploy.sh`。若同步已成功而数据库初始化报错，应先检查已有或部分创建的角色/数据库，再根据错误处理，保留数据。
 
 ## OAuth 代理因 Cookie 密钥长度错误无法启动
 
-如果 PostgreSQL、迁移和存储 Job 都已成功，但网站 Pod 的 `oauth2-proxy` 容器反复重启，日志出现 `cookie_secret must be 16, 24, or 32 bytes ... but is 44 bytes`，检查 Cookie 密钥的编码。普通 `openssl rand -base64 32` 可能生成 `+`、`/`，导致 URL-safe Base64 解码失败，代理把它当作 44 字节原文。上面的首次写入命令用 `tr '+/' '-_'` 转为正确编码。
+如果数据库检查、迁移和存储 Job 都已成功，但网站 Pod 的 `oauth2-proxy` 容器反复重启，日志出现 `cookie_secret must be 16, 24, or 32 bytes ... but is 44 bytes`，检查 Cookie 密钥的编码。普通 `openssl rand -base64 32` 可能生成 `+`、`/`，导致 URL-safe Base64 解码失败，代理把它当作 44 字节原文。上面的首次写入命令用 `tr '+/' '-_'` 转为正确编码。
 
 已完成数据库初始化时，只更新 OIDC 记录中的 Cookie 密钥，保留 Client Secret 和数据库凭据。下面通过集群内 Vault CLI 更新：
 
@@ -84,22 +80,21 @@ kubectl -n vault exec -i vault-0 -- vault kv patch secret/ppt-service/oidc \
   COOKIE_SECRET="$(openssl rand -base64 32 | tr '+/' '-_')"
 ```
 
-然后在服务器的 `panghu_agent/ppt_service` 目录运行 `bash deploy.sh --skip-build`。部署脚本会等待新的 ESO 同步并重启网站及代理；此修复无需重建站点镜像，也不需要重新执行四条首次写入命令。Cookie 密钥变化后需重新登录。
+然后在服务器的 `panghu_agent/ppt_service` 目录运行 `bash deploy.sh --skip-build`。部署脚本会等待新的 ESO 同步并重启网站及代理；此修复无需重建站点镜像，也不需要重新执行三条首次写入命令。Cookie 密钥变化后需重新登录。
 
 本次曾出现 Vault 已修正、Kubernetes Secret 仍为旧值的情况。实际检查结果和恢复边界见
 [2026-10-24 部署排障记录](../../panghu_agent/ppt_service/deploy/k8s/TROUBLESHOOTING.md)。
 
 ## 启用和轮换
 
-`deploy.sh` 创建 Namespace 后应用本清单并同步所需 Secret，再启动数据库、执行迁移和发布网站。可以只检查同步状态：
+`deploy.sh` 创建 Namespace 后应用本清单并同步所需 Secret，再检查共享数据库、执行迁移和发布网站。可以只检查同步状态：
 
 ```bash
 kubectl -n ppt-service get externalsecret \
-  ppt-oidc ppt-database-runtime ppt-database-migrator ppt-postgres-bootstrap
+  ppt-oidc ppt-database-runtime ppt-database-migrator
 kubectl -n ppt-service describe secret ppt-oidc
 kubectl -n ppt-service describe secret ppt-database-runtime
 kubectl -n ppt-service describe secret ppt-database-migrator
-kubectl -n ppt-service describe secret ppt-postgres-bootstrap
 ```
 
 清单的定时刷新间隔为1小时。更新 Vault 记录后，可主动触发对应 ExternalSecret 同步，再等待 Ready：
@@ -114,7 +109,7 @@ kubectl -n ppt-service annotate externalsecret \
 
 ## 模型授权边界
 
-本次 P2 网站登录和公共配置不启用 Pi 模型执行，不申请 `LLM_TOKEN_PPT_*`，不创建 `llm-token` Secret。站点、迁移、PostgreSQL 和 Worker 均不接收供应商 key 或网关长期 caller token。Casdoor client secret 仅给 OAuth sidecar，bootstrap 登录仅给 PostgreSQL；站点仅接收自己的 runtime 数据库登录，迁移仅接收 migrator 登录，Worker 不接收数据库凭据。
+这份网站与数据库凭据清单不申请 `LLM_TOKEN_PPT_*`，不创建 `llm-token` Secret。普通网站发布保留已经配置的 Pi 执行设置，不提交模型任务；模型执行的凭据仍由独立的可信代理部署管理。站点、迁移、PostgreSQL 和 Worker 均不接收供应商 key 或网关长期 caller token。Casdoor client secret 仅给 OAuth sidecar，共享 PostgreSQL 的管理凭据不投射给 PPT；站点与可信 controller 接收 runtime 数据库登录，迁移仅接收 migrator 登录，Worker 不接收数据库凭据。
 
 已有 Pi 部署交接要求长期上游凭据只给可信任务代理，Worker 只得绑定 project/job/attempt/fencing/phase、期限与预算的任务 token；撤销任务必须中断模型流。公共 `llm-trusted` 路由的存在不能代替这层任务授权。
 

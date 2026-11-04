@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Render PPT's public OAuth ConfigMaps without changing services or the template.
 
-Requires Python 3.11+ and PyYAML. The separate ppt-owner ConfigMap is never read,
-rendered or changed; manage its email list independently.
+Requires Python 3.11+ and PyYAML. PPT admits all Casdoor-authenticated users;
+no owner or invitation list is read, rendered or created.
 Client values are intentionally absent from normal output and error messages.
 """
 from __future__ import annotations
@@ -19,7 +19,6 @@ import yaml
 
 
 TEMPLATE = Path(__file__).with_name("ppt-proxy-configmap.yaml")
-OWNER_EMAILS_FILE = "/owner/emails"
 CLIENT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,255}\Z", re.ASCII)
 CLIENT_LINE = re.compile(r"(?m)^[ \t]*client_id[ \t]*=[^\r\n]*$")
 
@@ -69,8 +68,9 @@ def render_configuration(client_id, *, template=TEMPLATE):
         if (not isinstance(auth.get("OIDC_AUDIENCE"), str)
                 or parsed_proxy.get("client_id") != auth["OIDC_AUDIENCE"]
                 or len(CLIENT_LINE.findall(proxy)) != 1
-                or auth.get("INVITATION_EMAILS_FILE") != OWNER_EMAILS_FILE
-                or parsed_proxy.get("authenticated_emails_file") != OWNER_EMAILS_FILE
+                or "INVITATION_EMAILS_FILE" in auth
+                or "authenticated_emails_file" in parsed_proxy
+                or parsed_proxy.get("email_domains") != ["*"]
                 or "allowed-emails" in oidc or "INVITATION_SUBJECTS" in auth):
             raise ConfigurationError("invalid_canonical_template")
         auth["OIDC_AUDIENCE"] = client_id

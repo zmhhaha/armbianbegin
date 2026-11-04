@@ -20,6 +20,9 @@ PPT 工作台 `ppt-service.panghuer.top` 的 VPS/nginx/frp 接入、认证资产
 时由 `install.sh stage2` 安装。公网入口使用 `A ppt-service → 62.234.50.20`、DNS only，
 不得与同名 Tunnel CNAME 并存；Cloudflare Tunnel 保留为可选路线，DNS 是否已切换需单独核对。
 
+视频工作台 `video-service.panghuer.top` 的路由、专用禁缓存站点和回退见 [视频工作台接入](VIDEO.md)。
+`VIDEO_VPS_ENABLED=1` 可在 `install.sh stage2` 安装专用站点；现有 VPS 仅更新该站点时按文档单独渲染和 reload。
+
 ## 二、前置条件
 
 | 项 | 说明 |
@@ -75,6 +78,7 @@ nginx -t                                     # 改配置后先校验
 再到 Cloudflare 加一条 A 记录（DNS only → 本机 IP）✓。通配符证书与 nginx 配置都无需改 ✓。
 
 PPT 是认证资产不缓存的例外：必须同时启用 [PPT 专用站点](PPT.md)，不能直接使用通配符静态缓存。
+视频工作台同样必须启用 [视频专用站点](VIDEO.md)，保证私有产物和导出不经过公共缓存。
 
 `custom-llm-proxy.panghuer.top` 是例外：它在 VPS 上直接转发至外部 LLM 上游，不经过 frps。
 它是模板 `nginx/custom-llm-proxy.conf.template`，由 `install.sh` 用 `envsubst` 渲染后装到

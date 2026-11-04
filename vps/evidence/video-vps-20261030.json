@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-30",
+  "host": "video-service.panghuer.top",
+  "source_commit": "2f534adfdd887b12056f856b0319fd93dcab2d66",
+  "route": {
+    "entry": "62.234.50.20:443",
+    "frps_http_vhost": "127.0.0.1:8080",
+    "proxy_name": "video-service",
+    "upstream": "oauth2-proxy-video-workbench.oauth.svc.cluster.local:4180",
+    "original_proxy_count": 34,
+    "proxy_count_after": 35,
+    "all_original_proxies_preserved": true,
+    "config_sha256": "c07677e93ea978b321066c015998f2cfccb088ad1359cad6d80bbd39b40b6d63",
+    "frpc_pod": "frpc-5fbbc76b8f-8482q"
+  },
+  "nginx": {
+    "nginx_t_passed": true,
+    "reloaded": true,
+    "frps_restarted": false,
+    "original_sites_preserved": true,
+    "template_sha256": "9d15554e436f670cea98e971300431ab23cc7ba2ff0047b47560746526111879",
+    "installed_sha256": "030f876b7b4fb01aa7d74bdf1066c0c941a47edabb241dbc72c358233d61ee2d"
+  },
+  "dns": {
+    "type": "A",
+    "content": "62.234.50.20",
+    "proxied": false,
+    "public_resolution_verified": true,
+    "other_service_records_preserved": true,
+    "tunnel_configuration_preserved": true,
+    "future_changes_and_rollback": "user_manual_dashboard"
+  },
+  "validation": {
+    "tls_certificate_verified": true,
+    "http_redirects_to_https": true,
+    "anonymous_root_api_preview_source_export_rejected": true,
+    "forged_identity_headers_rejected": true,
+    "all_video_checks_no_store": true,
+    "scientific_and_ppt_login_redirects_passed": true,
+    "authenticated_browser_existing_session_and_projects": true,
+    "authenticated_asset_download_and_zip_retested": false,
+    "workbench_deployment_unchanged": true,
+    "casdoor_unchanged": true,
+    "existing_ppt_configuration_tests_passed": 7,
+    "model_tasks_submitted": 0
+  }
+}

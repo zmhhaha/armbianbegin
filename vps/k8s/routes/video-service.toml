@@ -1,0 +1,9 @@
+# Non-secret fragment only; merge into the existing frpc.toml.
+# Preserve server/auth/TLS settings and every other proxy.
+# This file alone is not a runnable frpc configuration.
+[[proxies]]
+name = "video-service"
+type = "http"
+customDomains = ["video-service.panghuer.top"]
+localIP = "oauth2-proxy-video-workbench.oauth.svc.cluster.local"
+localPort = 4180
