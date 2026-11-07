@@ -1,6 +1,13 @@
 # Authenticated workbench responses must bypass the wildcard site's static
 # cache and HTML rewriting. Render only BASE_DOMAIN/HTTPS_PORT so that nginx
 # request variables remain literal.
+map "$uri|$upstream_status|$upstream_http_cache_control" $video_service_cache_control {
+    default "no-store";
+    # Only authenticated 200 responses containing measured public libraries or
+    # the font may be cached by this browser. Never enable a shared proxy cache.
+    "~^/dev/animations/assets/[0-9a-f]{64}/(gsap\.min\.js|NotoSansCJK-Regular\.ttc|three\.module\.min\.js)\|200\|private, max-age=31536000, immutable$" "private, max-age=31536000, immutable";
+}
+
 server {
     listen ${HTTPS_PORT} ssl http2;
     listen [::]:${HTTPS_PORT} ssl http2;
@@ -34,12 +41,12 @@ server {
         proxy_redirect off;
         proxy_intercept_errors off;
 
-        # All paths, including assets, previews, API and exports, stay private.
+        # API, previews, exports and all failed/auth responses remain no-store.
         proxy_cache off;
         proxy_cache_bypass 1;
         proxy_no_cache 1;
         proxy_hide_header Cache-Control;
-        add_header Cache-Control "no-store" always;
+        add_header Cache-Control $video_service_cache_control always;
 
         proxy_buffer_size 64k;
         proxy_buffers 8 64k;
