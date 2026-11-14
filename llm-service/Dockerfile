@@ -1,4 +1,5 @@
-FROM python:3.11-slim
+ARG PYTHON_BASE_IMAGE=python:3.11-slim
+FROM ${PYTHON_BASE_IMAGE}
 WORKDIR /app
 
 # 国内 pip 源（默认清华，可用 --build-arg PIP_INDEX_URL 覆盖）
