@@ -78,6 +78,56 @@ class ResponsesIntegrationTests(unittest.TestCase):
         self.assertEqual(self.module._usage['responses-test']['prompt_tokens'], 7)
         self.assertEqual(self.module.ALIASES['llm-trusted'].wire_api, 'responses')
 
+    def test_usage_extensions_survive_chat_nonstream_and_stream_with_exact_main_accounting(self):
+        final = response_body()
+        final['usage']['input_tokens_details'] = {'cached_tokens': 4, 'provider_cache': {'buckets': [2, 3], 'available': None}}
+        final['usage']['output_tokens_details'] = {'reasoning_tokens': 1, 'provider_breakdown': {'estimated': False}}
+        final['usage']['provider_accounting'] = {'external_total': 999999}
+        expected = {'prompt_tokens': 7, 'completion_tokens': 3, 'total_tokens': 10,
+                    'prompt_tokens_details': final['usage']['input_tokens_details'],
+                    'completion_tokens_details': final['usage']['output_tokens_details'],
+                    'provider_accounting': final['usage']['provider_accounting']}
+        for streaming in (False, True):
+            self.module._usage.clear()
+            body = (httpx.Response(200, content=sse({'type': 'response.completed', 'response': final}),
+                                   headers={'content-type': 'text/event-stream'})
+                    if streaming else httpx.Response(200, json=final))
+            with self.subTest(streaming=streaming), self.transport(lambda _: body):
+                result = self.post(stream=streaming)
+            self.assertEqual(result.status_code, 200, result.text)
+            if streaming:
+                chunks = [json.loads(line[5:].strip()) for line in result.text.splitlines()
+                          if line.startswith('data:') and line[5:].strip() != '[DONE]']
+                returned = next(chunk['usage'] for chunk in chunks if 'usage' in chunk)
+                self.assertIn('[DONE]', result.text)
+            else:
+                returned = result.json()['usage']
+            self.assertEqual(returned, expected)
+            self.assertEqual(self.module._usage['responses-test'], {'requests': 1, 'prompt_tokens': 7, 'completion_tokens': 3})
+
+    def test_invalid_known_counts_fail_chat_bridge_without_success_accounting(self):
+        for section, name, value in ((None, 'output_tokens', False), (None, 'total_tokens', -1),
+                                     ('input_tokens_details', 'cached_tokens', None),
+                                     ('output_tokens_details', 'reasoning_tokens', 1.5)):
+            for streaming in (False, True):
+                self.module._usage.clear()
+                final = response_body()
+                final['usage']['input_tokens_details'] = {'cached_tokens': 4, 'provider_cache': {'available': None}}
+                final['usage']['output_tokens_details'] = {'reasoning_tokens': 1}
+                target = final['usage'] if section is None else final['usage'][section]
+                target[name] = value
+                body = (httpx.Response(200, content=sse({'type': 'response.completed', 'response': final}),
+                                       headers={'content-type': 'text/event-stream'})
+                        if streaming else httpx.Response(200, json=final))
+                with self.subTest(section=section, name=name, streaming=streaming), self.transport(lambda _: body):
+                    result = self.post(stream=streaming)
+                if streaming:
+                    self.assertIn('"error"', result.text)
+                    self.assertNotIn('[DONE]', result.text)
+                else:
+                    self.assertEqual(result.status_code, 502, result.text)
+                self.assertEqual(self.module._usage['responses-test']['requests'], 0)
+
     def test_deepseek_chat_payload_and_stream_bytes_are_preserved(self):
         raw = b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n'
         with self.transport(lambda _: httpx.Response(200, content=raw,

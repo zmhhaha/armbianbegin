@@ -85,6 +85,8 @@ Chat Completions，由网关双向转换。切换活动上游时，业务入口�
 
 `completed` 表示正常终态；`incomplete` 保留 `max_output_tokens` 或 `content_filter` 原因。后者可以有部分输出，需要调用方判断是否接受。`usage` 使用 `input_tokens` / `output_tokens` / `total_tokens`，保留缓存和推理 token 计数；网关的 `/v1/usage` 仍沿用 `prompt_tokens` / `completion_tokens` 汇总字段。
 
+Responses 上游可在 `usage` 或 token 明细中提供额外的结构化 JSON 元数据。这些扩展在原生响应和 Chat 桥接（包括流式终态）中保留，且不加入用量汇总；扩展若占用桥接目标字段则明确拒绝。三个主计数以及已知的缓存、推理、音频、文本、图片和预测 token 明细仍必须是非负整数；布尔值、字符串、负数或已知计数的 `null` 都会被拒绝。2026-11-14 的实际协议诊断发现，上游新增的明细扩展对象会被原先的「所有明细值都必须为整数」检查误拒；兼容修复只调整 Responses 上游的这一检查，未改变路由、模型或 Chat 上游的缺省规则。
+
 ### 其他
 
 - `GET /v1/models` — 列出当前允许的别名

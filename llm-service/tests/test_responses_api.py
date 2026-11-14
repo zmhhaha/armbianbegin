@@ -128,6 +128,45 @@ class PublicResponsesApiTests(unittest.TestCase):
         self.assertEqual(self.module._usage["responses-api-test"]["prompt_tokens"], 11)
         self.assertTrue(result.headers.get("x-llm-route-revision"))
 
+    def test_native_usage_extensions_survive_nonstream_and_stream_without_affecting_totals(self):
+        native = native_response()
+        native["usage"]["input_tokens_details"]["provider_cache"] = {"bucket": [2, 3], "available": None}
+        native["usage"]["provider_accounting"] = {"estimated": True, "external_total": 999999}
+        for streaming in (False, True):
+            self.module._usage.clear()
+            body = (httpx.Response(200, content=native_sse({"type": "response.completed", "response": native}),
+                                   headers={"content-type": "text/event-stream"})
+                    if streaming else httpx.Response(200, json=native))
+            with self.subTest(streaming=streaming), self.transport(lambda _: body):
+                result = self.post(stream=streaming)
+            self.assertEqual(result.status_code, 200, result.text)
+            returned = decoded_events(result)[-1]["response"] if streaming else result.json()
+            self.assertEqual(returned["usage"], native["usage"])
+            self.assertEqual(self.module._usage["responses-api-test"],
+                             {"requests": 1, "prompt_tokens": 11, "completion_tokens": 7})
+
+    def test_invalid_known_counts_are_not_successful_native_responses_or_streams(self):
+        for section, name, value in ((None, "input_tokens", True), (None, "total_tokens", -1),
+                                     ("input_tokens_details", "cached_tokens", None),
+                                     ("output_tokens_details", "reasoning_tokens", "3")):
+            for streaming in (False, True):
+                self.module._usage.clear()
+                native = native_response()
+                target = native["usage"] if section is None else native["usage"][section]
+                target[name] = value
+                body = (httpx.Response(200, content=native_sse({"type": "response.completed", "response": native}),
+                                       headers={"content-type": "text/event-stream"})
+                        if streaming else httpx.Response(200, json=native))
+                with self.subTest(section=section, name=name, value=value, streaming=streaming), self.transport(lambda _: body):
+                    result = self.post(stream=streaming)
+                if streaming:
+                    events = decoded_events(result)
+                    self.assertTrue(any(event["type"] == "error" for event in events))
+                    self.assertFalse(any(event["type"] in ("response.completed", "response.incomplete") for event in events))
+                else:
+                    self.assertEqual(result.status_code, 502, result.text)
+                self.assertEqual(self.module._usage["responses-api-test"]["requests"], 0)
+
     def test_deepseek_upstream_receives_chat_and_returns_responses(self):
         with self.transport(lambda _: httpx.Response(200, json=chat_response("deepseek output"))):
             result = self.post("deepseek-trusted", instructions="use Chinese", max_output_tokens=128)

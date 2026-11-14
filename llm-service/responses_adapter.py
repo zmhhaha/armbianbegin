@@ -320,12 +320,28 @@ def _identity(data: Any) -> dict:
             "model": _protocol_string(data.get("model"), "model")}
 
 
+_TOKEN_DETAIL_COUNTS = frozenset({
+    "cached_tokens", "reasoning_tokens", "audio_tokens", "text_tokens", "image_tokens",
+    "accepted_prediction_tokens", "rejected_prediction_tokens",
+})
+
+
 def _usage(value: Any) -> dict | None:
     if value is None:
         return None
     if not isinstance(value, dict):
         raise ResponsesProtocolError("invalid Responses usage")
-    result = {}
+    if any(name in value for name in (
+        "prompt_tokens", "completion_tokens", "prompt_tokens_details", "completion_tokens_details",
+    )):
+        # An extension cannot impersonate a validated Chat target field when
+        # its corresponding Responses source is absent or uses another value.
+        raise ResponsesProtocolError("conflicting Responses usage fields")
+    # Providers may attach structured cache/accounting extensions. They are
+    # metadata, not additional counters to add to the three totals below.
+    fields = {"input_tokens", "output_tokens", "total_tokens",
+              "input_tokens_details", "output_tokens_details"}
+    result = {key: copy.deepcopy(item) for key, item in value.items() if key not in fields}
     for source, target in (("input_tokens", "prompt_tokens"), ("output_tokens", "completion_tokens"), ("total_tokens", "total_tokens")):
         count = value.get(source)
         if type(count) is not int or count < 0:
@@ -334,7 +350,10 @@ def _usage(value: Any) -> dict | None:
     for source, target in (("input_tokens_details", "prompt_tokens_details"), ("output_tokens_details", "completion_tokens_details")):
         details = value.get(source)
         if details is not None:
-            if not isinstance(details, dict) or any(type(count) is not int or count < 0 for count in details.values()):
+            if not isinstance(details, dict) or any(
+                type(count) is not int or count < 0
+                for name, count in details.items() if name in _TOKEN_DETAIL_COUNTS
+            ):
                 raise ResponsesProtocolError("invalid Responses token details")
             result[target] = copy.deepcopy(details)
     return result
