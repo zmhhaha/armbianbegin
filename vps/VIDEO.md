@@ -11,7 +11,7 @@
 
 配置文件：
 
-- [Nginx 专用站点](nginx/video-service.conf.template)：精确域名、全路径 `no-store`、保留 HTTPS/Host、Cookie、WebSocket 和流式响应，不注入备案页脚，不记录 OAuth 查询串。
+- [Nginx 专用站点](nginx/video-service.conf.template)：精确域名、默认 `no-store`、保留 HTTPS/Host、Cookie、WebSocket 和流式响应，不注入备案页脚，不记录 OAuth 查询串。仅开发者动画工作台经认证返回的固定字体/运行库内容寻址资源可在当前浏览器私有缓存，规则见下文。
 - [frpc 路由片段](k8s/routes/video-service.toml)：只转发到现有 OAuth 代理。
 - [OAuth 入站规则](k8s/video-service-ingress.yaml)：仅允许 `frpc` 命名空间的 `app=frpc` 访问指定代理 TCP4180。
 
@@ -26,7 +26,7 @@
 ## 验证
 
 - `nginx -t` 和 `frpc verify` 通过；证书域名/有效期正确，HTTP 跳 HTTPS。
-- 匿名访问首页、API、预览和导出仍需登录；不能通过伪造身份头获得业务内容。响应包含 `Cache-Control: no-store`，无共享缓存命中。
+- 匿名访问首页、API、预览和导出仍需登录；不能通过伪造身份头获得业务内容。这些响应以及认证跳转和拒绝均包含 `Cache-Control: no-store`，无共享缓存命中。只有符合下述精确规则的成功固定资产响应允许浏览器私有缓存。
 - 已有登录会话能读取原项目，采用版本和 ZIP 导出可用。已登录读取某个真实私有产物后，无 Cookie 客户端访问相同 URL 仍被拒绝。
 - FRP 代理列表除视频新增条目外保持不变；scientific-agent、ppt-service 和现有业务入口可达。
 - 用公网 DNS 或 VPS 核对 A 记录；家中 Clash 的合成 IP 不能证明公网路由。应用检查使用普通读取，不创建新 Agent/模型任务。
@@ -57,3 +57,15 @@ VPS 已安装精确域名站点并在 `nginx -t` 成功后 reload，原有四份
 
 本地 `bash -n`、受限 `envsubst`、TOML/YAML 配置检查及原 PPT 入口 7 项回归通过。
 非敏感回执见 [部署摘要](evidence/video-vps-20261030.json)；完整回执和私有备份位于集群管理机及 VPS 的 `/root/video-vps-ingress-20261030/`，不进入 Git。
+
+## 动画开发者工作台资产缓存调整（2026-11-07）
+
+工作台入口为 `https://video-service.panghuer.top/dev/animations/`，继续通过同一登录代理转发到独立内部服务。首次远程验收发现约19.5MB的CJK字体在各预览重复下载，会超过播放器就绪等待时间；为固定运行资产增加共享内容寻址URL和有界预热，并在本站点增加窄范围浏览器缓存例外。
+
+缓存例外必须同时满足：路径精确匹配 `/dev/animations/assets/<64位小写十六进制SHA-256>/` 下的 `gsap.min.js`、`NotoSansCJK-Regular.ttc` 或 `three.module.min.js`；上游状态恰为200；后端响应头恰为 `Cache-Control: private, max-age=31536000, immutable`。只向当前浏览器返回相同的私有缓存指令，Nginx的共享代理缓存读取和写入仍关闭。公共网络首次获取这些资产仍经过登录和开发者身份检查；浏览器已保存的固定库文件不会因退出登录而远程擦除，不能将此例外用于项目媒体或用户数据。
+
+其余路径、其他文件名、非精确摘要路径、缺少上述后端头、302登录跳转、403拒绝和其他非200响应均保持 `no-store`。页面、API、composition、报告、标注、导出及业务私有产物不加入缓存例外，不给其他站点添加该规则。
+
+实际VPS配置已在 `nginx -t` 成功后reload，其他站点文件摘要未变，原上传限制保留；没有改DNS、FRP路由或Casdoor。原站点备份在 `/root/video-animation-lab-cache-20261107/`。应用仓库中的非敏感回执为 `video_workbench/rendered/feedback-20261106/animation-lab/server-deploy/vps-cache-stdout.log`；工作台的完整部署及浏览器验收见应用仓库 `video_workbench/docs/animation-lab-server.md`，不能仅凭Nginx配置检查声称播放器已验收。
+
+若需撤销缓存例外，先核对现值及并行改动，仅恢复本站点默认 `no-store`规则，再执行 `nginx -t` 和reload；不要覆盖其他站点配置或删除工作台持久卷。

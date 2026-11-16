@@ -208,6 +208,61 @@ class ResponsesResultTests(unittest.TestCase):
         self.assertEqual(data["usage"]["prompt_tokens_details"]["cached_tokens"], 4)
         self.assertEqual(data["usage"]["completion_tokens_details"]["reasoning_tokens"], 3)
 
+    def test_structured_usage_extensions_survive_chat_conversion_without_mutating_source(self):
+        source = response()
+        source["usage"]["provider_accounting"] = {"estimated": False, "amount": None}
+        source["usage"]["input_tokens_details"]["provider_cache"] = {
+            "buckets": [{"label": "short", "count": 5}], "available": None,
+        }
+        source["usage"]["output_tokens_details"]["provider_breakdown"] = [1, {"enabled": True}]
+        original = copy.deepcopy(source)
+        usage = translate_response(source)["usage"]
+        self.assertEqual(usage["provider_accounting"], source["usage"]["provider_accounting"])
+        self.assertEqual(usage["prompt_tokens_details"], source["usage"]["input_tokens_details"])
+        self.assertEqual(usage["completion_tokens_details"], source["usage"]["output_tokens_details"])
+        self.assertEqual((usage["prompt_tokens"], usage["completion_tokens"], usage["total_tokens"]), (11, 7, 18))
+        usage["prompt_tokens_details"]["provider_cache"]["buckets"][0]["count"] = 99
+        usage["provider_accounting"]["amount"] = 99
+        self.assertEqual(source, original)
+
+    def test_main_and_known_detail_counts_remain_strict_with_extensions(self):
+        invalid = (None, True, False, -1, 1.5, "7", {}, [])
+        for name in ("input_tokens", "output_tokens", "total_tokens"):
+            for count in invalid:
+                source = response()
+                source["usage"][name] = count
+                with self.subTest(field=name, count=count), self.assertRaises(ResponsesProtocolError):
+                    translate_response(source)
+
+            source = response()
+            source["usage"].pop(name)
+            with self.subTest(missing=name), self.assertRaises(ResponsesProtocolError):
+                translate_response(source)
+        for section in ("input_tokens_details", "output_tokens_details"):
+            for name in ("cached_tokens", "reasoning_tokens", "audio_tokens", "text_tokens", "image_tokens",
+                         "accepted_prediction_tokens", "rejected_prediction_tokens"):
+                for count in invalid:
+                    source = response()
+                    source["usage"][section]["provider_cache"] = {"unavailable": None}
+                    source["usage"][section][name] = count
+                    with self.subTest(section=section, field=name, count=count), self.assertRaises(ResponsesProtocolError):
+                        translate_response(source)
+        for section in ("input_tokens_details", "output_tokens_details"):
+            for details in ([], "bad", False, 0):
+                source = response()
+                source["usage"][section] = details
+                with self.subTest(section=section, details=details), self.assertRaises(ResponsesProtocolError):
+                    translate_response(source)
+
+    def test_extensions_cannot_impersonate_validated_chat_usage_fields(self):
+        for name in ("prompt_tokens", "completion_tokens", "prompt_tokens_details", "completion_tokens_details"):
+            source = response()
+            source["usage"].pop("input_tokens_details")
+            source["usage"].pop("output_tokens_details")
+            source["usage"][name] = {"cached_tokens": None, "reasoning_tokens": True}
+            with self.subTest(field=name), self.assertRaisesRegex(ResponsesProtocolError, "conflicting Responses usage fields"):
+                translate_response(source)
+
     def test_reasoning_items_are_not_exposed_as_answer_and_function_calls_keep_call_id(self):
         data = translate_response(response([
             {"type": "reasoning", "id": "rs_1", "summary": [{"type": "summary_text", "text": "private"}]},
@@ -259,6 +314,16 @@ class ResponsesResultTests(unittest.TestCase):
 class ResponsesStreamTests(unittest.IsolatedAsyncioTestCase):
     async def collect(self, events, **kwargs):
         return [part async for part in translate_stream(lines_of(events, **kwargs))]
+
+    async def test_terminal_usage_extensions_are_preserved_in_chat_stream(self):
+        final = response()
+        final["usage"]["input_tokens_details"]["provider_cache"] = {"buckets": [1, 2], "available": None}
+        final["usage"]["provider_accounting"] = {"billable": None}
+        wire = await self.collect([{"type": "response.completed", "response": final}])
+        usage = next(chunk["usage"] for chunk in chat_chunks(wire) if "usage" in chunk)
+        self.assertEqual(usage["prompt_tokens_details"], final["usage"]["input_tokens_details"])
+        self.assertEqual(usage["provider_accounting"], final["usage"]["provider_accounting"])
+        self.assertTrue(b"".join(wire).endswith(b"data: [DONE]\n\n"))
 
     async def test_sse_multiline_data_unicode_and_final_usage(self):
         initial = response([], status="in_progress")

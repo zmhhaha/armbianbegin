@@ -111,6 +111,63 @@ class PublicResponsesApiTests(unittest.TestCase):
         return self.client.post("/v1/responses", headers=self.headers,
                                 json={"model": model, "input": "你好", "store": False, **fields})
 
+    def post_budget(self, api, model, budget=None):
+        if api == "responses":
+            return self.post(model, **({"max_output_tokens": budget} if budget is not None else {}))
+        return self.client.post("/v1/chat/completions", headers=self.headers,
+            json={"model": model, "messages": [{"role": "user", "content": "你好"}],
+                  **({"max_tokens": budget} if budget is not None else {})})
+
+    def test_trusted_explicit_output_budgets_survive_both_public_and_upstream_protocols(self):
+        answer = "完整知识片段" * 6000
+        for api in ("responses", "chat"):
+            for alias, wire, response in (("llm-trusted", "responses", native_response(answer)),
+                                          ("deepseek-trusted", "chat/completions", chat_response(answer))):
+                for budget in (8192, 32768):
+                    with self.subTest(api=api, alias=alias, budget=budget), self.transport(
+                            lambda _: httpx.Response(200, json=response)):
+                        result = self.post_budget(api, alias, budget)
+                    self.assertEqual(result.status_code, 200, result.text)
+                    url, body = self.requests[-1]
+                    self.assertTrue(url.endswith("/v1/" + wire), url)
+                    field = "max_output_tokens" if wire == "responses" else "max_tokens"
+                    self.assertEqual(body[field], budget)
+                    observed = (result.json()["output"][0]["content"][0]["text"] if api == "responses"
+                                else result.json()["choices"][0]["message"]["content"])
+                    self.assertEqual(observed, answer)
+        self.assertEqual(len(self.requests), 8)
+
+    def test_output_budget_above_shared_limit_never_reaches_upstream(self):
+        with self.transport(lambda _: self.fail("oversized output budget reached upstream")):
+            for api in ("responses", "chat"):
+                with self.subTest(api=api):
+                    result = self.post_budget(api, "llm-trusted", 32769)
+                    self.assertEqual(result.status_code, 422, result.text)
+        self.assertFalse(self.requests)
+
+    def test_larger_trusted_cap_does_not_raise_guarded_output_budget(self):
+        with self.transport(lambda _: self.fail("guarded output budget violation reached upstream")):
+            for api in ("responses", "chat"):
+                with self.subTest(api=api):
+                    result = self.post_budget(api, "llm-guarded", 2049)
+                    self.assertEqual(result.status_code, 400, result.text)
+        self.assertFalse(self.requests)
+
+    def test_larger_explicit_cap_does_not_inject_or_replace_route_defaults(self):
+        for api in ("responses", "chat"):
+            for alias, response in (("llm-trusted", native_response()),
+                                    ("deepseek-trusted", chat_response())):
+                with self.subTest(api=api, alias=alias), self.transport(
+                        lambda _: httpx.Response(200, json=response)):
+                    result = self.post_budget(api, alias)
+                self.assertEqual(result.status_code, 200, result.text)
+                body = self.requests[-1][1]
+                if alias == "llm-trusted":
+                    self.assertNotIn("max_output_tokens", body)
+                    self.assertNotIn("max_tokens", body)
+                else:
+                    self.assertEqual(body["max_tokens"], 2048)
+
     def test_custom_upstream_preserves_native_responses_and_token_details(self):
         native = native_response("native output")
         with self.transport(lambda _: httpx.Response(200, json=native)):
@@ -123,9 +180,49 @@ class PublicResponsesApiTests(unittest.TestCase):
         self.assertEqual(body["max_output_tokens"], 128)
         self.assertFalse(body["store"])
         self.assertNotIn("messages", body)
-        self.assertEqual([message["role"] for message in body["input"]], ["system", "user"])
+        self.assertEqual(body["instructions"], "answer in Chinese")
+        self.assertEqual(body["input"], "你好")
         self.assertEqual(self.module._usage["responses-api-test"]["prompt_tokens"], 11)
         self.assertTrue(result.headers.get("x-llm-route-revision"))
+
+    def test_native_usage_extensions_survive_nonstream_and_stream_without_affecting_totals(self):
+        native = native_response()
+        native["usage"]["input_tokens_details"]["provider_cache"] = {"bucket": [2, 3], "available": None}
+        native["usage"]["provider_accounting"] = {"estimated": True, "external_total": 999999}
+        for streaming in (False, True):
+            self.module._usage.clear()
+            body = (httpx.Response(200, content=native_sse({"type": "response.completed", "response": native}),
+                                   headers={"content-type": "text/event-stream"})
+                    if streaming else httpx.Response(200, json=native))
+            with self.subTest(streaming=streaming), self.transport(lambda _: body):
+                result = self.post(stream=streaming)
+            self.assertEqual(result.status_code, 200, result.text)
+            returned = decoded_events(result)[-1]["response"] if streaming else result.json()
+            self.assertEqual(returned["usage"], native["usage"])
+            self.assertEqual(self.module._usage["responses-api-test"],
+                             {"requests": 1, "prompt_tokens": 11, "completion_tokens": 7})
+
+    def test_invalid_known_counts_are_not_successful_native_responses_or_streams(self):
+        for section, name, value in ((None, "input_tokens", True), (None, "total_tokens", -1),
+                                     ("input_tokens_details", "cached_tokens", None),
+                                     ("output_tokens_details", "reasoning_tokens", "3")):
+            for streaming in (False, True):
+                self.module._usage.clear()
+                native = native_response()
+                target = native["usage"] if section is None else native["usage"][section]
+                target[name] = value
+                body = (httpx.Response(200, content=native_sse({"type": "response.completed", "response": native}),
+                                       headers={"content-type": "text/event-stream"})
+                        if streaming else httpx.Response(200, json=native))
+                with self.subTest(section=section, name=name, value=value, streaming=streaming), self.transport(lambda _: body):
+                    result = self.post(stream=streaming)
+                if streaming:
+                    events = decoded_events(result)
+                    self.assertTrue(any(event["type"] == "error" for event in events))
+                    self.assertFalse(any(event["type"] in ("response.completed", "response.incomplete") for event in events))
+                else:
+                    self.assertEqual(result.status_code, 502, result.text)
+                self.assertEqual(self.module._usage["responses-api-test"]["requests"], 0)
 
     def test_deepseek_upstream_receives_chat_and_returns_responses(self):
         with self.transport(lambda _: httpx.Response(200, json=chat_response("deepseek output"))):
