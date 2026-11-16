@@ -190,7 +190,7 @@ kubectl exec -n vault vault-0 -- vault kv put secret/llm-service/callers \
 
 | 类别 | 给谁用 | 策略 |
 |---|---|---|
-| **`trusted`** | content 生成、RAG、**内部机器对话** | 允许支持的函数工具和结构化输出；显式 `max_output_tokens` ≤ 8192、规范化后消息 ≤ 200 |
+| **`trusted`** | content 生成、RAG、**内部机器对话** | 允许支持的函数工具和结构化输出；显式 `max_output_tokens` ≤ 32768、规范化后消息 ≤ 200 |
 | **`guarded`** | **用户会写 prompt** 的对话型 Agent | 禁 `tools` / `tool_choice` / `text.format`；显式 `max_output_tokens` ≤ 2048、规范化后消息 ≤ 60 |
 
 新格式的每条路由必须显式指定 tier，缺少档位会报配置错误。
@@ -253,6 +253,7 @@ if request.max_tokens and request.max_tokens > policy["max_tokens_cap"]:
 
 所以它约束的是「**调用方不许向服务索要更多**」，**不是**「服务最多给这么多」。
 调用方不传 `max_output_tokens` 且路由 defaults 没有 `max_tokens` 时，服务不会额外注入预算，使用上游默认值。
+trusted 的 32768 是显式请求上限，不是新的默认生成预算；原有路由默认值和调用方显式设置的 8192 均保留。旧 Chat 入口的 `max_tokens` 使用同一上限，guarded 仍为 2048。
 
 这个区别在两个方向上都有后果：
 

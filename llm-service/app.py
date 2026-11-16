@@ -21,7 +21,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from auth import resolve, token_map
-from config import ALLOWED_PARAMS, ConfigError, load_config, load_guard_config, thaw, validate_params
+from config import (ALLOWED_PARAMS, TRUSTED_MAX_OUTPUT_TOKENS, ConfigError,
+                    load_config, load_guard_config, thaw, validate_params)
 from guard import detect, harden, leaked, new_canary, user_texts
 from upstream import UpstreamError, UpstreamStream, forward, open_stream
 from responses_adapter import ResponsesRequestError
@@ -91,7 +92,7 @@ class ChatRequest(BaseModel):
     messages: list[dict[str, Any]] = Field(min_length=1, max_length=200)
     temperature: float | None = Field(default=None, ge=0, le=2)
     top_p: float | None = Field(default=None, ge=0, le=1)
-    max_tokens: int | None = Field(default=None, ge=1, le=8192)
+    max_tokens: int | None = Field(default=None, ge=1, le=TRUSTED_MAX_OUTPUT_TOKENS)
     stop: list[str] | None = Field(default=None, max_length=4)
     presence_penalty: float | None = Field(default=None, ge=-2, le=2)
     frequency_penalty: float | None = Field(default=None, ge=-2, le=2)
@@ -112,7 +113,7 @@ class ResponsesRequest(BaseModel):
     instructions: str | None = None
     temperature: float | None = Field(default=None, ge=0, le=2)
     top_p: float | None = Field(default=None, ge=0, le=1)
-    max_output_tokens: int | None = Field(default=None, ge=1, le=8192)
+    max_output_tokens: int | None = Field(default=None, ge=1, le=TRUSTED_MAX_OUTPUT_TOKENS)
     tools: list[dict[str, Any]] | None = Field(default=None, max_length=32)
     tool_choice: str | dict[str, Any] | None = None
     text: dict[str, Any] | None = None

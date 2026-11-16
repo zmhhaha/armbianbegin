@@ -111,6 +111,63 @@ class PublicResponsesApiTests(unittest.TestCase):
         return self.client.post("/v1/responses", headers=self.headers,
                                 json={"model": model, "input": "你好", "store": False, **fields})
 
+    def post_budget(self, api, model, budget=None):
+        if api == "responses":
+            return self.post(model, **({"max_output_tokens": budget} if budget is not None else {}))
+        return self.client.post("/v1/chat/completions", headers=self.headers,
+            json={"model": model, "messages": [{"role": "user", "content": "你好"}],
+                  **({"max_tokens": budget} if budget is not None else {})})
+
+    def test_trusted_explicit_output_budgets_survive_both_public_and_upstream_protocols(self):
+        answer = "完整知识片段" * 6000
+        for api in ("responses", "chat"):
+            for alias, wire, response in (("llm-trusted", "responses", native_response(answer)),
+                                          ("deepseek-trusted", "chat/completions", chat_response(answer))):
+                for budget in (8192, 32768):
+                    with self.subTest(api=api, alias=alias, budget=budget), self.transport(
+                            lambda _: httpx.Response(200, json=response)):
+                        result = self.post_budget(api, alias, budget)
+                    self.assertEqual(result.status_code, 200, result.text)
+                    url, body = self.requests[-1]
+                    self.assertTrue(url.endswith("/v1/" + wire), url)
+                    field = "max_output_tokens" if wire == "responses" else "max_tokens"
+                    self.assertEqual(body[field], budget)
+                    observed = (result.json()["output"][0]["content"][0]["text"] if api == "responses"
+                                else result.json()["choices"][0]["message"]["content"])
+                    self.assertEqual(observed, answer)
+        self.assertEqual(len(self.requests), 8)
+
+    def test_output_budget_above_shared_limit_never_reaches_upstream(self):
+        with self.transport(lambda _: self.fail("oversized output budget reached upstream")):
+            for api in ("responses", "chat"):
+                with self.subTest(api=api):
+                    result = self.post_budget(api, "llm-trusted", 32769)
+                    self.assertEqual(result.status_code, 422, result.text)
+        self.assertFalse(self.requests)
+
+    def test_larger_trusted_cap_does_not_raise_guarded_output_budget(self):
+        with self.transport(lambda _: self.fail("guarded output budget violation reached upstream")):
+            for api in ("responses", "chat"):
+                with self.subTest(api=api):
+                    result = self.post_budget(api, "llm-guarded", 2049)
+                    self.assertEqual(result.status_code, 400, result.text)
+        self.assertFalse(self.requests)
+
+    def test_larger_explicit_cap_does_not_inject_or_replace_route_defaults(self):
+        for api in ("responses", "chat"):
+            for alias, response in (("llm-trusted", native_response()),
+                                    ("deepseek-trusted", chat_response())):
+                with self.subTest(api=api, alias=alias), self.transport(
+                        lambda _: httpx.Response(200, json=response)):
+                    result = self.post_budget(api, alias)
+                self.assertEqual(result.status_code, 200, result.text)
+                body = self.requests[-1][1]
+                if alias == "llm-trusted":
+                    self.assertNotIn("max_output_tokens", body)
+                    self.assertNotIn("max_tokens", body)
+                else:
+                    self.assertEqual(body["max_tokens"], 2048)
+
     def test_custom_upstream_preserves_native_responses_and_token_details(self):
         native = native_response("native output")
         with self.transport(lambda _: httpx.Response(200, json=native)):
