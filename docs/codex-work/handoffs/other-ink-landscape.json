@@ -1,0 +1,1498 @@
+{
+  "repository": "ink-landscape",
+  "documents": [
+    {
+      "source": "D:/codex-work/operations/codex-thread-protocol-20261119/diagnosis.md",
+      "source_sha256": "7acba47c8c4bafdcb2cb673b3ddaeb393921ced81e36ab05930a9b9197092f98",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "独立 ink-landscape 技法/库提案或其 Codex 故障记录；即使用外层 OpenSpec 映射，也不是主仓库平台或集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-landscape-openspec-20261119/proposal.md",
+      "source_sha256": "0476103871461ea08aeecbf354e758089bfd8a79e5b0cfebf301da943770ec3e",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "独立 ink-landscape 技法/库提案或其 Codex 故障记录；即使用外层 OpenSpec 映射，也不是主仓库平台或集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-landscape-openspec-20261119/spec.md",
+      "source_sha256": "bb93bea62884c41e3eaae75cf34cf601d36ef5d7c3f9875eded519180f3c4c32",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "独立 ink-landscape 技法/库提案或其 Codex 故障记录；即使用外层 OpenSpec 映射，也不是主仓库平台或集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-landscape-openspec-20261119/tasks.md",
+      "source_sha256": "96c4623d48526fb4766d336a1425460b633ff5a978ed456f272d69e54df9ce94",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "独立 ink-landscape 技法/库提案或其 Codex 故障记录；即使用外层 OpenSpec 映射，也不是主仓库平台或集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-landscape-openspec-20261119/create-args.json",
+      "source_sha256": "f944c2bb8c07ab448d5483ba7c36b4a52a847dcee24409613a9879929a19f357",
+      "json_pointer": "/files/proposal.md",
+      "content_sha256": "0476103871461ea08aeecbf354e758089bfd8a79e5b0cfebf301da943770ec3e",
+      "document_name": "proposal.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-landscape-openspec-20261119/create-args.json",
+      "source_sha256": "f944c2bb8c07ab448d5483ba7c36b4a52a847dcee24409613a9879929a19f357",
+      "json_pointer": "/files/design.md",
+      "content_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "document_name": "design.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-landscape-openspec-20261119/create-args.json",
+      "source_sha256": "f944c2bb8c07ab448d5483ba7c36b4a52a847dcee24409613a9879929a19f357",
+      "json_pointer": "/files/tasks.md",
+      "content_sha256": "96c4623d48526fb4766d336a1425460b633ff5a978ed456f272d69e54df9ce94",
+      "document_name": "tasks.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-landscape-openspec-20261119/create-args.json",
+      "source_sha256": "f944c2bb8c07ab448d5483ba7c36b4a52a847dcee24409613a9879929a19f357",
+      "json_pointer": "/files/specs~1ink-landscape-techniques~1spec.md",
+      "content_sha256": "bb93bea62884c41e3eaae75cf34cf601d36ef5d7c3f9875eded519180f3c4c32",
+      "document_name": "specs/ink-landscape-techniques/spec.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-landscape-openspec-20261119/readback.json",
+      "source_sha256": "23fb1e02ddba0e16f922cb73d689e21dff8ac0a5d4dbdcbc4ca243671ea983a0",
+      "json_pointer": "/artifacts/design.md",
+      "content_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "document_name": "design.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-landscape-openspec-20261119/readback.json",
+      "source_sha256": "23fb1e02ddba0e16f922cb73d689e21dff8ac0a5d4dbdcbc4ca243671ea983a0",
+      "json_pointer": "/artifacts/proposal.md",
+      "content_sha256": "0476103871461ea08aeecbf354e758089bfd8a79e5b0cfebf301da943770ec3e",
+      "document_name": "proposal.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-landscape-openspec-20261119/readback.json",
+      "source_sha256": "23fb1e02ddba0e16f922cb73d689e21dff8ac0a5d4dbdcbc4ca243671ea983a0",
+      "json_pointer": "/artifacts/specs~1ink-landscape-techniques~1spec.md",
+      "content_sha256": "bb93bea62884c41e3eaae75cf34cf601d36ef5d7c3f9875eded519180f3c4c32",
+      "document_name": "specs/ink-landscape-techniques/spec.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-landscape-openspec-20261119/readback.json",
+      "source_sha256": "23fb1e02ddba0e16f922cb73d689e21dff8ac0a5d4dbdcbc4ca243671ea983a0",
+      "json_pointer": "/artifacts/tasks.md",
+      "content_sha256": "96c4623d48526fb4766d336a1425460b633ff5a978ed456f272d69e54df9ce94",
+      "document_name": "tasks.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/main-before.json",
+      "source_sha256": "e355c231f59d2c18eefeedfa4824edcd12cc7a1d2c76eab50d2135799ecd7125",
+      "json_pointer": "/artifacts/design.md",
+      "content_sha256": "51b6db7f8ac0ff0afa51c29224cde34da9c08138304e65a35197558414871519",
+      "document_name": "design.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/main-before.json",
+      "source_sha256": "e355c231f59d2c18eefeedfa4824edcd12cc7a1d2c76eab50d2135799ecd7125",
+      "json_pointer": "/artifacts/proposal.md",
+      "content_sha256": "2cbb3a9b0fe6f9f96a34d60cadd8371dd527b416fb30137cd34bab90b8a175bf",
+      "document_name": "proposal.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/main-before.json",
+      "source_sha256": "e355c231f59d2c18eefeedfa4824edcd12cc7a1d2c76eab50d2135799ecd7125",
+      "json_pointer": "/artifacts/specs~1ink-landscape-techniques~1spec.md",
+      "content_sha256": "b1a3528300b348ba79d682771d6826e0434b021fcb58ee21d3bc5bfae51e4a6a",
+      "document_name": "specs/ink-landscape-techniques/spec.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/main-before.json",
+      "source_sha256": "e355c231f59d2c18eefeedfa4824edcd12cc7a1d2c76eab50d2135799ecd7125",
+      "json_pointer": "/artifacts/tasks.md",
+      "content_sha256": "6bcb437f9b85cce4e0872b8ad8df1abc8f401a7384148fbbe7674b53e4b7c780",
+      "document_name": "tasks.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/parent-before-consumption.json",
+      "source_sha256": "170730f8e656da9fe18f89983892060881132e1cdc0228443c75a416717960b8",
+      "json_pointer": "/artifacts/design.md",
+      "content_sha256": "51b6db7f8ac0ff0afa51c29224cde34da9c08138304e65a35197558414871519",
+      "document_name": "design.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/parent-before-consumption.json",
+      "source_sha256": "170730f8e656da9fe18f89983892060881132e1cdc0228443c75a416717960b8",
+      "json_pointer": "/artifacts/proposal.md",
+      "content_sha256": "2cbb3a9b0fe6f9f96a34d60cadd8371dd527b416fb30137cd34bab90b8a175bf",
+      "document_name": "proposal.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/parent-before-consumption.json",
+      "source_sha256": "170730f8e656da9fe18f89983892060881132e1cdc0228443c75a416717960b8",
+      "json_pointer": "/artifacts/specs~1ink-landscape-techniques~1spec.md",
+      "content_sha256": "b1a3528300b348ba79d682771d6826e0434b021fcb58ee21d3bc5bfae51e4a6a",
+      "document_name": "specs/ink-landscape-techniques/spec.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/parent-before-consumption.json",
+      "source_sha256": "170730f8e656da9fe18f89983892060881132e1cdc0228443c75a416717960b8",
+      "json_pointer": "/artifacts/tasks.md",
+      "content_sha256": "6bcb437f9b85cce4e0872b8ad8df1abc8f401a7384148fbbe7674b53e4b7c780",
+      "document_name": "tasks.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/parent-consumption-readback.json",
+      "source_sha256": "6769cf9f61ccb563b759e962a19d38961a69b1706a1f9ce38108fcb7901659b9",
+      "json_pointer": "/artifacts/design.md",
+      "content_sha256": "51b6db7f8ac0ff0afa51c29224cde34da9c08138304e65a35197558414871519",
+      "document_name": "design.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/parent-consumption-readback.json",
+      "source_sha256": "6769cf9f61ccb563b759e962a19d38961a69b1706a1f9ce38108fcb7901659b9",
+      "json_pointer": "/artifacts/proposal.md",
+      "content_sha256": "2cbb3a9b0fe6f9f96a34d60cadd8371dd527b416fb30137cd34bab90b8a175bf",
+      "document_name": "proposal.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/parent-consumption-readback.json",
+      "source_sha256": "6769cf9f61ccb563b759e962a19d38961a69b1706a1f9ce38108fcb7901659b9",
+      "json_pointer": "/artifacts/specs~1ink-landscape-techniques~1spec.md",
+      "content_sha256": "b1a3528300b348ba79d682771d6826e0434b021fcb58ee21d3bc5bfae51e4a6a",
+      "document_name": "specs/ink-landscape-techniques/spec.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/parent-consumption-readback.json",
+      "source_sha256": "6769cf9f61ccb563b759e962a19d38961a69b1706a1f9ce38108fcb7901659b9",
+      "json_pointer": "/artifacts/tasks.md",
+      "content_sha256": "e6bf79156a74ddf10c94e19e03fbc274ca27350365b54d6a6c7fc0418fed991a",
+      "document_name": "tasks.md",
+      "repository": "ink-landscape",
+      "decision": "handoff_only_embedded_document",
+      "reason": "独立笔墨库的嵌入设计快照，仅提供定位信息"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/brush-research.md",
+      "source_sha256": "d4a3c812ced5c11cfa4b10e1b76d948de646e3d29828910de52d5fa271aa12cb",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/brushwork.md",
+      "source_sha256": "70590f247ceb10194bdb4f377f22d6666e45ae22b01125e07652e73cc8fea4aa",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/cun-document.md",
+      "source_sha256": "16e6ed5d246ba18c7845a5e3c8232c0d7fc7e1f43e51e92b4324c2a3aee8e458",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/foundation-brush.md",
+      "source_sha256": "7903f912386180c820adea15127b5a1f42b4fe14151628ed958cc646d1658312",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/foundation-plan.md",
+      "source_sha256": "78b4f55e6dc4fd5b1510adf10da4159e8533724c096ba1423404f063e4a57059",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/ink-process.md",
+      "source_sha256": "e6324cad038b1a7c4746b2ca92e0f1313e399c3f89046cfa5a6b62a9ed2edca6",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/learning/README.md",
+      "source_sha256": "27884d1161412d45c9fd9cdacd916f2cf086d7bf22ac91c2f5b9a9118cf018ad",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/techniques.md",
+      "source_sha256": "31eaf3e6d982434e1996cb37388e7092fdce12bb7e193a41f960f5e3091233bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/vegetation-document.md",
+      "source_sha256": "faa773676cc2e3a4484b5fbcb3806ab8fcea6dd5b3b9b83194f4845207117c51",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/bamboo-plum-outline-batch12/source/docs/water-process.md",
+      "source_sha256": "6fc796e77a18894bde2c5a7836603a7dc2b038291812a6d0fdac71e24d70341d",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/branch-cun-batch8/source/docs/cun-document.md",
+      "source_sha256": "16e6ed5d246ba18c7845a5e3c8232c0d7fc7e1f43e51e92b4324c2a3aee8e458",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/branch-cun-batch8/source/docs/foundation-plan.md",
+      "source_sha256": "6a8ce725695fdadfe9a22d242c66bd6fa0eec1781cf289c18603a67c415e9c9c",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/brush-learning/source/docs/brush-research.md",
+      "source_sha256": "dd3d73bf95a3da9e7e9a884c3197cc1d064ae08e1d4b3f02281a265fd939831b",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/brush-learning/source/docs/brushwork.md",
+      "source_sha256": "2ad585bd6ae38841239fe882bcde215f026f350407bba1b94192b0f9bf7fd7ab",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/cun-batch6/source/docs/cun-document.md",
+      "source_sha256": "38a31e99ae22c4f62edf0e3893f4efab413afa5df4c380b7b29980aa0c1e7aab",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/cun-batch6/source/docs/foundation-plan.md",
+      "source_sha256": "97946d6092bc2b11dec35dd40270a2d93113a6c95a02a58761d922c5331d90e9",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/ink-batch4/source/docs/foundation-plan.md",
+      "source_sha256": "f20b7bbb7a830dd0d3e33c3366653cf43e8040e6ea532bd56e8ea224a00d2a81",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/ink-batch4/source/docs/ink-process.md",
+      "source_sha256": "e6324cad038b1a7c4746b2ca92e0f1313e399c3f89046cfa5a6b62a9ed2edca6",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/brush-research.md",
+      "source_sha256": "d4a3c812ced5c11cfa4b10e1b76d948de646e3d29828910de52d5fa271aa12cb",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/brushwork.md",
+      "source_sha256": "70590f247ceb10194bdb4f377f22d6666e45ae22b01125e07652e73cc8fea4aa",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/cun-document.md",
+      "source_sha256": "16e6ed5d246ba18c7845a5e3c8232c0d7fc7e1f43e51e92b4324c2a3aee8e458",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/foundation-brush.md",
+      "source_sha256": "7903f912386180c820adea15127b5a1f42b4fe14151628ed958cc646d1658312",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/foundation-plan.md",
+      "source_sha256": "2db5144517d184cb05f2d129377dc8e7ba6137156bf930cc42a11725860ab7a2",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/ink-process.md",
+      "source_sha256": "e6324cad038b1a7c4746b2ca92e0f1313e399c3f89046cfa5a6b62a9ed2edca6",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/learning/README.md",
+      "source_sha256": "27884d1161412d45c9fd9cdacd916f2cf086d7bf22ac91c2f5b9a9118cf018ad",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/techniques.md",
+      "source_sha256": "31eaf3e6d982434e1996cb37388e7092fdce12bb7e193a41f960f5e3091233bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/vegetation-document.md",
+      "source_sha256": "e38e3e90d540ba0390dc2095c0d313cab4cf7d28d788d76a3b757be0ac6e7be2",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/leaf-cluster-batch10/source/docs/water-process.md",
+      "source_sha256": "6fc796e77a18894bde2c5a7836603a7dc2b038291812a6d0fdac71e24d70341d",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/learn-100/repository/docs/brush-research.md",
+      "source_sha256": "d4a3c812ced5c11cfa4b10e1b76d948de646e3d29828910de52d5fa271aa12cb",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/learn-100/repository/docs/learning/README.md",
+      "source_sha256": "27884d1161412d45c9fd9cdacd916f2cf086d7bf22ac91c2f5b9a9118cf018ad",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/line-cun-batch7/source/docs/cun-document.md",
+      "source_sha256": "0e75d5bcdd42f4dee9e231177926bbe7dd6d919c2bfa2fcaefa60c896412ed19",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/line-cun-batch7/source/docs/foundation-plan.md",
+      "source_sha256": "964bee8f4f5d3d6800e0bf35f40c22096cfdad1be37a3d90fb272279221f1211",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/brush-research.md",
+      "source_sha256": "d4a3c812ced5c11cfa4b10e1b76d948de646e3d29828910de52d5fa271aa12cb",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/brushwork.md",
+      "source_sha256": "70590f247ceb10194bdb4f377f22d6666e45ae22b01125e07652e73cc8fea4aa",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/cun-document.md",
+      "source_sha256": "16e6ed5d246ba18c7845a5e3c8232c0d7fc7e1f43e51e92b4324c2a3aee8e458",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/foundation-brush.md",
+      "source_sha256": "7903f912386180c820adea15127b5a1f42b4fe14151628ed958cc646d1658312",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/foundation-plan.md",
+      "source_sha256": "0cb796f16c61257841f34a50a69f69ab1b1190c11d98a37016045edc479fab9b",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/ink-process.md",
+      "source_sha256": "e6324cad038b1a7c4746b2ca92e0f1313e399c3f89046cfa5a6b62a9ed2edca6",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/learning/README.md",
+      "source_sha256": "27884d1161412d45c9fd9cdacd916f2cf086d7bf22ac91c2f5b9a9118cf018ad",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/techniques.md",
+      "source_sha256": "31eaf3e6d982434e1996cb37388e7092fdce12bb7e193a41f960f5e3091233bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/vegetation-document.md",
+      "source_sha256": "e427367d6cf14bfd452c30e13b53311526de2f3e5881d15178f8ee471be7bfa4",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/pepper-broken-pine-batch11/source/docs/water-process.md",
+      "source_sha256": "6fc796e77a18894bde2c5a7836603a7dc2b038291812a6d0fdac71e24d70341d",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/sword-landscape/source/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/sword-landscape/source/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/sword-landscape/source/docs/techniques.md",
+      "source_sha256": "31eaf3e6d982434e1996cb37388e7092fdce12bb7e193a41f960f5e3091233bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/sword-peaks/before/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/sword-peaks/before/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/sword-peaks/before/docs/techniques.md",
+      "source_sha256": "31eaf3e6d982434e1996cb37388e7092fdce12bb7e193a41f960f5e3091233bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/brush-research.md",
+      "source_sha256": "d4a3c812ced5c11cfa4b10e1b76d948de646e3d29828910de52d5fa271aa12cb",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/brushwork.md",
+      "source_sha256": "70590f247ceb10194bdb4f377f22d6666e45ae22b01125e07652e73cc8fea4aa",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/cun-document.md",
+      "source_sha256": "16e6ed5d246ba18c7845a5e3c8232c0d7fc7e1f43e51e92b4324c2a3aee8e458",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/foundation-brush.md",
+      "source_sha256": "7903f912386180c820adea15127b5a1f42b4fe14151628ed958cc646d1658312",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/foundation-plan.md",
+      "source_sha256": "970384ab630122a8ecaf4d50fbbdcbc2ca94f55a7b183c0b5a5bab545a4c5c5f",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/ink-process.md",
+      "source_sha256": "e6324cad038b1a7c4746b2ca92e0f1313e399c3f89046cfa5a6b62a9ed2edca6",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/learning/README.md",
+      "source_sha256": "27884d1161412d45c9fd9cdacd916f2cf086d7bf22ac91c2f5b9a9118cf018ad",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/techniques.md",
+      "source_sha256": "31eaf3e6d982434e1996cb37388e7092fdce12bb7e193a41f960f5e3091233bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/vegetation-document.md",
+      "source_sha256": "fe2d599b68f8009f6d5e3ed29f42a3a50808d24518d64fca7446273afc73148c",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/vegetation-batch9/source/docs/water-process.md",
+      "source_sha256": "6fc796e77a18894bde2c5a7836603a7dc2b038291812a6d0fdac71e24d70341d",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/water-batch5/source/docs/foundation-plan.md",
+      "source_sha256": "6cefc6eb84e5ded3974f1b3cead02b90b01f49bd9442688c6efa5a8a90259b8f",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261119/water-batch5/source/docs/water-process.md",
+      "source_sha256": "ca28ca6c8271150a5a7fafd2298361bf763c6da59b742a73a8e18c3c4851e35e",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/advanced-material-revision.md",
+      "source_sha256": "81e5fa08424c48adfb48d3b61a72da68000f79d2d7c1faff5ccdbe0284a6c9db",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/brush-research.md",
+      "source_sha256": "d4a3c812ced5c11cfa4b10e1b76d948de646e3d29828910de52d5fa271aa12cb",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/brushwork.md",
+      "source_sha256": "70590f247ceb10194bdb4f377f22d6666e45ae22b01125e07652e73cc8fea4aa",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/cun-document.md",
+      "source_sha256": "16e6ed5d246ba18c7845a5e3c8232c0d7fc7e1f43e51e92b4324c2a3aee8e458",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/foundation-brush.md",
+      "source_sha256": "7903f912386180c820adea15127b5a1f42b4fe14151628ed958cc646d1658312",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/foundation-plan.md",
+      "source_sha256": "17ee305f69cf0f0327030e6fe49147115766480fedd955f1e788ccaf02b12a65",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/hierarchy-water-growth-revision.md",
+      "source_sha256": "7aca5a5b284853c45fa6d99d7737336d3ebb66bc18e6372e692f335417b08a01",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/ink-process.md",
+      "source_sha256": "ac54228dbf4f9bf5848b9f1408736fdc0b32dcd5394842fb2959e126b5e8a415",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/learning/README.md",
+      "source_sha256": "97712855b3844f9ff06b408522d666b4d66eec0f434c9ccca6fdebaf1c666e77",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/perturbation.md",
+      "source_sha256": "2e864747dcad32ca11112198434454dd8b8befc3253ee8626106671850977381",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/remaining-technique-batches.md",
+      "source_sha256": "3639598a4cfa6c17da39dbba5971f07012e7d5d8764cfd85d017b492c87ce641",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/stroke-group-document.md",
+      "source_sha256": "280f66bffeabff4c9677eb657b0aee8694a68fbb60fbb2edd0d86e89bff643bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/techniques.md",
+      "source_sha256": "dba49657a23136f4338ff09320df9ca73f126a7b10cb138d3e409272f255f140",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/twelve-batch-material-revision.md",
+      "source_sha256": "3f5936bd6c8f92fb6a87281925a92cbe0a6f28c32ff9e077845b87342da2a09c",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/vegetation-document.md",
+      "source_sha256": "faa773676cc2e3a4484b5fbcb3806ab8fcea6dd5b3b9b83194f4845207117c51",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/advanced-material-revision/source/docs/water-process.md",
+      "source_sha256": "f883eb6cfc7ae3675f0a85ba812efae7950e8d595495c5944ab18454fee3c04b",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/brush-research.md",
+      "source_sha256": "d4a3c812ced5c11cfa4b10e1b76d948de646e3d29828910de52d5fa271aa12cb",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/brushwork.md",
+      "source_sha256": "70590f247ceb10194bdb4f377f22d6666e45ae22b01125e07652e73cc8fea4aa",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/cun-document.md",
+      "source_sha256": "16e6ed5d246ba18c7845a5e3c8232c0d7fc7e1f43e51e92b4324c2a3aee8e458",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/foundation-brush.md",
+      "source_sha256": "7903f912386180c820adea15127b5a1f42b4fe14151628ed958cc646d1658312",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/foundation-plan.md",
+      "source_sha256": "721adb54dcc271c88e7b8ac72a1a0963bd9193621db651375b922330ffff4ae8",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/hierarchy-water-growth-revision.md",
+      "source_sha256": "7aca5a5b284853c45fa6d99d7737336d3ebb66bc18e6372e692f335417b08a01",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/ink-process.md",
+      "source_sha256": "4075a46f27a4cacc384fee27ec3af7794983631706ce4df168c9eede86b2bec7",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/learning/README.md",
+      "source_sha256": "27884d1161412d45c9fd9cdacd916f2cf086d7bf22ac91c2f5b9a9118cf018ad",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/techniques.md",
+      "source_sha256": "31eaf3e6d982434e1996cb37388e7092fdce12bb7e193a41f960f5e3091233bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/twelve-batch-material-revision.md",
+      "source_sha256": "3f5936bd6c8f92fb6a87281925a92cbe0a6f28c32ff9e077845b87342da2a09c",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/vegetation-document.md",
+      "source_sha256": "faa773676cc2e3a4484b5fbcb3806ab8fcea6dd5b3b9b83194f4845207117c51",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/hierarchy-water-growth-revision/source/docs/water-process.md",
+      "source_sha256": "3de516d5ce54ca542e0069f3283e4c5fba71e93df9ba32fc7fcc31f7898afef5",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/jieziyuan-study/edition-and-rock-reading.md",
+      "source_sha256": "c1847c9c297ffa411cdae0f2e938f3226ab2f3f8a72b7b00748fba0bf2448dc7",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/jieziyuan-study/tree-leaf-primary-reading.md",
+      "source_sha256": "0a5e207c59d198fa7253a64acee4d1e5bdb7a88b43ca6858412fb1c2dcf18222",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/advanced-material-revision.md",
+      "source_sha256": "81e5fa08424c48adfb48d3b61a72da68000f79d2d7c1faff5ccdbe0284a6c9db",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/brush-research.md",
+      "source_sha256": "d4a3c812ced5c11cfa4b10e1b76d948de646e3d29828910de52d5fa271aa12cb",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/brushwork.md",
+      "source_sha256": "70590f247ceb10194bdb4f377f22d6666e45ae22b01125e07652e73cc8fea4aa",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/cun-document.md",
+      "source_sha256": "16e6ed5d246ba18c7845a5e3c8232c0d7fc7e1f43e51e92b4324c2a3aee8e458",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/foundation-brush.md",
+      "source_sha256": "7903f912386180c820adea15127b5a1f42b4fe14151628ed958cc646d1658312",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/foundation-plan.md",
+      "source_sha256": "fddc9a75cde9334be7d4a5486d46b0b175cbe7599769f6fcff3f97521532ae09",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/hierarchy-water-growth-revision.md",
+      "source_sha256": "7aca5a5b284853c45fa6d99d7737336d3ebb66bc18e6372e692f335417b08a01",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/ink-process.md",
+      "source_sha256": "9fa95d07045fd0ff20175cf842a5bdd98273ed41372a7f0d5ae88cadf61c1f09",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/learning/README.md",
+      "source_sha256": "97712855b3844f9ff06b408522d666b4d66eec0f434c9ccca6fdebaf1c666e77",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/natural-authoring.md",
+      "source_sha256": "1c975de0157d55710f35acf85f5442d936334a39c895bff86b1eb517838bc657",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/natural-hierarchy-revision.md",
+      "source_sha256": "fa0e76b40df63d24744b94df019c98fffe6a78ea821f4455ea6abb599b2c9c55",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/perturbation.md",
+      "source_sha256": "2e864747dcad32ca11112198434454dd8b8befc3253ee8626106671850977381",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/remaining-technique-batches.md",
+      "source_sha256": "3639598a4cfa6c17da39dbba5971f07012e7d5d8764cfd85d017b492c87ce641",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/stroke-group-document.md",
+      "source_sha256": "280f66bffeabff4c9677eb657b0aee8694a68fbb60fbb2edd0d86e89bff643bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/techniques.md",
+      "source_sha256": "dba49657a23136f4338ff09320df9ca73f126a7b10cb138d3e409272f255f140",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/twelve-batch-material-revision.md",
+      "source_sha256": "3f5936bd6c8f92fb6a87281925a92cbe0a6f28c32ff9e077845b87342da2a09c",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/vegetation-document.md",
+      "source_sha256": "3a603fdb3874116ca1a13f5492b319f898eae56c317b4d855217bf0e9dfdd92e",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/natural-hierarchy-revision/source/docs/water-process.md",
+      "source_sha256": "d594d3693f30c52cc26db472ddac1addebc7a812a47abfb89fe5b0a0c0c4b2ee",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/brush-research.md",
+      "source_sha256": "d4a3c812ced5c11cfa4b10e1b76d948de646e3d29828910de52d5fa271aa12cb",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/brushwork.md",
+      "source_sha256": "70590f247ceb10194bdb4f377f22d6666e45ae22b01125e07652e73cc8fea4aa",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/cun-document.md",
+      "source_sha256": "16e6ed5d246ba18c7845a5e3c8232c0d7fc7e1f43e51e92b4324c2a3aee8e458",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/foundation-brush.md",
+      "source_sha256": "7903f912386180c820adea15127b5a1f42b4fe14151628ed958cc646d1658312",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/foundation-plan.md",
+      "source_sha256": "17ee305f69cf0f0327030e6fe49147115766480fedd955f1e788ccaf02b12a65",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/hierarchy-water-growth-revision.md",
+      "source_sha256": "7aca5a5b284853c45fa6d99d7737336d3ebb66bc18e6372e692f335417b08a01",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/ink-process.md",
+      "source_sha256": "4075a46f27a4cacc384fee27ec3af7794983631706ce4df168c9eede86b2bec7",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/learning/README.md",
+      "source_sha256": "97712855b3844f9ff06b408522d666b4d66eec0f434c9ccca6fdebaf1c666e77",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/remaining-technique-batches.md",
+      "source_sha256": "50dd38ee6a2a4eb7e54fbe6b7ba248546ee498e2925a849a61f27b7e0d1a379a",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/stroke-group-document.md",
+      "source_sha256": "280f66bffeabff4c9677eb657b0aee8694a68fbb60fbb2edd0d86e89bff643bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/techniques.md",
+      "source_sha256": "dba49657a23136f4338ff09320df9ca73f126a7b10cb138d3e409272f255f140",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/twelve-batch-material-revision.md",
+      "source_sha256": "3f5936bd6c8f92fb6a87281925a92cbe0a6f28c32ff9e077845b87342da2a09c",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/vegetation-document.md",
+      "source_sha256": "faa773676cc2e3a4484b5fbcb3806ab8fcea6dd5b3b9b83194f4845207117c51",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/remaining-eighteen-batches/source/docs/water-process.md",
+      "source_sha256": "3de516d5ce54ca542e0069f3283e4c5fba71e93df9ba32fc7fcc31f7898afef5",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/structured-rock-study/rock-reading.md",
+      "source_sha256": "f09c27d1c3c965ff448d8cda118e7667f72b2df4179c5d8ddb9a1ed1b26d55d0",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/brush-research.md",
+      "source_sha256": "d4a3c812ced5c11cfa4b10e1b76d948de646e3d29828910de52d5fa271aa12cb",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/brushwork.md",
+      "source_sha256": "70590f247ceb10194bdb4f377f22d6666e45ae22b01125e07652e73cc8fea4aa",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/cun-document.md",
+      "source_sha256": "16e6ed5d246ba18c7845a5e3c8232c0d7fc7e1f43e51e92b4324c2a3aee8e458",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/foundation-brush.md",
+      "source_sha256": "7903f912386180c820adea15127b5a1f42b4fe14151628ed958cc646d1658312",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/foundation-plan.md",
+      "source_sha256": "883deb14f8c2691f92acffcbdc59685232e9b6ab59ecbc0d17ff9037ab24adc7",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/ink-process.md",
+      "source_sha256": "e6324cad038b1a7c4746b2ca92e0f1313e399c3f89046cfa5a6b62a9ed2edca6",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/learning/README.md",
+      "source_sha256": "27884d1161412d45c9fd9cdacd916f2cf086d7bf22ac91c2f5b9a9118cf018ad",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/techniques.md",
+      "source_sha256": "31eaf3e6d982434e1996cb37388e7092fdce12bb7e193a41f960f5e3091233bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/twelve-batch-material-revision.md",
+      "source_sha256": "316761ecf84e6dcae7d15e11fe065e78d8a9427ae4f0dfe48b8b3367c97b3705",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/vegetation-document.md",
+      "source_sha256": "faa773676cc2e3a4484b5fbcb3806ab8fcea6dd5b3b9b83194f4845207117c51",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/archives/ink-landscape/20261120/twelve-batch-material-revision/source/docs/water-process.md",
+      "source_sha256": "6fc796e77a18894bde2c5a7836603a7dc2b038291812a6d0fdac71e24d70341d",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/jieziyuan-study/edition-and-rock-reading.md",
+      "source_sha256": "c1847c9c297ffa411cdae0f2e938f3226ab2f3f8a72b7b00748fba0bf2448dc7",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/jieziyuan-study/tree-leaf-primary-reading.md",
+      "source_sha256": "0a5e207c59d198fa7253a64acee4d1e5bdb7a88b43ca6858412fb1c2dcf18222",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/advanced-material-revision.md",
+      "source_sha256": "81e5fa08424c48adfb48d3b61a72da68000f79d2d7c1faff5ccdbe0284a6c9db",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/brush-research.md",
+      "source_sha256": "d4a3c812ced5c11cfa4b10e1b76d948de646e3d29828910de52d5fa271aa12cb",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/brushwork.md",
+      "source_sha256": "70590f247ceb10194bdb4f377f22d6666e45ae22b01125e07652e73cc8fea4aa",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/cun-document.md",
+      "source_sha256": "16e6ed5d246ba18c7845a5e3c8232c0d7fc7e1f43e51e92b4324c2a3aee8e458",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/foundation-brush.md",
+      "source_sha256": "7903f912386180c820adea15127b5a1f42b4fe14151628ed958cc646d1658312",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/foundation-plan.md",
+      "source_sha256": "fddc9a75cde9334be7d4a5486d46b0b175cbe7599769f6fcff3f97521532ae09",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/hierarchy-water-growth-revision.md",
+      "source_sha256": "7aca5a5b284853c45fa6d99d7737336d3ebb66bc18e6372e692f335417b08a01",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/ink-process.md",
+      "source_sha256": "9fa95d07045fd0ff20175cf842a5bdd98273ed41372a7f0d5ae88cadf61c1f09",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/learning/README.md",
+      "source_sha256": "97712855b3844f9ff06b408522d666b4d66eec0f434c9ccca6fdebaf1c666e77",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/natural-authoring.md",
+      "source_sha256": "1c975de0157d55710f35acf85f5442d936334a39c895bff86b1eb517838bc657",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/natural-hierarchy-revision.md",
+      "source_sha256": "fa0e76b40df63d24744b94df019c98fffe6a78ea821f4455ea6abb599b2c9c55",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/perturbation.md",
+      "source_sha256": "2e864747dcad32ca11112198434454dd8b8befc3253ee8626106671850977381",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/remaining-technique-batches.md",
+      "source_sha256": "3639598a4cfa6c17da39dbba5971f07012e7d5d8764cfd85d017b492c87ce641",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/requirements.md",
+      "source_sha256": "7901284f7e2f7b41dc0fa6ace8f114a11d9bf822f7465b30c505755a6b4e9f14",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/stroke-group-document.md",
+      "source_sha256": "280f66bffeabff4c9677eb657b0aee8694a68fbb60fbb2edd0d86e89bff643bf",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/techniques.md",
+      "source_sha256": "dba49657a23136f4338ff09320df9ca73f126a7b10cb138d3e409272f255f140",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/twelve-batch-material-revision.md",
+      "source_sha256": "3f5936bd6c8f92fb6a87281925a92cbe0a6f28c32ff9e077845b87342da2a09c",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/vegetation-document.md",
+      "source_sha256": "3a603fdb3874116ca1a13f5492b319f898eae56c317b4d855217bf0e9dfdd92e",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/natural-hierarchy-revision/source-snapshot/docs/water-process.md",
+      "source_sha256": "d594d3693f30c52cc26db472ddac1addebc7a812a47abfb89fe5b0a0c0c4b2ee",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "ink-landscape authored technique/API/parameter design, including historical snapshots"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/remaining-technique-batches/remaining-inventory.md",
+      "source_sha256": "377570b2b6f5fb607d8be7b0777655592281c87247c6cdb0405eb2a198d05aac",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/structured-rock-study/rock-reading.md",
+      "source_sha256": "f09c27d1c3c965ff448d8cda118e7667f72b2df4179c5d8ddb9a1ed1b26d55d0",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "original method/research context supporting technique design; do not treat as proof of artistic acceptance"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/technique-development-design/open-spec-draft/spec.md",
+      "source_sha256": "69e5a4a1ee328d2a5634fde41400a833b06a251eb9426bdad42202179482c324",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/tmp/ink-landscape/technique-development-design/open-spec-draft/tasks.md",
+      "source_sha256": "9bcebf68a6b4e61b4e527fd12b5692bce877ce6350defcd5902056a19addab2c",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/tmp/video-service/ink-long-video-20261120/rebuilt-vendor/publication/docs/learning/README.md",
+      "source_sha256": "de8869c9298ec9c27df2846ec5f5c33573edc1b67333f14ad811459808ca5fef",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:/codex-work/tmp/video-service/ink-long-video-20261120/rebuilt-vendor/publication/docs/rock-planes.md",
+      "source_sha256": "7dcf706193eaf443e5b65ba9f1d58f2b579320782896deb6c395a277129379a3",
+      "repository": "ink-landscape",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    }
+  ],
+  "source_mutations": 0
+}

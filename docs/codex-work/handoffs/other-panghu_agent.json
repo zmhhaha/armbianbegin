@@ -1,0 +1,470 @@
+{
+  "repository": "panghu_agent",
+  "documents": [
+    {
+      "source": "D:/codex-work/operations/context500-20261117/admissions/README.md",
+      "source_sha256": "ae78a714264d5898e50ab06ed3839c7eb790262bb6eb4c8adb1545e42063f637",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-film-recovery-20261121/README.md",
+      "source_sha256": "33a69526df36364dca1443971245f6793471aad0f1df338a40d91e478d33f8af",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-free-landscape-20261120/result/README.md",
+      "source_sha256": "707bd6198f545e8e9685bab700e04194c7b15a072c024107613af63d5fdc03a2",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/ARM_LONG_PROBE.md",
+      "source_sha256": "d1d7eb40cef5b8a1881abb2641a47c14af6de71f7576bec6426a3c408759dc03",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/FILM_MODULE_UPGRADE.md",
+      "source_sha256": "13221646bdaf0c83fd6fa03a05254f93faaec1ad7bb18e2b3f32a8819c99a494",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/formal/attempt2/DOWNLOAD.md",
+      "source_sha256": "92d06c1f36fa6af327f0a1e357e57c9e4842f57e369f0379562217c0007510f0",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/formal/attempt2/README.md",
+      "source_sha256": "d7daaf22d814066913149d59775fc21a300e1c0b024463a4f5227832f8799059",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/formal/attempt2/VERIFICATION.md",
+      "source_sha256": "08d5783794154bf67b9d74161e603025159f330425884e2e4a1ab860171fa7b8",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/formal/attempt3/OBSERVERS.md",
+      "source_sha256": "7f80464e0b097905dc23b2c5fa93011ec1bd08817ce0623f0b22eef537fa7f43",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/formal/attempt3/README.md",
+      "source_sha256": "7bfba30d4a53df0c42bfb94f2e760c1f59fbe53235aa0bbb61b2a647bdc1bd86",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/formal/attempt4/OBSERVERS.md",
+      "source_sha256": "49967bc00ce709d5bd26a8d90b01c7876f5372a40777a50f5fda71038fc6c419",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/formal/attempt5/OBSERVERS.md",
+      "source_sha256": "ede6fdb78d4f773159d4cc58c893f5fa19f3c70cb30a18e0da858214914c9411",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/formal/attempt7/README.md",
+      "source_sha256": "fffa115d076d4169d837f2a67ef8d981b258c6056f6b7d09de0192027a4e899a",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/formal/attempt8/DELIVERY.md",
+      "source_sha256": "24f7ae1ea4ca066484e860af78dcd5756b104360e98825152700370d3b168bd9",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/formal/attempt8/README.md",
+      "source_sha256": "49576438a8c87e4f5b94271b820438b4f144e1a328450b2a8a52b0d466f42888",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/formal/COLLECT_FILM_SOURCES.md",
+      "source_sha256": "3f252a26dd082299ef9abb4dd8707df5098594283c4a52dbbedf8d615b7e1b46",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/LEASE_HOTPATH_REVIEW.md",
+      "source_sha256": "bb3291a9e81c88f5ab64617e38b5a04556ff51fc0c3d5248436ee6d6a6d747c6",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/MANIM_CONSUMER_UPGRADE.md",
+      "source_sha256": "9f02b29974794487412a0a86b57defa05290f29c838990ddb2faa10e9da3ff9c",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/RECOVERY_OPTOUT.md",
+      "source_sha256": "10bc94c981dbddc12beab2618edd17cd2088fdd15f8c202dac0bcc0efe2d8a4e",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/render-canvas2d-recovery/OPERATIONS.md",
+      "source_sha256": "cbc856accee187b1eeb427bb2036e669f85a23c241b2f7948e4249e79479abd2",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/render-canvas2d-recovery/POLICY-OPERATIONS.md",
+      "source_sha256": "7a38d88754da7db906e5e67c60344b423036b57d7847c47cef09d83f02f1c8f4",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/render-canvas2d-recovery/READONLY-POSTFLIGHT.md",
+      "source_sha256": "a178319312bb5773ac6842bf16ae741360f54853a59621e59ca431f40d75dd3b",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/SPARSE_FILM_PREVIEW.md",
+      "source_sha256": "e39344ecbd93516979ce91926e226923eb8eb9e99540c8383a44612083c61de0",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/timeout-recovery/BUILD-AND-ADMISSION-OPERATIONS.md",
+      "source_sha256": "934ee166331f21d138635ea2be5ecd26e6e76ac0466043c1b1622fc912296e4d",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/timeout-recovery/ROLLOUT-ATTEMPT8-PREPARATION.md",
+      "source_sha256": "2076fd389c622a6906dd44f7c84d1d9fd60f5faaa7cfb1b4baec20589a7bcaa7",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-long-video-20261120/timeout-recovery/TIMEOUT-POLICY-OPERATIONS.md",
+      "source_sha256": "d0249cc3a56a356827e2015f19b045d4483329f1b7d11710f5f63428376f4c34",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-native-drain-20261121/publication/MONITOR-AND-AUDIT.md",
+      "source_sha256": "584e445c61152c9f9f56a68249765b50b6cd0844038a388159458194c855c17b",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-native-drain-20261121/publication/README.md",
+      "source_sha256": "bbae3a718875f04cb5b45184dcab01d4cb69a126a529f24e731064473a3eff54",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-picture-quality-20261120/feedback-second.md",
+      "source_sha256": "c3f87396c855409ef778bf07b4d69b03e65a5464fe4e7cd9d3b734228c9b88ff",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-prefix-continuation-20261121/README.md",
+      "source_sha256": "30bfd01be311fbf4db287156ce60d794cd2d6e4c3259627c2e392133c8042ebe",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-quality-perf-20261117/benchmark/report.md",
+      "source_sha256": "cb6281ecb800c814bdf4fe5d96ccf503d1b2077b8553f5acb88f71487bec4fe8",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-quality-perf-20261117/release-diagnosis/AUTHOR-IDLE-RELEASE.md",
+      "source_sha256": "cc43888b137f0ba261c98081e7fd1d8d850f5bdfc2590e2dda790b08cb27a169",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-quality-perf-20261117/release-diagnosis/retry-fix/RETRY-EXECUTOR-RELEASE.md",
+      "source_sha256": "1a26f719bd751ba3980b8b086baecb3b8302afb2501338368e384bef834ac047",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-semantic-shader-study-20261119/independent-tech-review.md",
+      "source_sha256": "64e582d80ad2d09f995a6fda626349532cc6b7b1055af83ca518951d4e910de4",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-semantic-shader-study-20261119/r1-visual-review.md",
+      "source_sha256": "755a0e301adb56596ad414bc5cbe763307a41495540c37076b3f1ec8a76cdbb5",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-semantic-shader-study-20261119/r2-visual-review.md",
+      "source_sha256": "fdd2c81a81182752eef70d4848d9a1dbd6b26148cd5819ba51a574a6663d22cd",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/ink-wikiskill-integration-20261120/technical-probe/README.md",
+      "source_sha256": "017c7f1c52126d22e37673599e67e75ba24bb8186f73fe9a6bb18d7f9d650505",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/lab-capability-selection-20261116/README.md",
+      "source_sha256": "5c2a79e80fcfa58030a7692b959f702130d768b7937a4ffc8d192ac99db20515",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/lotus-video-retry-20261119/readonly-diagnostics-summary.md",
+      "source_sha256": "289bb13af7ffcc86850e66f683cdf0a8cf2f609013f4d809d59852370828e4b0",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/lotus-video-retry-20261119/result.md",
+      "source_sha256": "46b560bdd53cc6ae0b42f3fdc614b71af6fc104a2eb96fae8d0a60bd6b2c7ab3",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/peak-original-extended-20261119/README.md",
+      "source_sha256": "19eca1742546936f82f06dc7e4416c14cb9c685fe48277c0b6ef0e13652b50b2",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/peak-original-extended-20261119/visual-comparison.md",
+      "source_sha256": "d32ead6b04a47e0edbdbd94a4890105afd7ad780bdca28f9c14d4d980cfba1a7",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/prompt-inspection-20261117/lab-prompt-inspection-validation-20261117.md",
+      "source_sha256": "9c1eae4bd74853f48e6767549597ad2e9445152e040b27afeaf01bafc0aa2739",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/remote-reference-learning-20261119/REACTIVATION.md",
+      "source_sha256": "a70605a175ff680ed9eb99fe1d0b2f51e6fd9480031f06617ea3494020eef251",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/shader-mali-adaptation-20261118/ink-r3-audit.md",
+      "source_sha256": "148b6c77efe92d4ec285ca207c1a71d01d77324b11aae09d8d1d12d4ae3e7461",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/shader-mali-adaptation-20261118/ink-r4-audit.md",
+      "source_sha256": "229105a6dfb2519bccc2073958e08c3feb1387131a75904701e44624e286c507",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/video-learning-failure-20261119/diagnosis.md",
+      "source_sha256": "7a92686433863f91229107f71a3f693ece37d33039803b9c4c3298fde073c5db",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/video-learning-render-repair-20261119/deploy-plan.md",
+      "source_sha256": "e21dbadca6f81238bd47e41311a13cf10a8693a9f5a49c20c4af3faa65518779",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/video-learning-render-repair-20261119/release-commands.md",
+      "source_sha256": "1c4ad269194b683a9e313add231c2cef118f11d63f87754404b7f96b2485986e",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/operations/video-resource-priority-release-20261119/README.md",
+      "source_sha256": "aa4925b2bf9e5f5cec77ccf769965ca054cce426c43ae8a9a9cb859f2881269b",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "同时包含跨服务合同/运行时准入或架构理由，以及 panghu_agent 专用升级/运维细节；建议主仓库保留可提取的集成理由，完整操作指南交所属仓库，不自动整份复制。",
+      "original_classification": "review"
+    },
+    {
+      "source": "D:/codex-work/operations/wanwu-video-learning-20261118/whole-film-study.md",
+      "source_sha256": "6d1008911ab7ab6e8b3917f153d57924f166a58d371a4adc241255db6601901c",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "主要是 panghu_agent 的具体候选/画质研究/单次故障、私有操作助手或内部 API/发布步骤，不构成主仓库平台与跨服务集成设计。",
+      "original_classification": "other_repository"
+    },
+    {
+      "source": "D:/codex-work/archives/video-service/20261116/c-rendered/feedback-20261106/animation-lab/agent-creation-phase1/creation-product-r1/method-runtime-operations-plan.md",
+      "source_sha256": "d46a49399351e2cf971318abb3c3f9a0d7f9c9413b5aa04452a26d4e434dc12d",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/archives/video-service/20261116/c-rendered/feedback-20261106/release-plan.md",
+      "source_sha256": "a41ed83a4524785d1e7e3897b8453e19828c8455b0349169bea30f6f12d4dbf8",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "design, specification, proposal, planning, requirements or task text"
+    },
+    {
+      "source": "D:/codex-work/tmp/video-service/fresh-implementation-1117/release/README.md",
+      "source_sha256": "abedd06d77ce1b3987a80eb005959fa7b4ce4b27395dd2f03f03428e8a03ffe0",
+      "repository": "panghu_agent",
+      "decision": "handoff_only",
+      "reason": "authored project README contains substantive design/plan sections"
+    },
+    {
+      "source": "D:\\codex-work\\operations\\ink-scene-depth-20261121\\source\\video_workbench\\docs\\general-creative-collaboration.md",
+      "source_sha256": "9ee6cf91c578969d191c1b7425779327f5b83aadfada737c9d37e780aee10df2",
+      "repository": "panghu_agent",
+      "decision": "handoff_only_pending_git_document",
+      "reason": "独立应用仓库工作树的已暂存文档，维持原暂存状态；主设计已有映射规格副本"
+    },
+    {
+      "source": "D:\\codex-work\\operations\\ink-scene-depth-20261121\\source\\video_workbench\\docs\\picture-learning-library.md",
+      "source_sha256": "2b5c18c9f67dc9c1891533498888394de04693f6cf6d2981da618d98f230967d",
+      "repository": "panghu_agent",
+      "decision": "handoff_only_pending_git_document",
+      "reason": "独立应用仓库工作树的已暂存文档，维持原暂存状态；主设计已有映射规格副本"
+    },
+    {
+      "source": "D:\\codex-work\\operations\\ink-scene-depth-20261121\\source\\video_workbench\\docs\\reference-learning-libraries-design.md",
+      "source_sha256": "ebb41495386b2ab4f53da0f221bda2d778b211749096a67dbfcce5e13e4ede53",
+      "repository": "panghu_agent",
+      "decision": "handoff_only_pending_git_document",
+      "reason": "独立应用仓库工作树的已暂存文档，维持原暂存状态；主设计已有映射规格副本"
+    },
+    {
+      "source": "D:\\codex-work\\operations\\ink-scene-depth-20261121\\source\\video_workbench\\docs\\scene-space-layer-camera-design.md",
+      "source_sha256": "005ddfd04028dbbf2a67dfca6178a226a85b424fbda233787e6471ee151eb207",
+      "repository": "panghu_agent",
+      "decision": "handoff_only_pending_git_document",
+      "reason": "独立应用仓库工作树的已暂存文档，维持原暂存状态；主设计已有映射规格副本"
+    },
+    {
+      "source": "D:\\codex-work\\operations\\ink-scene-depth-20261121\\source\\video_workbench\\docs\\video-learning-library.md",
+      "source_sha256": "dc8a87d0adda24947bafac007ca30ff3268fe449efae64d98b7c3b12578a2efa",
+      "repository": "panghu_agent",
+      "decision": "handoff_only_pending_git_document",
+      "reason": "独立应用仓库工作树的已暂存文档，维持原暂存状态；主设计已有映射规格副本"
+    }
+  ],
+  "source_mutations": 0
+}

@@ -1,0 +1,84 @@
+> 归档说明：这是来源文档快照，原文中的“当前/已完成/待实施”只代表其记录时点。有效规格以映射 OpenSpec 服务为准。
+> 来源：`operations/ink-long-video-20261120/scope-pre-render-recovery.json`，JSON 字段 `/artifacts/specs~1ink-wikiskill-long-film~1spec.md`；正文 SHA-256：`0c0d2ad1c46969947e4c442f276a9bad6ab4bd19bc4946bec8207f7e90ae8c0c`。本副本进行 UTF-8/LF 规范化并重定位文档链接，原件保留。
+> [设计档案索引](../../../../../README.md)
+
+## ADDED Requirements
+
+### Requirement: Complete traceable ink publication sources
+An explicitly started whole-library publication SHALL include the fixed library documentation, recent eligible experiment records and image-owned experience sources. It SHALL retain evidence limits and distinguish known failures from accepted techniques. Publication SHALL not be triggered merely by installation or experiment completion.
+
+#### Scenario: Publish after recent learning
+- **WHEN** a developer explicitly requests a new knowledge release for a production task
+- **THEN** source identity and coverage are recorded, the compiler cites or excludes every source, and no static sample is relabeled as motion or artistic acceptance.
+
+### Requirement: Formal drawing dependency admission
+Formal film creation SHALL admit drawing libraries only from a trusted runtime capability descriptor and exact code/license asset hashes. Knowledge compatibility, module authoring, module execution and film snapshots SHALL use the same frozen identity.
+
+#### Scenario: Use ink in a film module
+- **WHEN** a new production batch freezes knowledge requiring the admitted ink library
+- **THEN** the author may discover and read the relevant package and import the real local library, while changed or undeclared bytes are rejected and older frozen tasks retain their original identity.
+
+### Requirement: Bounded five-minute whole-film execution
+The formal workflow SHALL support a 300-second film with a single absolute 24fps clock, bounded frame storage and one continuous final encode. Long-film admission SHALL be distinct from historical short-film execution and SHALL record the tested limits.
+
+#### Scenario: Export 7200 global frames
+- **WHEN** an admitted 300-second production snapshot is executed
+- **THEN** all 7200 frames are captured from the same root project, temporary PNG storage remains bounded, output is fully decoded and time-checked, and no separately rendered shot videos are concatenated as a substitute.
+
+### Requirement: Actual published knowledge consumption
+A production batch SHALL freeze the explicitly selected published release from planning through resources, modules, refinement and export. Providing a catalogue SHALL not be reported as actual skill use without tool evidence.
+
+#### Scenario: Audit the requested landscape film
+- **WHEN** the five-minute scenic production completes
+- **THEN** evidence identifies the release and real search/read events, library module and source hashes, actual output, and observed quality and motion limitations.
+
+### Requirement: Bounded native completion drain
+The native controller SHALL consume queued stdout/stderr until its reader threads have observed EOF before checking completion, subject to a finite post-exit idle drain grace within the original admitted deadline. Queued output and a slow durable sink SHALL NOT be treated as an idle pipe. Root-process exit SHALL NOT substitute for real assistant identity and completion events. Cancellation, admitted deadlines, output limits and process-tree cleanup SHALL remain enforced.
+
+#### Scenario: Completion arrives after root exit
+- **WHEN** a valid child exits and a reader delivers its final completion event after the historical 200 ms gap but within the drain bound
+- **THEN** the controller consumes the real event and validates completion without fabricating it.
+
+#### Scenario: Missing completion or leaked inherited pipe
+- **WHEN** the child omits required completion events or a descendant retains a pipe beyond the drain bound
+- **THEN** the controller rejects incomplete execution within bounded time and confirms process-tree cleanup rather than reporting success.
+
+### Requirement: Bounded progressive film-module authoring
+The central model proxy SHALL allow at most 16 distinct model requests for an authenticated film-module attempt, subject to a stricter operator cap. Completed request replay SHALL remain free. Other profiles, request histories, original deadlines and terminal outcomes SHALL retain their existing behavior.
+
+#### Scenario: Finish after writing a module
+- **WHEN** a module author needs a final assistant turn after its eighth tool-call response
+- **THEN** a fresh authorized request within the module budget may complete, while a seventeenth distinct request is rejected without an upstream call or historical mutation.
+
+### Requirement: Complete bounded appearance handoff
+Legacy author-context v1/v2 inputs SHALL preserve full predecessor source, exit state, reference identity and explicit user instructions within their existing instruction contract. Autogenerated duplicate guidance MAY be compacted by pointing to existing scene and film fields, while required runtime and fixed-library API rules remain available. Source or user text SHALL NOT be silently truncated.
+
+#### Scenario: A rich predecessor nearly fills the instruction budget
+- **WHEN** the full reference and generated guidance exceed 16,000 characters on a legacy author-context path
+- **THEN** the application uses a concise generated guide with the complete reference, or rejects an input that still cannot fit; it does not rewrite the predecessor or expand the admitted worker schema.
+
+### Requirement: Versioned typed appearance delivery
+A separately admitted new author-context version SHALL carry complete predecessor appearance as typed inert data outside scene instructions. Legacy v1/v2 exact fields, instruction limits, clock meanings and bundle identities SHALL remain valid. The new context SHALL retain the 16,000-character instruction ceiling, bound the canonical appearance reference to 512 KiB, and enforce the existing native reader's 2 MiB limit on the actual input including its Skill catalog. Reference hashes, source files, predecessor metadata, exit states and used assets SHALL agree with the selected original module. A new native admission SHALL precede use of the new author bundle.
+
+#### Scenario: The complete predecessor alone exceeds the prose ceiling
+- **WHEN** an authentic stopped module yields more than 16,000 characters of complete appearance data within the new typed bounds
+- **THEN** the new context delivers the exact original files and state without source rewriting, minification or truncation, while retaining the original user instruction.
+
+#### Scenario: A typed input exceeds the actual reader limit
+- **WHEN** the complete reference or actual input including catalog exceeds its bound
+- **THEN** the workbench rejects it before a paid native job and does not silently drop original content or pretend the reader's historical 4 MiB profile envelope is deliverable.
+
+### Requirement: Explicit verified continuation of a completed prefix
+A fresh standard silent whole-film production request MAY explicitly reuse a nonempty incomplete contiguous completed prefix from a failed, positively stopped source run. It SHALL require identical owner, project, adopted plan, frozen content, film, knowledge release and creation configuration, and SHALL reject resources, active children, blocked/draining state, a prior render, changed original material or an invalid lineage. It SHALL preserve original targets, source bytes, packages, completed operations, versions, intents and deadlines, record distinct reuse provenance and remaining-work bounds, and create new native jobs only for the unfinished suffix. Reuse SHALL NOT revive or rewrite an expired attempt or describe old output as new native work. Lineage and source custody SHALL be revalidated before subsequent author admission and assembly. Historical requests and idempotent replays SHALL retain their behavior, and GET/list SHALL remain read-only.
+
+#### Scenario: A later module times out after a valid prefix
+- **WHEN** an explicit continuation selects the unchanged failed run with four authentic stopped completed modules and an unfinished fifth module
+- **THEN** a new production run retains those four original versions and target namespaces, verifies their exact input/package/source and predecessor custody, generates the unfinished suffix with fresh intents, and binds its eventual single whole-film snapshot to the new run.
+
+#### Scenario: Reuse material is stale or modified
+- **WHEN** a source run, intent, package, source, predecessor, configuration, knowledge release or lineage no longer matches the frozen reuse receipt
+- **THEN** continuation fails before new paid author work or final assembly, without rewriting the source run or falling back to complete regeneration.
+
+#### Scenario: Continue through the deployed workflow facade
+- **WHEN** the HTTP production endpoint validates a prefix while holding its admission transaction
+- **THEN** the real workflow resolves original version, package and assets through an explicit public read-only method on that same database connection, without private-method dispatch or a nested transaction; tests and original-prefix dryruns exercise this real facade.

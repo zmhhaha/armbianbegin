@@ -2,6 +2,11 @@
 
 本目录是设计与调研笔记。**实现规格以 OpenSpec store 为准**（`armbianbegin` 项目，见仓库根的 `.openspec-project.json` 与 `AGENTS.md`）；这里放的是过程材料、现状调查和决策记录。
 
+## codex-work 设计归档
+
+- [主仓库设计档案](codex-work/README.md)：2026-11-21 整理的平台、视频服务集成、参考学习、效果库、场景空间与镜头等设计；保留来源、版本和历史状态。
+- [完整主题目录](codex-work/CATALOG.md)与[其他仓库交接清单](codex-work/OTHER-REPOSITORIES.md)：独立仓库资料只提供定位信息，未搬入正文；OpenSpec 服务继续作为有效规格来源。
+
 ## Agent 模型接入
 
 - [DSH、Hermes、Pi 接入 custom-llm](../panghu_chat/docs/agents-custom-llm.md)：2026-10-19 的直连配置步骤、DSH 故障修复、模型切换与验证状态；Pi 配置结果仍待确认。
