@@ -45,11 +45,13 @@ ALLOWED_PARAMS = (
 #
 # 默认 guarded —— 漏配的后果是「更严」而不是「更松」，这是安全默认。
 # ---------------------------------------------------------------------------
+TRUSTED_MAX_OUTPUT_TOKENS = 32768
+
 TIERS: dict[str, dict] = {
     "trusted": {
         "description": "内部受信调用方（内容生成、RAG、内部机器对话）：标准字段透传",
         "allow_tools": True,
-        "max_tokens_cap": 8192,
+        "max_tokens_cap": TRUSTED_MAX_OUTPUT_TOKENS,
         "max_messages": 200,
     },
     "guarded": {

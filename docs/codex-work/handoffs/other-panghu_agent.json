@@ -1,21 +1,20 @@
 {
   "repository": "panghu_agent",
   "resolution": {
-    "status": "organized_in_repository_worktree",
+    "status": "integrated_into_local_main",
     "date": "2026-11-21",
-    "destination_worktree": "D:/github/panghu_agent-designs",
-    "branch": "codex/organize-video-design-docs",
+    "destination_worktree": "D:/github/armbianbegin/panghu_agent",
+    "branch": "main",
     "base_revision": "faaa09affca3205ecfa46b2204f8d6aa2a017362",
-    "commit": "03369402067c5cc7fcd9571d3af7d9c81e4a39b2",
+    "commit": "3bb751e1b93de31ba656bd19d5f44bb6c900a8cc",
     "pushed": false,
     "archive_index": "docs/codex-work/README.md",
     "archive_manifest": "docs/codex-work/manifest.json",
     "canonical_scene_design": "video_workbench/docs/scene-space-layer-camera-design.md",
     "source_records": 59,
     "canonical_guides": 5,
-    "new_historical_documents": 53,
-    "existing_document_references": 1,
-    "staged_documentation_files": 67,
+    "new_historical_documents": 54,
+    "existing_document_references": 0,
     "source_hashes_verified": true,
     "actual_git_blob_hashes_verified": true,
     "local_links_verified": true,
@@ -24,7 +23,14 @@
     "implementation_changes": 0,
     "source_deletions": 0,
     "ink_landscape_imports": 0,
-    "historical_decision_fields_preserved": true
+    "historical_decision_fields_preserved": true,
+    "organization_worktree": "D:/github/panghu_agent-designs",
+    "organization_commit": "03369402067c5cc7fcd9571d3af7d9c81e4a39b2",
+    "integration_base_revision": "4c322af063f442036961f776461d7616f5659e5c",
+    "scientific_preserved_worktree": "D:/github/armbianbegin/.panghu-agent-scientific-preserved",
+    "remote_freshness_verified": false,
+    "remote_sync_status": "GitHub SSH, HTTPS and SSH port 443 connections failed; integrated against the last fetched origin/main",
+    "integration_scope": "documentation_only; preexisting video implementation commits were not imported"
   },
   "documents": [
     {

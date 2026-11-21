@@ -23,7 +23,7 @@
 | 别名 | tier | 能力 | 给谁用 |
 |---|---|---|---|
 | `llm-guarded` | guarded | **禁** `tools` / `tool_choice` / `text.format`；显式 `max_output_tokens` ≤ 2048、规范化消息 ≤ 60 | 用户能自己写 prompt 的对话型服务 |
-| `llm-trusted` | trusted | 支持的函数工具与结构化输出；显式 `max_output_tokens` ≤ 8192、规范化消息 ≤ 200 | 服务端生成、RAG、函数调用、内部机器对话 |
+| `llm-trusted` | trusted | 支持的函数工具与结构化输出；显式 `max_output_tokens` ≤ 32768、规范化消息 ≤ 200 | 服务端生成、RAG、函数调用、内部机器对话 |
 | `openai-trusted` | trusted | 同 trusted | **预留**：Vault 里只有一个占位 key，点名会带着它打到 OpenAI 拿 401 |
 
 **普通业务的默认判断标准：用户能不能左右这段 prompt？**
@@ -345,7 +345,7 @@ Responses 不以 Chat 的 `[DONE]` 作为完成标志。流已建立后的 HTTP 
 
 `usage` 使用 `input_tokens`、`output_tokens`、`total_tokens`，并带缓存与推理 token 详情。网关 `/v1/usage` 的汇总仍使用 `prompt_tokens` / `completion_tokens`。DeepSeek 的私有 `reasoning_content` 不会被拼成正文。
 
-显式 `max_output_tokens` 的上限为 guarded 2048、trusted 8192。它同时覆盖推理和正文；预算耗尽时可能没有正文，终态为 `incomplete`，原因是 `max_output_tokens`。不要仅凭 HTTP 200 判断长文生成成功。省略预算且路由 defaults 没有默认值时使用上游默认预算；省略预算不是成本上限。
+显式 `max_output_tokens` 的上限为 guarded 2048、trusted 32768；旧 Chat 入口的 `max_tokens` 使用同一上限。上限提高不改变路由默认值或调用方已有的显式预算。它同时覆盖推理和正文；预算耗尽时可能没有正文，终态为 `incomplete`，原因是 `max_output_tokens`。不要仅凭 HTTP 200 判断长文生成成功。省略预算且路由 defaults 没有默认值时使用上游默认预算；省略预算不是成本上限。
 
 请求超时应覆盖完整生成时间。单轮对话可从 60 秒起观察，长文与结构化输出可从 120 秒起观察，并按实际 `latency_ms` 调整。
 
