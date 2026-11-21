@@ -1,5 +1,31 @@
 {
   "repository": "panghu_agent",
+  "resolution": {
+    "status": "organized_in_repository_worktree",
+    "date": "2026-11-21",
+    "destination_worktree": "D:/github/panghu_agent-designs",
+    "branch": "codex/organize-video-design-docs",
+    "base_revision": "faaa09affca3205ecfa46b2204f8d6aa2a017362",
+    "commit": "03369402067c5cc7fcd9571d3af7d9c81e4a39b2",
+    "pushed": false,
+    "archive_index": "docs/codex-work/README.md",
+    "archive_manifest": "docs/codex-work/manifest.json",
+    "canonical_scene_design": "video_workbench/docs/scene-space-layer-camera-design.md",
+    "source_records": 59,
+    "canonical_guides": 5,
+    "new_historical_documents": 53,
+    "existing_document_references": 1,
+    "staged_documentation_files": 67,
+    "source_hashes_verified": true,
+    "actual_git_blob_hashes_verified": true,
+    "local_links_verified": true,
+    "original_science_readme_preserved": true,
+    "original_scene_staging_preserved": true,
+    "implementation_changes": 0,
+    "source_deletions": 0,
+    "ink_landscape_imports": 0,
+    "historical_decision_fields_preserved": true
+  },
   "documents": [
     {
       "source": "D:/codex-work/operations/context500-20261117/admissions/README.md",
