@@ -4,7 +4,7 @@
 
 ## 优先阅读
 
-- [panghu_agent 应用设计档案](../../panghu_agent/docs/codex-work/README.md)：已合入对应子仓库的本地 `main`；独立代码仓库的文档仍保存在子仓库中。
+- [panghu_agent 应用设计档案](../../panghu_agent/docs/codex-work/README.md)：已合入对应子仓库的 `main` 并推送远端；独立代码仓库的文档仍保存在子仓库中。
 - [通用场景空间、分层、镜头及图片/视频渐进学习设计](operations/ink-scene-depth-20261121/spec-draft/design.md)：用户已确认方向，实施待办。
 - [对应规格](operations/ink-scene-depth-20261121/spec-draft/spec.md)、[实施任务](operations/ink-scene-depth-20261121/spec-draft/tasks.md)。
 - [三库参考学习与效果库设计](operations/reference-learning-design-20261118/proposed-artifacts/design.md)：2026-11-18 的设计快照。
