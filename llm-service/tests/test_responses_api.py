@@ -176,7 +176,7 @@ class PublicResponsesApiTests(unittest.TestCase):
         self.assertEqual(result.json(), native)
         url, body = self.requests[0]
         self.assertTrue(url.endswith("/v1/responses"))
-        self.assertEqual(body["model"], "gpt-6.1-sol")
+        self.assertEqual(body["model"], "gpt-6.2-sol")
         self.assertEqual(body["max_output_tokens"], 128)
         self.assertFalse(body["store"])
         self.assertNotIn("messages", body)
