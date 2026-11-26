@@ -126,7 +126,7 @@ spec:
   template:
     metadata: {labels: {app: llm-service}}
     spec:
-      terminationGracePeriodSeconds: 150
+      terminationGracePeriodSeconds: 660
       automountServiceAccountToken: false
       nodeSelector:
         # 2026-09-27 由 orangepi5-max-server1 挪到 master。本服务**没有任何卷挂载**
