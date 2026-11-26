@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -35,6 +36,16 @@ def response():
             "usage": {"input_tokens": 11, "output_tokens": 7, "total_tokens": 18}}
 
 
+def upstream_sse(*events):
+    return httpx.Response(200, content=sse(*events), headers={"content-type": "text/event-stream"})
+
+
+def failed_response(sequence=0, code="unmapped_upstream_failure", error_type="unmapped_upstream_failure"):
+    return {"type": "response.failed", "sequence_number": sequence,
+            "response": {"status": "failed", "output": [],
+                         "error": {"code": code, "type": error_type, "message": PRIVATE}}}
+
+
 class BrokenRead(httpx.AsyncByteStream):
     def __init__(self, prefix):
         self.prefix = prefix
@@ -55,6 +66,7 @@ class StreamFailureDiagnosticsTests(unittest.TestCase):
         # Tests cannot reach a real provider, even if transport patching regresses.
         for provider in routing["upstreams"].values():
             provider["base_url"] = "https://provider.invalid/v1"
+            provider["max_retries"] = 0
         env = {"LLM_TOKEN_STREAM_DIAGNOSTICS_TEST": "diagnostics-test-token",
                "LLM_ALIASES": json.dumps(routing), "CUSTOM_API_KEY": "fake-key",
                "DEEPSEEK_API_KEY": "fake-key", "LLM_GUARD": ""}
@@ -93,6 +105,67 @@ class StreamFailureDiagnosticsTests(unittest.TestCase):
         return self.client.post("/v1/" + api,
             headers={"Authorization": "Bearer diagnostics-test-token"},
             json={"model": "llm-trusted", "stream": True, **history})
+
+    def retry_budget(self):
+        alias = replace(self.module.ALIASES["llm-trusted"], max_retries=3)
+        return patch.object(self.module, "ALIASES", {**self.module.ALIASES, "llm-trusted": alias})
+
+    def assert_same_upstream_request(self, count):
+        self.assertEqual(len(self.requests), count)
+        first = self.requests[0]
+        self.assertEqual(first.method, "POST")
+        self.assertEqual(str(first.url), "https://provider.invalid/v1/responses")
+        for request in self.requests[1:]:
+            self.assertEqual((request.method, request.url, request.headers, request.content),
+                             (first.method, first.url, first.headers, first.content))
+
+    def test_http_and_early_sse_errors_share_budget_and_only_one_success_stream_is_emitted(self):
+        final = response()
+        abandoned = {**final, "id": "resp_abandoned", "status": "in_progress", "output": []}
+        started = {"type": "response.created", "sequence_number": 0,
+                   "response": {**final, "status": "in_progress", "output": []}}
+        delta = {"type": "response.output_text.delta", "sequence_number": 1,
+                 "output_index": 0, "content_index": 0, "delta": "partial"}
+        completed = {"type": "response.completed", "sequence_number": 2, "response": final}
+        responses = iter([
+            httpx.Response(503, text=PRIVATE),
+            upstream_sse({"type": "response.created", "sequence_number": 0, "response": abandoned},
+                         {"type": "response.in_progress", "sequence_number": 1, "response": abandoned},
+                         failed_response(sequence=2)),
+            httpx.Response(429, text=PRIVATE),
+            upstream_sse(started, delta, completed),
+        ])
+        with self.retry_budget(), self.assertLogs("llm-service", level="INFO") as logs, self.transport(
+                lambda _: next(responses)):
+            result = self.post("responses")
+        self.assertEqual(result.status_code, 200)
+        self.assert_same_upstream_request(4)
+        self.assertEqual([json.loads(line[5:].strip()) for line in result.text.splitlines()
+                          if line.startswith("data:")], [started, delta, completed])
+        self.assertNotIn("resp_abandoned", result.text)
+        self.assertNotIn(PRIVATE, result.text)
+        self.assertNotIn(PRIVATE, "\n".join(logs.output))
+        self.assertEqual(self.module._usage[CALLER]["requests"], 1)
+        self.assertEqual(self.module._alias_usage["llm-trusted"]["requests"], 1)
+
+    def test_mixed_http_and_early_sse_failures_exhaust_at_four_upstream_requests(self):
+        responses = iter([
+            upstream_sse(failed_response()),
+            httpx.Response(503, text=PRIVATE),
+            upstream_sse(failed_response(code="server_error", error_type="server_error")),
+            upstream_sse(failed_response()),
+        ])
+        with self.retry_budget(), self.assertLogs("llm-service", level="INFO") as logs, self.transport(
+                lambda _: next(responses)):
+            result = self.post("responses")
+        self.assertEqual(result.status_code, 200)
+        self.assert_same_upstream_request(4)
+        events = [json.loads(line[5:].strip()) for line in result.text.splitlines() if line.startswith("data:")]
+        self.assertEqual(events, [{"type": "error", "code": "upstream_error", "message": PUBLIC_FAILURE,
+                                   "param": None, "sequence_number": 0}])
+        self.assertNotIn(PRIVATE, "\n".join(logs.output))
+        self.assertEqual(self.module._usage[CALLER]["requests"], 0)
+        self.assertEqual(self.module._alias_usage["llm-trusted"]["requests"], 0)
 
     def checked_request(self, api, responder):
         self.requests.clear()
@@ -183,8 +256,9 @@ class StreamFailureDiagnosticsTests(unittest.TestCase):
                   {"type": "response.completed", "sequence_number": 3, "response": final})
         for api in ("responses", "chat/completions"):
             with self.subTest(api=api):
-                result, events, failure = self.checked_request(api, lambda _: httpx.Response(
-                    200, content=raw, headers={"content-type": "text/event-stream"}))
+                with self.retry_budget():
+                    result, events, failure = self.checked_request(api, lambda _: httpx.Response(
+                        200, content=raw, headers={"content-type": "text/event-stream"}))
                 self.assertIn("partial", result.text)
                 self.assertNotIn(PRIVATE, result.text)
                 self.assertEqual(failure["provider_error_code"], "server_error")
@@ -193,6 +267,34 @@ class StreamFailureDiagnosticsTests(unittest.TestCase):
                     self.assertEqual(events[-1]["type"], "error")
                 else:
                     self.assertEqual(events[-1]["error"]["message"], PUBLIC_FAILURE)
+
+    def test_pending_function_call_commits_the_stream(self):
+        final = response()
+        prefix = {"type": "response.created", "sequence_number": 0,
+                  "response": {**final, "status": "in_progress", "output": []}}
+        call = {"type": "response.output_item.added", "sequence_number": 1, "output_index": 0,
+                "item": {"type": "function_call", "id": "fc_test", "call_id": "call_test",
+                         "name": "read_inputs", "arguments": "", "status": "in_progress"}}
+        with self.retry_budget():
+            _, events, _ = self.checked_request("responses", lambda _: upstream_sse(
+                prefix, call, failed_response(sequence=2, code="server_error", error_type="server_error")))
+        self.assertEqual(events[:2], [prefix, call])
+        self.assertEqual([event["type"] for event in events], [
+            "response.created", "response.output_item.added", "error"])
+        self.assertEqual(events[-1]["sequence_number"], 2)
+
+    def test_permanent_provider_errors_and_cancellation_do_not_use_retry_budget(self):
+        failures = [
+            failed_response(code="context_length_exceeded", error_type="invalid_request_error"),
+            failed_response(code="invalid_api_key", error_type="authentication_error"),
+            failed_response(code="content_policy_violation", error_type="invalid_request_error"),
+            {"type": "response.cancelled", "response": {"status": "cancelled"}},
+        ]
+        for event in failures:
+            with self.subTest(event=event["type"], code=event["response"].get("error", {}).get("code")):
+                with self.retry_budget():
+                    _, events, _ = self.checked_request("responses", lambda _: upstream_sse(event))
+                self.assertEqual([item["type"] for item in events], ["error"])
 
     def test_malformed_and_truncated_sse_are_protocol_errors(self):
         for raw in (b"event: error\ndata: {invalid JSON}\n\n", sse({"type": "response.created",
