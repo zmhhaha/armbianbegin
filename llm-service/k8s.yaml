@@ -53,7 +53,7 @@ data:
         "deepseek-guarded": {
           "tier": "guarded",
           "upstream": "deepseek",
-          "timeout_seconds": 60,
+          "timeout_seconds": 600,
           "defaults": {
             "temperature": 0.8
           }
@@ -61,7 +61,7 @@ data:
         "deepseek-trusted": {
           "tier": "trusted",
           "upstream": "deepseek",
-          "timeout_seconds": 120,
+          "timeout_seconds": 600,
           "defaults": {
             "temperature": 0.7,
             "max_tokens": 2048
@@ -70,27 +70,27 @@ data:
         "openai-trusted": {
           "tier": "trusted",
           "upstream": "openai",
-          "timeout_seconds": 120
+          "timeout_seconds": 600
         },
         "custom-guarded": {
           "tier": "guarded",
           "upstream": "custom",
-          "timeout_seconds": 60
+          "timeout_seconds": 600
         },
         "custom-trusted": {
           "tier": "trusted",
           "upstream": "custom",
-          "timeout_seconds": 120
+          "timeout_seconds": 600
         },
         "llm-guarded": {
           "tier": "guarded",
           "upstream": "$active",
-          "timeout_seconds": 60
+          "timeout_seconds": 600
         },
         "llm-trusted": {
           "tier": "trusted",
           "upstream": "$active",
-          "timeout_seconds": 120
+          "timeout_seconds": 600
         }
       },
       "limits": {

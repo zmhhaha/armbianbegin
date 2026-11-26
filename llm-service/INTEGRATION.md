@@ -209,7 +209,7 @@ if not LLM_BASE_URL or not LLM_TOKEN:
 ```python
 import httpx
 
-with httpx.Client(timeout=120) as client:
+with httpx.Client(timeout=httpx.Timeout(read=600, connect=10, write=60, pool=30)) as client:
     response = client.post(
         f"{LLM_BASE_URL}/responses",
         headers={"Authorization": f"Bearer {LLM_TOKEN}"},
@@ -347,7 +347,7 @@ Responses 不以 Chat 的 `[DONE]` 作为完成标志。流已建立后的 HTTP 
 
 显式 `max_output_tokens` 的上限为 guarded 2048、trusted 32768；旧 Chat 入口的 `max_tokens` 使用同一上限。上限提高不改变路由默认值或调用方已有的显式预算。它同时覆盖推理和正文；预算耗尽时可能没有正文，终态为 `incomplete`，原因是 `max_output_tokens`。不要仅凭 HTTP 200 判断长文生成成功。省略预算且路由 defaults 没有默认值时使用上游默认预算；省略预算不是成本上限。
 
-请求超时应覆盖完整生成时间。单轮对话可从 60 秒起观察，长文与结构化输出可从 120 秒起观察，并按实际 `latency_ms` 调整。
+模型响应读取等待默认 600 秒，连接、写入和连接池等待分别最多 10、60、30 秒；路由 `timeout_seconds` 可显式设置更短的读取等待，其他阶段同步取较小值。流式和非流式保持一致。这是每次 I/O 的空闲等待上限，整次生成与业务任务仍受调用方独立的截止时间约束；客户端应给慢响应预留相应等待时间，避免默认一分钟先行中断。
 
 ### 4.6 SDK 与防护
 

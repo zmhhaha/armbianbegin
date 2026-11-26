@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
-from config import ConfigError, load_config
+from config import Alias, ConfigError, load_config
 from upstream import _payload
 
 
@@ -32,6 +32,20 @@ class RoutingConfigTests(unittest.TestCase):
             self.assertNotEqual(a.revision, b.revision)
             self.assertEqual(before['custom-'+tier], after['custom-'+tier])
             self.assertEqual(_payload(a, [], {})['model'], 'gpt-6.1-sol')
+
+    def test_model_read_timeout_defaults_and_explicit_short_override(self):
+        self.assertTrue(all(alias.timeout_seconds == 600 for alias in self.load().values()))
+        for route in self.data['routes'].values():
+            route.pop('timeout_seconds')
+        self.assertTrue(all(alias.timeout_seconds == 600 for alias in self.load().values()))
+        self.data['routes']['llm-guarded']['timeout_seconds'] = 2.5
+        self.data['routes']['llm-trusted']['timeout_seconds'] = 120
+        loaded = self.load()
+        self.assertEqual(loaded['llm-guarded'].timeout_seconds, 2.5)
+        self.assertEqual(loaded['llm-trusted'].timeout_seconds, 120)
+        direct = Alias(name='test', provider='custom', base_url='https://provider.invalid/v1',
+                       model='test-model', api_key_env='CUSTOM_API_KEY')
+        self.assertEqual(direct.timeout_seconds, 600)
 
     def test_rejects_old_missing_unknown_version_and_unknown_reference(self):
         cases = [{'aliases': {}}, {**self.data, 'version': 1}, {**self.data, 'version': 3},

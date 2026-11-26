@@ -30,6 +30,13 @@ from chat_adapter import from_chat_response, from_chat_stream
 STREAM_USAGE_OPTION = {"include_usage": True}
 
 
+def _timeout(alias: Alias) -> httpx.Timeout:
+    """Allow slow model output while bounding connection and request I/O."""
+    read = alias.timeout_seconds
+    return httpx.Timeout(read=read, connect=min(10.0, read),
+                         write=min(60.0, read), pool=min(30.0, read))
+
+
 class UpstreamError(RuntimeError):
     def __init__(self, status: int, message: str):
         super().__init__(message)
@@ -73,7 +80,7 @@ async def forward(aliases: dict[str, Alias], alias_name: str, messages: list, pa
     last_error: UpstreamError | None = None
     for _ in range(alias.max_retries + 1):
         try:
-            async with httpx.AsyncClient(timeout=alias.timeout_seconds) as client:
+            async with httpx.AsyncClient(timeout=_timeout(alias)) as client:
                 response = await client.post(
                     alias.request_url,
                     headers={"Authorization": f"Bearer {credential}", "Content-Type": "application/json"},
@@ -212,7 +219,7 @@ async def open_stream(
 
     last_error: UpstreamError | None = None
     for _ in range(alias.max_retries + 1):
-        client = httpx.AsyncClient(timeout=alias.timeout_seconds)
+        client = httpx.AsyncClient(timeout=_timeout(alias))
         try:
             request = client.build_request(
                 "POST",

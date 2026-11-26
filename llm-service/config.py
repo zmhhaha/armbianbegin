@@ -75,7 +75,7 @@ class Alias:
     base_url: str
     model: str
     api_key_env: str
-    timeout_seconds: float = 60.0
+    timeout_seconds: float = 600.0
     max_retries: int = 2
     defaults: dict = field(default_factory=dict)
     # 类别：策略在 TIERS 里定义，别名只选档位
@@ -233,7 +233,7 @@ def load_config() -> tuple[dict[str, Alias], float]:
                 build_request(item["model"], [], defaults)
             except ResponsesRequestError as error:
                 raise ConfigError(f"unsupported Responses defaults: {error}") from error
-        timeout = _number(route.get("timeout_seconds", 60), 1, 600, "timeout_seconds")
+        timeout = _number(route.get("timeout_seconds", 600), 1, 600, "timeout_seconds")
         resolved = {**item, "upstream": target, "tier": tier, "timeout_seconds": timeout, "defaults": defaults, "guard": guard_revision}
         revision = hashlib.sha256(json.dumps(resolved, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:24]
         aliases[name] = Alias(name=name, **item, tier=tier, defaults=freeze(defaults), timeout_seconds=timeout,
