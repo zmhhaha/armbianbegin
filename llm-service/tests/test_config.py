@@ -31,7 +31,7 @@ class RoutingConfigTests(unittest.TestCase):
             self.assertEqual((a.tier, b.tier), (tier, tier))
             self.assertNotEqual(a.revision, b.revision)
             self.assertEqual(before['custom-'+tier], after['custom-'+tier])
-            self.assertEqual(_payload(a, [], {})['model'], 'gpt-6.1-sol')
+            self.assertEqual(_payload(a, [], {})['model'], 'gpt-6.2-sol')
 
     def test_model_read_timeout_defaults_and_explicit_short_override(self):
         self.assertTrue(all(alias.timeout_seconds == 600 for alias in self.load().values()))
